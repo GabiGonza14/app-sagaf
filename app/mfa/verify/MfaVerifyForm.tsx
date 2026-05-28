@@ -3,11 +3,9 @@ import { useState } from 'react';
 
 interface Props {
   qr: string | null;
-  secret: string | null;
-  userEmail: string;
 }
 
-export function MfaVerifyForm({ qr, secret, userEmail }: Props) {
+export function MfaVerifyForm({ qr }: Props) {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,18 +42,7 @@ export function MfaVerifyForm({ qr, secret, userEmail }: Props) {
           </div>
         )}
 
-        {secret && (
-          <div className="info-box">
-            <span>Clave manual</span>
-            <strong style={{ fontFamily: 'Consolas, monospace', fontSize: 13, wordBreak: 'break-all' }}>
-              {secret}
-            </strong>
-            <div className="helper" style={{ marginTop: 6 }}>
-              Si tu app no puede escanear el QR, ingresa esta clave manualmente.
-              Cuenta: <code>{userEmail}</code>
-            </div>
-          </div>
-        )}
+
       </div>
 
       <form onSubmit={onSubmit} style={{ marginTop: 18 }}>
@@ -89,7 +76,6 @@ export function MfaVerifyForm({ qr, secret, userEmail }: Props) {
 
         <div className="notice" style={{ marginTop: 14, fontSize: 12.5 }}>
           El código rota cada 30 segundos. Si tu dispositivo no está sincronizado con la hora correcta, podría fallar.
-          La verificación de dos factores es obligatoria para todos los usuarios.
         </div>
       </form>
     </>

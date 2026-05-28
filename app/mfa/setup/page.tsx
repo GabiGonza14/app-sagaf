@@ -27,7 +27,7 @@ export default async function MfaSetupPage() {
             del sistema.
           </p>
 
-          <MfaSetupClient userEmail={session.user.email ?? ''} />
+          <MfaSetupClient />
       </div>
     </div>
   );

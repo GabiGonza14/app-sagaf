@@ -19,11 +19,9 @@ export default async function MfaVerifyPage() {
     redirect('/mfa/setup');
   }
 
-  // Generar QR y secret para mostrar en la verificación
+  // Generar QR para mostrar en la verificación
   let qr: string | null = null;
-  let secret: string | null = null;
   if (row.mfa_secret) {
-    secret = row.mfa_secret;
     qr = await buildQrDataUrl(session.user.email ?? 'sagaf', row.mfa_secret);
   }
 
@@ -45,7 +43,7 @@ export default async function MfaVerifyPage() {
           (Google Authenticator, Microsoft Authenticator, Authy).
         </p>
 
-        <MfaVerifyForm qr={qr} secret={secret} userEmail={session.user.email ?? ''} />
+        <MfaVerifyForm qr={qr} />
       </div>
     </div>
   );

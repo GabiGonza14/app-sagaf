@@ -1,11 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-interface Props { userEmail: string }
-
-export function MfaSetupClient({ userEmail }: Props) {
+export function MfaSetupClient() {
   const [qr, setQr] = useState<string | null>(null);
-  const [secret, setSecret] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -17,7 +14,6 @@ export function MfaSetupClient({ userEmail }: Props) {
       const data = await res.json();
       if (!cancelled && res.ok) {
         setQr(data.qr);
-        setSecret(data.secret);
       }
     })();
     return () => {
@@ -59,18 +55,7 @@ export function MfaSetupClient({ userEmail }: Props) {
           )}
         </div>
 
-        {secret && (
-          <div className="info-box">
-            <span>Clave manual</span>
-            <strong style={{ fontFamily: 'Consolas, monospace', fontSize: 13, wordBreak: 'break-all' }}>
-              {secret}
-            </strong>
-            <div className="helper" style={{ marginTop: 6 }}>
-              Si tu app no puede escanear el QR, ingresa esta clave manualmente.
-              Cuenta: <code>{userEmail}</code>
-            </div>
-          </div>
-        )}
+
       </div>
 
       <form onSubmit={onConfirm} style={{ marginTop: 18 }}>
