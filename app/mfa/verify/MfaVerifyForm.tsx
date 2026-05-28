@@ -2,7 +2,7 @@
 import { useState } from 'react';
 
 interface Props {
-  qr: string | null;
+  readonly qr: string | null;
 }
 
 export function MfaVerifyForm({ qr }: Props) {
