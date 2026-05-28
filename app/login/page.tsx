@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { auth, signIn } from '@/auth';
 import { AuthError } from 'next-auth';
+import { LoginSubmitButton } from './LoginSubmitButton';
 
 // Server action para login con credenciales (paso 1 de MFA)
 async function loginAction(formData: FormData): Promise<void> {
@@ -76,9 +77,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
               />
             </div>
             <div className="field full">
-              <button className="btn primary" type="submit" style={{ width: '100%' }}>
-                Continuar con MFA
-              </button>
+              <LoginSubmitButton />
             </div>
           </div>
         </form>

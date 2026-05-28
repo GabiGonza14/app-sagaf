@@ -3,6 +3,11 @@
 import type { NextAuthConfig } from 'next-auth';
 
 export const authConfig: NextAuthConfig = {
+  secret: process.env.AUTH_SECRET || (
+    process.env.NODE_ENV === 'development'
+      ? 'dev-secret-do-not-use-in-production'
+      : undefined
+  ),
   pages: {
     signIn: '/login',
   },
