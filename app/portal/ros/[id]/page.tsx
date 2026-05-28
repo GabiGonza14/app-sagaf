@@ -37,6 +37,8 @@ interface OpRow {
   producto_servicio: string | null;
   bien_inmueble: string | null;
   forma_pago: string | null;
+  // PB-04: procedencia de fondos para inmobiliarias
+  procedencia_fondos: string | null;
   senal_alerta: string;
 }
 
@@ -88,7 +90,7 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
   ).all(id);
 
   const op = db.prepare<[string], OpRow>(
-    'SELECT monto, moneda, jurisdiccion, producto_servicio, bien_inmueble, forma_pago, senal_alerta FROM operacion_sospechosa WHERE ros_id = ?',
+    'SELECT monto, moneda, jurisdiccion, producto_servicio, bien_inmueble, forma_pago, procedencia_fondos, senal_alerta FROM operacion_sospechosa WHERE ros_id = ?',
   ).get(id);
 
   const docsReq = db.prepare<[string], DocReqRow>(
@@ -144,6 +146,13 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
                 <InfoBox label="Jurisdicción" value={op.jurisdiccion ?? '—'} />
                 <InfoBox label="Señal de alerta" value={op.senal_alerta} />
                 <InfoBox label="Producto / Bien" value={op.producto_servicio ?? op.bien_inmueble ?? '—'} />
+                {/* PB-04: mostrar procedencia de fondos si existe (inmobiliarias) */}
+                {op.procedencia_fondos && (
+                  <InfoBox label="Procedencia de fondos" value={op.procedencia_fondos} />
+                )}
+                {op.forma_pago && (
+                  <InfoBox label="Forma de pago" value={op.forma_pago} />
+                )}
               </>
             )}
           </div>

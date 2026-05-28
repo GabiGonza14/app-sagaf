@@ -19,6 +19,8 @@ interface OpRow {
   monto: number; jurisdiccion: string | null;
   senal_alerta: string; producto_servicio: string | null;
   bien_inmueble: string | null; forma_pago: string | null;
+  // PB-04: procedencia de fondos para inmobiliarias
+  procedencia_fondos: string | null;
   tipo_operacion: string | null;
 }
 
@@ -103,6 +105,8 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
     productoServicio: op?.producto_servicio ?? '',
     bienInmueble: op?.bien_inmueble ?? '',
     formaPago: op?.forma_pago ?? '',
+    // PB-04: procedencia de fondos — se carga del borrador existente
+    procedenciaFondos: op?.procedencia_fondos ?? '',
     tipoCliente: (partePorRol['ordenante']?.tipo_persona ?? 'natural') as 'natural' | 'juridica',
     ordenante: partePorRol['ordenante']
       ? { id: partePorRol['ordenante'].identificador, status: 'verified' as const, nombre: partePorRol['ordenante'].nombre_visible ?? '' }
@@ -112,6 +116,10 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
       : { id: '', status: 'idle' as const, nombre: '' },
     comprador: partePorRol['comprador']
       ? { id: partePorRol['comprador'].identificador, status: 'verified' as const, nombre: partePorRol['comprador'].nombre_visible ?? '' }
+      : { id: '', status: 'idle' as const, nombre: '' },
+    // PB-04: vendedor — se carga del borrador si ya fue registrado
+    vendedor: partePorRol['vendedor']
+      ? { id: partePorRol['vendedor'].identificador, status: 'verified' as const, nombre: partePorRol['vendedor'].nombre_visible ?? '' }
       : { id: '', status: 'idle' as const, nombre: '' },
     uploadedDocs,
   };

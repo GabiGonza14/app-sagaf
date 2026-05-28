@@ -27,10 +27,14 @@ interface InitialData {
   productoServicio: string;
   bienInmueble: string;
   formaPago: string;
+  // PB-04: procedencia de fondos — requerido explícito para inmobiliarias
+  procedenciaFondos: string;
   tipoCliente: 'natural' | 'juridica';
   ordenante: PartyState;
   beneficiario: PartyState;
   comprador: PartyState;
+  // PB-04: parte vendedor — faltante en el formulario inmobiliario original
+  vendedor: PartyState;
   uploadedDocs: Record<string, string>;
 }
 
@@ -125,6 +129,11 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const [comprador, setComprador] = useState<PartyState>(
     initialData?.comprador ?? { id: '', status: 'idle', nombre: '' }
   );
+  // PB-04: vendedor — parte faltante para inmobiliarias.
+  // La operación inmobiliaria involucra tanto comprador como vendedor.
+  const [vendedor, setVendedor] = useState<PartyState>(
+    initialData?.vendedor ?? { id: '', status: 'idle', nombre: '' }
+  );
 
   const [monto, setMonto] = useState(initialData?.monto ? String(initialData.monto) : '');
   const [jurisdiccion, setJurisdiccion] = useState(initialData?.jurisdiccion ?? '');
@@ -132,6 +141,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const [productoServicio, setProductoServicio] = useState(initialData?.productoServicio ?? '');
   const [bienInmueble, setBienInmueble] = useState(initialData?.bienInmueble ?? '');
   const [formaPago, setFormaPago] = useState(initialData?.formaPago ?? '');
+  // PB-04: procedencia de fondos — campo requerido para inmobiliarias
+  // Permite describir el origen de los fondos del comprador (efectivo, préstamo, herencia, etc.)
+  const [procedenciaFondos, setProcedenciaFondos] = useState(initialData?.procedenciaFondos ?? '');
   const [descripcion, setDescripcion] = useState(initialData?.descripcion ?? '');
   const [oficial, setOficial] = useState(initialData?.oficial ?? oficialDefault);
   const [correoOficial, setCorreoOficial] = useState(initialData?.correoOficial ?? correoDefault);
@@ -160,7 +172,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const pct = docList.length > 0 ? Math.round((cargados / docList.length) * 100) : 0;
 
   async function verifyParty(
-    field: 'ordenante' | 'beneficiario' | 'comprador',
+    field: 'ordenante' | 'beneficiario' | 'comprador' | 'vendedor',
     state: PartyState,
     setState: (s: PartyState) => void,
   ) {
@@ -197,8 +209,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       if (beneficiario.id.trim())
         partes.push({ rol: 'beneficiario', tipo: tipoCliente, identificador: beneficiario.id.trim(), nombre_visible: beneficiario.nombre });
     }
+    // PB-04: inmobiliarias requieren comprador y vendedor
     if (isRealEstate && comprador.id.trim()) {
       partes.push({ rol: 'comprador', tipo: 'natural', identificador: comprador.id.trim(), nombre_visible: comprador.nombre });
+    }
+    if (isRealEstate && vendedor.id.trim()) {
+      partes.push({ rol: 'vendedor', tipo: 'natural', identificador: vendedor.id.trim(), nombre_visible: vendedor.nombre });
     }
     return partes;
   }
@@ -217,6 +233,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         producto_servicio: isBank ? productoServicio : null,
         bien_inmueble: isRealEstate ? bienInmueble : null,
         forma_pago: isRealEstate ? formaPago : null,
+        // PB-04: procedencia de fondos — exclusivo para inmobiliarias
+        procedencia_fondos: isRealEstate ? procedenciaFondos : null,
         tipo_operacion: isBank ? 'bancaria' : 'inmobiliaria',
       },
       partes: buildPartes(),
@@ -443,12 +461,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         {isRealEstate && (
           <div className="field full">
             <div className="helper" style={{ marginBottom: 8 }}>
-              Verifique al comprador. El sistema solo mostrará el nombre si la cédula existe en el directorio.
+              Verifique al comprador y al vendedor. El sistema solo mostrará el nombre si la cédula existe en el directorio.
             </div>
-            <div className="lookup-grid single">
+            <div className="lookup-grid">
               <PartyCard label="Cliente / Comprador reportado" role="Comprador" icon={<Building2 size={14} />}
                 state={comprador} setState={setComprador}
                 onVerify={() => verifyParty('comprador', comprador, setComprador)} />
+              {/* PB-04: vendedor — parte requerida para operaciones inmobiliarias */}
+              <PartyCard label="Vendedor del bien inmueble" role="Vendedor" icon={<Building2 size={14} />}
+                state={vendedor} setState={setVendedor}
+                onVerify={() => verifyParty('vendedor', vendedor, setVendedor)} />
             </div>
           </div>
         )}
@@ -491,6 +513,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
             <div className="field">
               <label>Forma de pago</label>
               <input value={formaPago} onChange={(e) => setFormaPago(e.target.value)} placeholder="Efectivo, transferencia, mixto…" />
+            </div>
+            {/* PB-04: procedencia de fondos — requerido explícito para inmobiliarias.
+                Permite al oficial de cumplimiento describir el origen del dinero. */}
+            <div className="field">
+              <label>Procedencia de fondos</label>
+              <input value={procedenciaFondos} onChange={(e) => setProcedenciaFondos(e.target.value)} placeholder="Ahorros personales, préstamo, herencia, actividad comercial…" />
             </div>
           </>
         )}

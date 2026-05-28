@@ -162,6 +162,9 @@ CREATE TABLE IF NOT EXISTS operacion_sospechosa (
   senal_alerta      TEXT NOT NULL,
   bien_inmueble     TEXT,                         -- aplica a inmobiliaria
   forma_pago        TEXT,                         -- aplica a inmobiliaria
+  -- PB-04: procedencia de fondos es requerido explícito para inmobiliarias
+  -- Permite al sujeto obligado describir el origen del dinero del comprador
+  procedencia_fondos TEXT,
   FOREIGN KEY (ros_id) REFERENCES ros(id) ON DELETE CASCADE
 );
 

@@ -27,6 +27,8 @@ const putSchema = z.object({
     producto_servicio: z.string().optional().nullable(),
     bien_inmueble: z.string().optional().nullable(),
     forma_pago: z.string().optional().nullable(),
+    // PB-04: procedencia de fondos para inmobiliarias
+    procedencia_fondos: z.string().optional().nullable(),
     tipo_operacion: z.string().optional().nullable(),
   }),
   partes: z.array(z.object({
@@ -172,8 +174,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     db.prepare(`
       INSERT INTO operacion_sospechosa (id, ros_id, monto, moneda, jurisdiccion,
                                         producto_servicio, tipo_operacion, senal_alerta,
-                                        bien_inmueble, forma_pago)
-      VALUES (?, ?, ?, 'USD', ?, ?, ?, ?, ?, ?)
+                                        bien_inmueble, forma_pago, procedencia_fondos)
+      VALUES (?, ?, ?, 'USD', ?, ?, ?, ?, ?, ?, ?)
     `).run(
       randomUUID(), id, parsed.data.operacion.monto,
       parsed.data.operacion.jurisdiccion ?? null,
@@ -182,6 +184,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       parsed.data.operacion.senal_alerta,
       parsed.data.operacion.bien_inmueble ?? null,
       parsed.data.operacion.forma_pago ?? null,
+      // PB-04: guardar procedencia de fondos para inmobiliarias
+      parsed.data.operacion.procedencia_fondos ?? null,
     );
 
     // Reemplazar partes

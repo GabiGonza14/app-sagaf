@@ -315,8 +315,8 @@ const insertParte = db.prepare(`
 const insertOp = db.prepare(`
   INSERT INTO operacion_sospechosa (id, ros_id, monto, moneda, jurisdiccion,
                                     producto_servicio, tipo_operacion, senal_alerta,
-                                    bien_inmueble, forma_pago)
-  VALUES (?, ?, ?, 'USD', ?, ?, ?, ?, ?, ?)
+                                    bien_inmueble, forma_pago, procedencia_fondos)
+  VALUES (?, ?, ?, 'USD', ?, ?, ?, ?, ?, ?, ?)
 `);
 const insertCaso = db.prepare(`
   INSERT INTO caso_analisis (id, codigo_caso, ros_id, estado)
@@ -349,7 +349,7 @@ insertOp.run(
   'Cuenta corriente · transferencias internacionales SWIFT',
   'Transferencia internacional',
   'Movimientos incompatibles con el perfil',
-  null, null,
+  null, null, null,
 );
 insertCaso.run(uid(), 'CASO-2026-001', 'ros_001', 'abierto');
 insertRiesgo.run(uid(), 'ros_001', 'alto', 86,
@@ -371,6 +371,7 @@ insertOp.run(
   'Procedencia de fondos no sustentada',
   'Apartamento PH Oceanía, Punta Pacífica',
   'Efectivo 40% + transferencia internacional 60%',
+  'Fondos de origen no verificado — el comprador no presentó documentación que sustente la procedencia lícita del dinero',
 );
 insertCaso.run(uid(), 'CASO-2026-002', 'ros_002', 'abierto');
 insertRiesgo.run(uid(), 'ros_002', 'medio', 58,
@@ -392,7 +393,7 @@ insertOp.run(
   'Cuenta de ahorros · transferencias recurrentes',
   'Transferencia local recurrente',
   'Operaciones fraccionadas',
-  null, null,
+  null, null, null,
 );
 insertCaso.run(uid(), 'CASO-2026-003', 'ros_003', 'abierto');
 insertRiesgo.run(uid(), 'ros_003', 'alto', 79,

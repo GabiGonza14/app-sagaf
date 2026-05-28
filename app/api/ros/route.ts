@@ -22,6 +22,8 @@ const schema = z.object({
     producto_servicio: z.string().optional().nullable(),
     bien_inmueble: z.string().optional().nullable(),
     forma_pago: z.string().optional().nullable(),
+    // PB-04: procedencia de fondos — campo requerido para inmobiliarias
+    procedencia_fondos: z.string().optional().nullable(),
     tipo_operacion: z.string().optional().nullable(),
   }),
   partes: z.array(z.object({
@@ -72,6 +74,8 @@ export async function POST(req: Request) {
           producto_servicio: z.string().optional().nullable(),
           bien_inmueble: z.string().optional().nullable(),
           forma_pago: z.string().optional().nullable(),
+          // PB-04: procedencia de fondos para inmobiliarias
+          procedencia_fondos: z.string().optional().nullable(),
           tipo_operacion: z.string().optional().nullable(),
         }),
       })
@@ -112,8 +116,8 @@ export async function POST(req: Request) {
     db.prepare(`
       INSERT INTO operacion_sospechosa (id, ros_id, monto, moneda, jurisdiccion,
                                         producto_servicio, tipo_operacion, senal_alerta,
-                                        bien_inmueble, forma_pago)
-      VALUES (?, ?, ?, 'USD', ?, ?, ?, ?, ?, ?)
+                                        bien_inmueble, forma_pago, procedencia_fondos)
+      VALUES (?, ?, ?, 'USD', ?, ?, ?, ?, ?, ?, ?)
     `).run(
       randomUUID(), rosId, parsed.data.operacion.monto, parsed.data.operacion.jurisdiccion ?? null,
       parsed.data.operacion.producto_servicio ?? null,
@@ -121,6 +125,8 @@ export async function POST(req: Request) {
       parsed.data.operacion.senal_alerta,
       parsed.data.operacion.bien_inmueble ?? null,
       parsed.data.operacion.forma_pago ?? null,
+      // PB-04: guardar procedencia de fondos para inmobiliarias
+      parsed.data.operacion.procedencia_fondos ?? null,
     );
 
     for (const p of parsed.data.partes) {

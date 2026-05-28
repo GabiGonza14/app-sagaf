@@ -40,6 +40,8 @@ interface OpRow {
   producto_servicio: string | null;
   bien_inmueble: string | null;
   forma_pago: string | null;
+  // PB-04: procedencia de fondos para inmobiliarias
+  procedencia_fondos: string | null;
   senal_alerta: string;
 }
 interface DocReqRow { id: string; nombre: string; orden: number }
@@ -89,7 +91,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
   ).all(id);
 
   const op = db.prepare<[string], OpRow>(
-    `SELECT monto, moneda, jurisdiccion, producto_servicio, bien_inmueble, forma_pago, senal_alerta
+    `SELECT monto, moneda, jurisdiccion, producto_servicio, bien_inmueble, forma_pago, procedencia_fondos, senal_alerta
        FROM operacion_sospechosa WHERE ros_id = ?`,
   ).get(id);
 

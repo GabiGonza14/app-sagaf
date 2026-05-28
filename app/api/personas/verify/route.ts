@@ -9,7 +9,8 @@ import { audit, extractRequestContext } from '@/lib/audit';
 
 const schema = z.object({
   identificador: z.string().min(3).max(60),
-  contexto: z.enum(['ordenante', 'beneficiario', 'comprador', 'cliente']).optional(),
+  // PB-04: se agrega 'vendedor' al contexto para soportar operaciones inmobiliarias completas
+  contexto: z.enum(['ordenante', 'beneficiario', 'comprador', 'vendedor', 'cliente']).optional(),
 });
 
 export async function POST(req: Request) {

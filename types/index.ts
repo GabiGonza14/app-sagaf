@@ -94,6 +94,8 @@ export interface OperacionSospechosa {
   senal_alerta: string;
   bien_inmueble: string | null;
   forma_pago: string | null;
+  // PB-04: procedencia de fondos — requerido para inmobiliarias
+  procedencia_fondos: string | null;
 }
 
 export interface DocumentoAdjunto {
