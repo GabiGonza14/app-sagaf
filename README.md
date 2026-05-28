@@ -278,5 +278,3 @@ Este MVP académico **NO** está listo para producción tal cual. Para producci�
 - **`Error: SQLITE_BUSY`** → otro proceso tiene el archivo abierto. Ejecuta `pnpm db:reset` para reiniciar limpio.
 - **El QR no se muestra** → asegúrate de haber completado el primer paso de credenciales antes de `/mfa/setup`.
 - **Build de producción falla por `better-sqlite3`** → `next.config.js` ya lo declara como `serverComponentsExternalPackages`. En Windows, instalar primero `windows-build-tools` o usar Node con prebuilt binaries.
-P r u e b a   d e   c i e r r e   a u t o m a t i c o   d e   I s s u e   c o n   P u l l   R e q u e s t  
- 
