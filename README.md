@@ -9,7 +9,7 @@
 
 ---
 
-Prueba SonarQube Cloud
+
 
 ## 📋 Stack
 
