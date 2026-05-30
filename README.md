@@ -1,4 +1,4 @@
-# SAGAF — Sistema Automatizado de Gestión de Análisis Financiero
+# SAGAF — Sistema Automatizado de Gestión de Análisis Financiero hooa
 
 > **Parcial 2 · Ingeniería de Software Aplicada IV** · Universidad Tecnológica de Panamá · Grupo 1GS241 · 2026
 >
