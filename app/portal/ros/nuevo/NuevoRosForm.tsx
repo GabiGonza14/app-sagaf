@@ -570,8 +570,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
 
         {/* Observaciones adicionales */}
         <div className="field full">
-          <label>Observaciones adicionales</label>
+          <label htmlFor="observaciones-adicionales">Observaciones adicionales</label>
           <textarea
+            id="observaciones-adicionales"
             value={observaciones}
             onChange={(e) => setObservaciones(e.target.value)}
             placeholder="Explique cualquier documento faltante, aclaración o información adicional relevante."
