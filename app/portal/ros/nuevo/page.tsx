@@ -64,7 +64,6 @@ export default async function NuevoRosPage() {
       <TopBar
         eyebrow="Recepción y registro"
         title="Registrar nuevo Reporte de Operación Sospechosa"
-        description="Complete el formulario según el tipo de operación. Cada documento tiene su propio contenedor de carga. La verificación de identidad muestra únicamente el nombre para corroboración."
         right={<BackButton href="/portal" label="Inicio" />}
       />
 

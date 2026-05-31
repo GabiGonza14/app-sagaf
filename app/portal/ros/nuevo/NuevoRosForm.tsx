@@ -137,6 +137,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const [correoOficial, setCorreoOficial] = useState(initialData?.correoOficial ?? correoDefault);
   const [fechaDeteccion, setFechaDeteccion] = useState(initialData?.fechaDeteccion ?? new Date().toISOString().slice(0, 10));
 
+  const [observaciones, setObservaciones] = useState('');
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [extras, setExtras] = useState<File[]>([]);
   const [fileLabels, setFileLabels] = useState<Record<string, string>>(initialData?.uploadedDocs ?? {});
@@ -145,7 +146,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [showCondicionalModal, setShowCondicionalModal] = useState(false);
 
   const effectivePlantillaId = useMemo(() => {
     if (!isBank) return plantillaId || defaultPlantilla;
@@ -310,24 +310,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     }
     if (isRealEstate && !comprador.id.trim()) {
       setError('Debe registrar la cédula del comprador.');
-      return;
-    }
-
-    // Documentos obligatorios (requerido) — bloquean el envío
-    const missingRequired = docList.filter(
-      (d) => d.tipo_requerimiento === 'requerido' && !isDocUploaded(d.id),
-    );
-    if (missingRequired.length > 0) {
-      setError('Complete los documentos obligatorios marcados en rojo para enviar el ROS.');
-      return;
-    }
-
-    // Documentos condicionales faltantes — advertencia con confirmación
-    const missingConditional = docList.filter(
-      (d) => d.tipo_requerimiento === 'condicional' && !isDocUploaded(d.id),
-    );
-    if (missingConditional.length > 0) {
-      setShowCondicionalModal(true);
       return;
     }
 
@@ -547,12 +529,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
             {docList.map((d, i) => {
               const file = files[d.id] ?? null;
               const uploaded = file || fileLabels[d.id];
-              const tipoBadge =
-                d.tipo_requerimiento === 'requerido'   ? 'red'   :
-                d.tipo_requerimiento === 'condicional' ? 'amber' : 'gray';
-              const tipoLabel =
-                d.tipo_requerimiento === 'requerido'   ? 'Requerido'     :
-                d.tipo_requerimiento === 'condicional' ? 'Si aplica'     : 'Complementario';
               return (
                 <div key={d.id} className={`doc-card${file ? ' uploaded' : ''}`}>
                   <div className="doc-top">
@@ -561,7 +537,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
                       {i + 1}. {d.nombre}
                     </div>
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
-                      <span className={`badge ${tipoBadge}`}>{tipoLabel}</span>
                       <span className={`badge ${uploaded ? 'green' : 'amber'}`}>
                         {file ? 'Listo para subir' : fileLabels[d.id] ? 'Adjunto guardado' : 'Pendiente'}
                       </span>
@@ -592,6 +567,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
               );
             })}
           </div>
+        </div>
+
+        {/* Observaciones adicionales */}
+        <div className="field full">
+          <label>Observaciones adicionales</label>
+          <textarea
+            value={observaciones}
+            onChange={(e) => setObservaciones(e.target.value)}
+            placeholder="Explique cualquier documento faltante, aclaración o información adicional relevante."
+          />
         </div>
 
         {/* Extra evidence */}
@@ -679,16 +664,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
 
       </div>
 
-      <ConfirmModal
-        isOpen={showCondicionalModal}
-        variant="warning"
-        title="Documentos condicionales faltantes"
-        message="Faltan documentos condicionales. ¿Desea enviar igual? La UAF puede solicitar subsanación."
-        confirmLabel="Enviar de todas formas"
-        cancelLabel="Revisar documentos"
-        onConfirm={() => { setShowCondicionalModal(false); doSubmit(); }}
-        onCancel={() => setShowCondicionalModal(false)}
-      />
     </form>
   );
 }
