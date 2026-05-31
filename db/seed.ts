@@ -47,7 +47,6 @@ const tables = [
   'plantilla_ros',
   'usuario',
   'sujeto_obligado',
-  'persona_mock',
   'rol_permiso',
   'permiso',
   'rol',
@@ -277,23 +276,6 @@ if (mfaBackup.length > 0) {
   console.log(`  • MFA restaurado para ${mfaBackup.length} usuario(s) — QR sin cambios`);
 }
 
-// =====================================================================
-// 5. Personas mock — datos sintéticos para verificación Ley 81
-//    El portal público SOLO retorna 'nombre' tras verificación (RF-06).
-// =====================================================================
-const insertPersona = db.prepare(`
-  INSERT INTO persona_mock (identificador, tipo_documento, nombre, direccion, telefono, actividad_economica, nacionalidad)
-  VALUES (?, ?, ?, ?, ?, ?, ?)
-`);
-const personasMock: Array<[string, string, string, string, string, string, string]> = [
-  ['8-888-888', 'cedula',    'María Elena González',         'Vía España, Edif. Plaza, Apt. 14B',         '+507 6123-4567', 'Comerciante',          'Panameña'],
-  ['8-482-917', 'cedula',    'Carlos Alberto Pérez',         'Calle 50, PH Las Torres, Of. 305',          '+507 6987-6543', 'Consultor financiero', 'Panameña'],
-  ['8-095-221', 'cedula',    'Ana Lucía Morales',            'Costa del Este, Tower One, Apt. 21A',       '+507 6555-1212', 'Abogada',              'Panameña'],
-  ['8-777-444', 'cedula',    'Roberto Antonio Castillo',     'San Francisco, Calle 74 Este',              '+507 6444-3333', 'Ingeniero',            'Panameña'],
-  ['PE-8891',   'pasaporte', 'Luis Eduardo Herrera',         'Punta Pacífica, P.H. Oceanía, Apt. 47',     '+507 6321-7890', 'Empresario',           'Venezolana'],
-  ['RUC-77',    'ruc',       'Inversiones del Istmo, S.A.',  'Obarrio, Calle 50, Edif. Global, P.10',     '+507 200-7777',  'Inversión',            'Panamá'],
-];
-for (const p of personasMock) insertPersona.run(...p);
 
 // =====================================================================
 // 6. Eventos de auditoría — semilla del log
@@ -313,7 +295,6 @@ console.log(`  • ${roles.length} roles, ${permisos.length} permisos`);
 console.log(`  • 2 sujetos obligados, 3 plantillas ROS`);
 console.log(`  • ${bankNatural.length + bankLegal.length + realEstate.length} documentos requeridos`);
 console.log(`  • ${usuariosDemo.length} usuarios`);
-console.log(`  • ${personasMock.length} personas mock`);
 console.log(`  • 0 ROS iniciales (BD limpia)`);
 console.log(`[SAGAF] Credenciales: password123 (todos los usuarios)`);
 

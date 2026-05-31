@@ -302,19 +302,3 @@ BEGIN
   SELECT RAISE(ABORT, 'evento_auditoria es inmutable (RF-03 RE-01)');
 END;
 
--- ------------------------------------------------------------------
--- Mock de personas (datos sintéticos para verificación Ley 81)
--- El portal público SOLO retorna 'nombre' cuando hay coincidencia.
--- Los demás campos están aquí solo para la vista UAF interna autorizada.
--- ------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS persona_mock (
-  identificador      TEXT PRIMARY KEY,            -- 8-888-888 | PE-8891 | RUC-77
-  tipo_documento     TEXT NOT NULL,               -- cedula | pasaporte | ruc
-  nombre             TEXT NOT NULL,
-  -- Campos NO expuestos en portal público:
-  direccion          TEXT,
-  telefono           TEXT,
-  actividad_economica TEXT,
-  nacionalidad       TEXT
-);
