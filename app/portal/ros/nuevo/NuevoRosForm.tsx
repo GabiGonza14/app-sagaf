@@ -2,7 +2,6 @@
 import { useRef, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, CheckCircle, FileText, AlertCircle, User, Building2, Shield, FileCheck, Save } from 'lucide-react';
-import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 interface DocReq    { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string }
