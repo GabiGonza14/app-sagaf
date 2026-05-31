@@ -42,7 +42,7 @@ pnpm install
 # 2. Inicializar la base de datos (crea db/sagaf.db con el schema)
 pnpm db:init
 
-# 3. Cargar datos iniciales (usuarios, plantillas, 3 ROS, mock de personas)
+# 3. Cargar datos iniciales (usuarios, plantillas, personas)
 pnpm db:seed
 
 # 4. Levantar el servidor de desarrollo
@@ -69,18 +69,29 @@ Al primer login, cada cuenta deberá **enrolar MFA** escaneando el QR con su aut
 | 🛡️ Auditor Interno | `auditor@uaf.gob.pa` | `/auditor` (solo lectura) |
 | ⚙️ Administrador | `admin@uaf.gob.pa` | `/admin` |
 
-### Personas mock para verificación (Ley 81)
+### Personas para verificación (Ley 81)
 
-El portal público devuelve **únicamente el nombre** si la cédula/RUC existe — nunca dirección, teléfono, actividad u otros datos sensibles (RF-06 / DEF-09 mitigado).
+El portal público devuelve **únicamente el nombre** si la cédula/RUC/pasaporte existe — nunca dirección, teléfono, actividad u otros datos sensibles (RF-06 / DEF-09 mitigado).
 
-| Identificador | Nombre |
-| --- | --- |
-| `8-888-888` | María Elena González |
-| `8-482-917` | Carlos Alberto Pérez |
-| `8-095-221` | Ana Lucía Morales |
-| `8-777-444` | Roberto Antonio Castillo |
-| `PE-8891` | Luis Eduardo Herrera |
-| `RUC-77` | Inversiones del Istmo, S.A. |
+Los datos provienen de **`lib/directorio-nacional.json`**, un archivo JSON local con **20 registros ficticios** que simula una API gubernamental externa (Tribunal Electoral / Registro Público). Incluye cédulas panameñas, pasaportes extranjeros y RUC de empresas. En producción este archivo sería reemplazado por una llamada al servicio real.
+
+Algunos identificadores de prueba:
+
+| Identificador | Tipo | Nombre |
+| --- | --- | --- |
+| `8-888-888` | Cédula panameña | María Elena González |
+| `8-482-917` | Cédula panameña | Carlos Alberto Pérez |
+| `8-095-221` | Cédula panameña | Ana Lucía Morales |
+| `8-777-444` | Cédula panameña | Roberto Antonio Castillo |
+| `2-147-836` | Cédula panameña | Lucía del Carmen Rodríguez |
+| `PE-8891` | Pasaporte (Venezuela) | Luis Eduardo Herrera |
+| `CO-441892` | Pasaporte (Colombia) | Valentina Ospina Ríos |
+| `MX-2019-773` | Pasaporte (México) | Alejandro Torres Guzmán |
+| `US-AB991234` | Pasaporte (EE. UU.) | Jennifer Diane Mitchell |
+| `CN-G88721045` | Pasaporte (China) | Wei Zhong Liu |
+| `RUC-77` | RUC empresa | Inversiones del Istmo, S.A. |
+| `RUC-45892301` | RUC empresa | Constructora Horizonte Verde, S.A. |
+| `RUC-88776655` | RUC empresa | Holding Pacific Group Corp. |
 
 ---
 
@@ -124,7 +135,8 @@ sagaf-app/
 │   ├── audit.ts                Log inmutable; hora del servidor (DEF-30)
 │   ├── permissions.ts          RBAC + assertions; canAccessROS (DEF-05)
 │   ├── masking.ts              Enmascaramiento Ley 81
-│   ├── persons.ts              Lookup Ley 81: solo nombre en portal
+│   ├── persons.ts              Lookup Ley 81: solo nombre en portal (fuente: directorio-nacional.json)
+│   ├── directorio-nacional.json  20 personas ficticias (cédulas PA, pasaportes, RUC)
 │   └── ros-number.ts           Número único ROS-YYYY-NNNNNN (DEF-12 mitigado)
 ├── components/
 │   ├── Sidebar.tsx · TopBar.tsx · KpiCard.tsx · Badge.tsx
@@ -132,7 +144,7 @@ sagaf-app/
 │   ├── AuditTable.tsx · AuditFilters.tsx
 ├── db/
 │   ├── schema.sql              16+ tablas (diagrama de clases UML)
-│   ├── seed.ts                 6 usuarios, 2 SO, 3 plantillas, 56 docs, 6 personas, 3 ROS
+│   ├── seed.ts                 6 usuarios, 2 SO, 3 plantillas, 56 docs — sin ROS precargados
 │   └── init.ts · reset.ts
 ├── types/                      Tipos del dominio + ext NextAuth
 ├── auth.ts · auth.config.ts    NextAuth v5 (con flujo MFA)
@@ -206,8 +218,8 @@ sagaf-app/
 
 1. **Login como Banco**: `cumplimiento@banconacional.com.pa` / `password123`
    - Enrola MFA con tu app autenticadora (escanea QR o pega la clave manual).
-   - Verás `/portal` con los 2 ROS del banco.
-   - Click en *“Registrar nuevo ROS”*. Verifica con cédula `8-888-888` → debería mostrar “María Elena González” y nada más.
+   - Verás `/portal` (sin ROS precargados; la BD arranca limpia).
+   - Click en *”Registrar nuevo ROS”*. Verifica con cédula `8-888-888` → debería mostrar “María Elena González” y nada más (los datos sensibles como dirección y actividad económica están en el JSON pero nunca se exponen al portal).
    - Sube archivos a cada requisito documental (mín. 5 para probar). Envía.
 
 2. **Login como Analista UAF**: `analista@uaf.gob.pa` / `password123`
