@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   }
 
   const { identificadores, monto, ventana_dias } = parsed.data;
-  const margenPct = 0.10; // ±10 % del monto se considera "similar"
+  const margenPct = 0.1; // ±10 % del monto se considera "similar"
 
   const placeholders = identificadores.map(() => '?').join(', ');
 

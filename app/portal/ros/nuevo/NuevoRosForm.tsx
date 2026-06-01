@@ -699,8 +699,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
                   <tr key={d.id} style={{ borderTop: '1px solid #fde68a' }}>
                     <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#92400e' }}>{d.numero_ros}</td>
                     <td style={{ padding: '5px 8px', color: '#92400e' }}>
-                      {d.partes.map((p, i) => (
-                        <span key={i}>
+                      {d.partes.map((p) => (
+                        <span key={p.enmascarada}>
                           {p.enmascarada} <span style={{ opacity: .7 }}>({p.rol})</span>
                           {i < d.partes.length - 1 && <br />}
                         </span>
