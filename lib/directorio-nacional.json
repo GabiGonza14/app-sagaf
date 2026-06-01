@@ -1,0 +1,315 @@
+[
+  {
+    "identificador": "8-888-888",
+    "tipo_documento": "cedula",
+    "nombre": "María Elena González",
+    "direccion": "Vía España, Edif. Plaza, Apt. 14B, Panamá",
+    "telefono": "+507 6123-4567",
+    "correo": "m.gonzalez@correo.pa",
+    "actividad_economica": "Comerciante",
+    "nacionalidad": "Panameña",
+    "fecha_nacimiento": "1979-03-15",
+    "estado_civil": "Casada",
+    "historial": [
+      { "fecha": "2022-08-10", "evento": "Actualización de dirección" },
+      { "fecha": "2018-01-22", "evento": "Inscripción inicial" }
+    ]
+  },
+  {
+    "identificador": "8-482-917",
+    "tipo_documento": "cedula",
+    "nombre": "Carlos Alberto Pérez",
+    "direccion": "Calle 50, PH Las Torres, Of. 305, Panamá",
+    "telefono": "+507 6987-6543",
+    "correo": "c.perez@correo.pa",
+    "actividad_economica": "Consultor financiero",
+    "nacionalidad": "Panameña",
+    "fecha_nacimiento": "1974-11-30",
+    "estado_civil": "Soltero",
+    "historial": [
+      { "fecha": "2023-05-18", "evento": "Renovación de cédula" }
+    ]
+  },
+  {
+    "identificador": "8-095-221",
+    "tipo_documento": "cedula",
+    "nombre": "Ana Lucía Morales",
+    "direccion": "Costa del Este, Tower One, Apt. 21A, Panamá",
+    "telefono": "+507 6555-1212",
+    "correo": "a.morales@legal.pa",
+    "actividad_economica": "Abogada",
+    "nacionalidad": "Panameña",
+    "fecha_nacimiento": "1985-07-04",
+    "estado_civil": "Divorciada",
+    "historial": [
+      { "fecha": "2021-03-02", "evento": "Cambio de estado civil" },
+      { "fecha": "2015-09-14", "evento": "Inscripción inicial" }
+    ]
+  },
+  {
+    "identificador": "8-777-444",
+    "tipo_documento": "cedula",
+    "nombre": "Roberto Antonio Castillo",
+    "direccion": "San Francisco, Calle 74 Este, Casa 12, Panamá",
+    "telefono": "+507 6444-3333",
+    "correo": "r.castillo@tecno.pa",
+    "actividad_economica": "Ingeniero civil",
+    "nacionalidad": "Panameña",
+    "fecha_nacimiento": "1981-02-28",
+    "estado_civil": "Casado",
+    "historial": [
+      { "fecha": "2020-11-05", "evento": "Actualización de dirección" }
+    ]
+  },
+  {
+    "identificador": "2-147-836",
+    "tipo_documento": "cedula",
+    "nombre": "Lucía del Carmen Rodríguez",
+    "direccion": "Chorrera, Barrio El Paraíso, Casa 7B",
+    "telefono": "+507 6230-9988",
+    "correo": "l.rodriguez@educacion.pa",
+    "actividad_economica": "Docente universitaria",
+    "nacionalidad": "Panameña",
+    "fecha_nacimiento": "1990-06-12",
+    "estado_civil": "Soltera",
+    "historial": [
+      { "fecha": "2022-01-15", "evento": "Renovación de cédula" }
+    ]
+  },
+  {
+    "identificador": "4-302-511",
+    "tipo_documento": "cedula",
+    "nombre": "Ernesto Javier Batista",
+    "direccion": "Colón, Calle 9, Edif. Atlantis, Apt. 3",
+    "telefono": "+507 6701-2244",
+    "correo": "e.batista@maritima.pa",
+    "actividad_economica": "Agente marítimo",
+    "nacionalidad": "Panameña",
+    "fecha_nacimiento": "1968-09-23",
+    "estado_civil": "Casado",
+    "historial": [
+      { "fecha": "2019-07-30", "evento": "Actualización de actividad económica" },
+      { "fecha": "2005-04-10", "evento": "Inscripción inicial" }
+    ]
+  },
+  {
+    "identificador": "6-718-290",
+    "tipo_documento": "cedula",
+    "nombre": "Miriam Josefina Vásquez",
+    "direccion": "David, Chiriquí, Barrio Bolívar, Casa 15",
+    "telefono": "+507 6599-4411",
+    "correo": "m.vasquez@agropec.pa",
+    "actividad_economica": "Agricultora",
+    "nacionalidad": "Panameña",
+    "fecha_nacimiento": "1975-12-01",
+    "estado_civil": "Viuda",
+    "historial": [
+      { "fecha": "2023-02-20", "evento": "Cambio de estado civil" }
+    ]
+  },
+  {
+    "identificador": "3-121-688",
+    "tipo_documento": "cedula",
+    "nombre": "Héctor Manuel Núñez",
+    "direccion": "Santiago, Veraguas, Calle Central No. 44",
+    "telefono": "+507 6832-7766",
+    "correo": "h.nunez@comercio.pa",
+    "actividad_economica": "Comerciante importador",
+    "nacionalidad": "Panameña",
+    "fecha_nacimiento": "1983-04-18",
+    "estado_civil": "Casado",
+    "historial": [
+      { "fecha": "2021-08-09", "evento": "Renovación de cédula" }
+    ]
+  },
+  {
+    "identificador": "7-224-903",
+    "tipo_documento": "cedula",
+    "nombre": "Sofía Esperanza Lara",
+    "direccion": "La Chorrera, El Chorrillo, Edif. Residencial Panamá Oeste, Apt. 8C",
+    "telefono": "+507 6145-8823",
+    "correo": "s.lara@banca.pa",
+    "actividad_economica": "Ejecutiva bancaria",
+    "nacionalidad": "Panameña",
+    "fecha_nacimiento": "1988-10-05",
+    "estado_civil": "Casada",
+    "historial": [
+      { "fecha": "2022-06-14", "evento": "Actualización de dirección" }
+    ]
+  },
+  {
+    "identificador": "N-22-345",
+    "tipo_documento": "cedula",
+    "nombre": "Jorge Luis Samudio",
+    "direccion": "Penonomé, Coclé, Barrio Las Flores, Casa 3",
+    "telefono": "+507 6678-1122",
+    "correo": "j.samudio@turismo.pa",
+    "actividad_economica": "Empresario turístico",
+    "nacionalidad": "Panameña",
+    "fecha_nacimiento": "1971-05-30",
+    "estado_civil": "Casado",
+    "historial": [
+      { "fecha": "2018-11-02", "evento": "Inscripción inicial" }
+    ]
+  },
+  {
+    "identificador": "PE-8891",
+    "tipo_documento": "pasaporte",
+    "nombre": "Luis Eduardo Herrera",
+    "direccion": "Punta Pacífica, P.H. Oceanía, Apt. 47, Panamá",
+    "telefono": "+507 6321-7890",
+    "correo": "l.herrera@invest.ve",
+    "actividad_economica": "Empresario",
+    "nacionalidad": "Venezolana",
+    "fecha_nacimiento": "1969-08-17",
+    "estado_civil": "Casado",
+    "historial": [
+      { "fecha": "2021-04-12", "evento": "Renovación de pasaporte" },
+      { "fecha": "2016-02-28", "evento": "Primera inscripción en Panamá" }
+    ]
+  },
+  {
+    "identificador": "CO-441892",
+    "tipo_documento": "pasaporte",
+    "nombre": "Valentina Ospina Ríos",
+    "direccion": "Marbella, Calle 53, Edif. Coral, Apt. 12A, Panamá",
+    "telefono": "+507 6400-5599",
+    "correo": "v.ospina@finanzas.co",
+    "actividad_economica": "Asesora financiera",
+    "nacionalidad": "Colombiana",
+    "fecha_nacimiento": "1982-03-27",
+    "estado_civil": "Soltera",
+    "historial": [
+      { "fecha": "2023-07-01", "evento": "Renovación de visado de trabajo" }
+    ]
+  },
+  {
+    "identificador": "MX-2019-773",
+    "tipo_documento": "pasaporte",
+    "nombre": "Alejandro Torres Guzmán",
+    "direccion": "Bella Vista, Calle Uruguay, Edif. Las Palmas, Of. 4, Panamá",
+    "telefono": "+507 6512-3388",
+    "correo": "a.torres@logistica.mx",
+    "actividad_economica": "Director de logística",
+    "nacionalidad": "Mexicana",
+    "fecha_nacimiento": "1977-01-15",
+    "estado_civil": "Casado",
+    "historial": [
+      { "fecha": "2022-09-10", "evento": "Actualización de dirección residencial" }
+    ]
+  },
+  {
+    "identificador": "US-AB991234",
+    "tipo_documento": "pasaporte",
+    "nombre": "Jennifer Diane Mitchell",
+    "direccion": "Paitilla, Av. Balboa, Edif. Ocean View, Apt. 18B, Panamá",
+    "telefono": "+1 786-555-0134",
+    "correo": "j.mitchell@invest.us",
+    "actividad_economica": "Inversora inmobiliaria",
+    "nacionalidad": "Estadounidense",
+    "fecha_nacimiento": "1980-11-22",
+    "estado_civil": "Divorciada",
+    "historial": [
+      { "fecha": "2020-05-30", "evento": "Registro como residente temporal" }
+    ]
+  },
+  {
+    "identificador": "CN-G88721045",
+    "tipo_documento": "pasaporte",
+    "nombre": "Wei Zhong Liu",
+    "direccion": "El Dorado, Centro Comercial Dorado, Local 112, Panamá",
+    "telefono": "+507 6900-4422",
+    "correo": "w.liu@comercio.cn",
+    "actividad_economica": "Importador mayorista",
+    "nacionalidad": "China",
+    "fecha_nacimiento": "1973-06-09",
+    "estado_civil": "Casado",
+    "historial": [
+      { "fecha": "2021-10-14", "evento": "Renovación de permiso de trabajo" },
+      { "fecha": "2012-03-01", "evento": "Primera inscripción en Panamá" }
+    ]
+  },
+  {
+    "identificador": "RUC-77",
+    "tipo_documento": "ruc",
+    "nombre": "Inversiones del Istmo, S.A.",
+    "direccion": "Obarrio, Calle 50, Edif. Global, P.10, Panamá",
+    "telefono": "+507 200-7777",
+    "correo": "contacto@inversiones-istmo.com.pa",
+    "actividad_economica": "Inversión y gestión de activos",
+    "nacionalidad": "Panamá",
+    "representante_legal": "Ricardo Mejía Solís",
+    "cedula_rep": "8-345-112",
+    "fecha_constitucion": "2008-04-15",
+    "historial": [
+      { "fecha": "2023-01-18", "evento": "Renovación de RUC" },
+      { "fecha": "2019-06-05", "evento": "Cambio de representante legal" }
+    ]
+  },
+  {
+    "identificador": "RUC-45892301",
+    "tipo_documento": "ruc",
+    "nombre": "Constructora Horizonte Verde, S.A.",
+    "direccion": "Costa del Este, P.H. Business Park, Of. 901, Panamá",
+    "telefono": "+507 290-4455",
+    "correo": "admin@horizonte-verde.pa",
+    "actividad_economica": "Construcción y bienes raíces",
+    "nacionalidad": "Panamá",
+    "representante_legal": "Marcos Antonio Delgado",
+    "cedula_rep": "6-718-290",
+    "fecha_constitucion": "2015-09-30",
+    "historial": [
+      { "fecha": "2022-11-20", "evento": "Actualización de dirección fiscal" }
+    ]
+  },
+  {
+    "identificador": "RUC-10234567",
+    "tipo_documento": "ruc",
+    "nombre": "Comercializadora del Atlántico, S.R.L.",
+    "direccion": "Zona Libre de Colón, Edif. Zona A, Local 88",
+    "telefono": "+507 447-8899",
+    "correo": "ventas@comatlant.pa",
+    "actividad_economica": "Comercio exterior",
+    "nacionalidad": "Panamá",
+    "representante_legal": "Patricia Núñez Vargas",
+    "cedula_rep": "3-121-688",
+    "fecha_constitucion": "2011-02-14",
+    "historial": [
+      { "fecha": "2020-08-03", "evento": "Cambio de socios" },
+      { "fecha": "2018-05-22", "evento": "Ampliación de objeto social" }
+    ]
+  },
+  {
+    "identificador": "RUC-88776655",
+    "tipo_documento": "ruc",
+    "nombre": "Holding Pacific Group Corp.",
+    "direccion": "Punta Pacífica, Torres de la Bahía, Of. 1502, Panamá",
+    "telefono": "+507 203-6600",
+    "correo": "legal@pacificgroup.pa",
+    "actividad_economica": "Holding financiero",
+    "nacionalidad": "Panamá",
+    "representante_legal": "Fernando Arias Bernal",
+    "cedula_rep": "8-095-221",
+    "fecha_constitucion": "2003-11-08",
+    "historial": [
+      { "fecha": "2023-03-15", "evento": "Renovación de registro" },
+      { "fecha": "2015-07-10", "evento": "Fusión con subsidiaria regional" }
+    ]
+  },
+  {
+    "identificador": "RUC-55001234",
+    "tipo_documento": "ruc",
+    "nombre": "Servicios Logísticos Interocéanicos, S.A.",
+    "direccion": "Balboa, Av. Arnulfo Arias Madrid, Edif. Port Center, P.3",
+    "telefono": "+507 232-1100",
+    "correo": "ops@sli-panama.pa",
+    "actividad_economica": "Logística y transporte marítimo",
+    "nacionalidad": "Panamá",
+    "representante_legal": "Ernesto Batista Campos",
+    "cedula_rep": "4-302-511",
+    "fecha_constitucion": "2007-06-20",
+    "historial": [
+      { "fecha": "2021-09-12", "evento": "Actualización de representante legal" }
+    ]
+  }
+]

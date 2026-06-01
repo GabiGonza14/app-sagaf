@@ -1,7 +1,7 @@
-// lib/persons.ts — Mock de directorio nacional para verificación Ley 81 (RF-06)
-// IMPORTANTE: En producción, esto sería un servicio gubernamental (Tribunal
-// Electoral / Registro Público). El portal público solo recibe `nombre`.
-import { db } from './db';
+// lib/persons.ts — Directorio nacional ficticio para verificación Ley 81 (RF-06)
+// En producción esto sería una llamada al Tribunal Electoral / Registro Público.
+// El portal público SOLO recibe `nombre` tras verificación.
+import directorioRaw from './directorio-nacional.json';
 
 export interface PersonLookupResult {
   found: boolean;
@@ -17,19 +17,21 @@ export interface PersonInternalResult extends PersonLookupResult {
   nacionalidad?: string;
 }
 
-interface PersonaMockRow {
+interface DirectorioEntry {
   identificador: string;
   tipo_documento: string;
   nombre: string;
-  direccion: string | null;
-  telefono: string | null;
-  actividad_economica: string | null;
-  nacionalidad: string | null;
+  direccion?: string;
+  telefono?: string;
+  correo?: string;
+  actividad_economica?: string;
+  nacionalidad?: string;
+  [key: string]: unknown;
 }
 
-const stmtById = db.prepare<[string], PersonaMockRow>('SELECT * FROM persona_mock WHERE identificador = ?');
+const directorio = directorioRaw as DirectorioEntry[];
 
-function tryVariants(raw: string): PersonaMockRow | undefined {
+function tryVariants(raw: string): DirectorioEntry | undefined {
   const candidates = new Set<string>();
   const trimmed = raw.trim();
   candidates.add(trimmed);
@@ -38,7 +40,7 @@ function tryVariants(raw: string): PersonaMockRow | undefined {
   candidates.add(trimmed.replace(/\s+/g, '').toUpperCase());
   candidates.add(trimmed.replace(/-/g, ''));
   for (const c of candidates) {
-    const found = stmtById.get(c);
+    const found = directorio.find((e) => e.identificador === c);
     if (found) return found;
   }
   return undefined;
@@ -65,9 +67,9 @@ export function lookupInternal(raw: string): PersonInternalResult {
     found: true,
     nombre: row.nombre,
     tipo_documento: row.tipo_documento,
-    direccion: row.direccion ?? undefined,
-    telefono: row.telefono ?? undefined,
-    actividad_economica: row.actividad_economica ?? undefined,
-    nacionalidad: row.nacionalidad ?? undefined,
+    direccion: row.direccion,
+    telefono: row.telefono,
+    actividad_economica: row.actividad_economica,
+    nacionalidad: row.nacionalidad,
   };
 }
