@@ -2,6 +2,7 @@
 import { useRef, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, CheckCircle, FileText, AlertCircle, User, Building2, Shield, FileCheck, Save } from 'lucide-react';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 interface DocReq    { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string }
@@ -136,7 +137,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const [correoOficial, setCorreoOficial] = useState(initialData?.correoOficial ?? correoDefault);
   const [fechaDeteccion, setFechaDeteccion] = useState(initialData?.fechaDeteccion ?? new Date().toISOString().slice(0, 10));
 
-  const [observaciones, setObservaciones] = useState('');
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [extras, setExtras] = useState<File[]>([]);
   const [fileLabels, setFileLabels] = useState<Record<string, string>>(initialData?.uploadedDocs ?? {});
@@ -145,17 +145,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
-  interface DuplicadoROS {
-    id: string;
-    numero_ros: string;
-    estado: string;
-    fecha_recepcion: string;
-    monto: number;
-    partes: Array<{ enmascarada: string; rol: string }>;
-  }
-  const [duplicadosPendientes, setDuplicadosPendientes] = useState<DuplicadoROS[]>([]);
-  const confirmarPeseRef = useRef(false);
+  const [showCondicionalModal, setShowCondicionalModal] = useState(false);
 
   const effectivePlantillaId = useMemo(() => {
     if (!isBank) return plantillaId || defaultPlantilla;
@@ -261,24 +251,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     return !!(files[docId] || fileLabels[docId]);
   }
 
-  async function checkDuplicados(): Promise<DuplicadoROS[]> {
-    const ids = buildPartes().map((p) => p.identificador).filter(Boolean);
-    const montoNum = Number(monto);
-    if (ids.length === 0 || !montoNum) return [];
-    try {
-      const res = await fetch('/api/ros/duplicado', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identificadores: ids, monto: montoNum }),
-      });
-      if (!res.ok) return [];
-      const data = await res.json();
-      return data.duplicados ?? [];
-    } catch {
-      return [];
-    }
-  }
-
   async function doSubmit() {
     setSubmitting(true);
     try {
@@ -312,7 +284,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       if (!ok) return;
 
       setSuccess(`ROS ${numeroRos} enviado correctamente a la UAF.`);
-      router.refresh();
       startTransition(() => {
         setTimeout(() => router.push(`/portal/ros/${rosId}`), 1200);
       });
@@ -342,19 +313,24 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       return;
     }
 
-    // A6 — Detección de posible duplicidad (solo en envío formal, no borradores)
-    if (!confirmarPeseRef.current) {
-      setSubmitting(true);
-      const dups = await checkDuplicados();
-      setSubmitting(false);
-      if (dups.length > 0) {
-        setDuplicadosPendientes(dups);
-        return;
-      }
+    // Documentos obligatorios (requerido) — bloquean el envío
+    const missingRequired = docList.filter(
+      (d) => d.tipo_requerimiento === 'requerido' && !isDocUploaded(d.id),
+    );
+    if (missingRequired.length > 0) {
+      setError('Complete los documentos obligatorios marcados en rojo para enviar el ROS.');
+      return;
     }
 
-    confirmarPeseRef.current = false;
-    setDuplicadosPendientes([]);
+    // Documentos condicionales faltantes — advertencia con confirmación
+    const missingConditional = docList.filter(
+      (d) => d.tipo_requerimiento === 'condicional' && !isDocUploaded(d.id),
+    );
+    if (missingConditional.length > 0) {
+      setShowCondicionalModal(true);
+      return;
+    }
+
     await doSubmit();
   }
 
@@ -393,7 +369,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       if (!ok) return;
 
       setSuccess(`Borrador ${numeroRos} guardado.`);
-      router.refresh();
       startTransition(() => {
         setTimeout(() => router.push(`/portal/ros/${rosId}`), 1200);
       });
@@ -572,6 +547,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
             {docList.map((d, i) => {
               const file = files[d.id] ?? null;
               const uploaded = file || fileLabels[d.id];
+              const tipoBadge =
+                d.tipo_requerimiento === 'requerido'   ? 'red'   :
+                d.tipo_requerimiento === 'condicional' ? 'amber' : 'gray';
+              const tipoLabel =
+                d.tipo_requerimiento === 'requerido'   ? 'Requerido'     :
+                d.tipo_requerimiento === 'condicional' ? 'Si aplica'     : 'Complementario';
               return (
                 <div key={d.id} className={`doc-card${file ? ' uploaded' : ''}`}>
                   <div className="doc-top">
@@ -580,6 +561,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
                       {i + 1}. {d.nombre}
                     </div>
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+                      <span className={`badge ${tipoBadge}`}>{tipoLabel}</span>
                       <span className={`badge ${uploaded ? 'green' : 'amber'}`}>
                         {file ? 'Listo para subir' : fileLabels[d.id] ? 'Adjunto guardado' : 'Pendiente'}
                       </span>
@@ -610,17 +592,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
               );
             })}
           </div>
-        </div>
-
-        {/* Observaciones adicionales */}
-        <div className="field full">
-          <label htmlFor="observaciones-adicionales">Observaciones adicionales</label>
-          <textarea
-            id="observaciones-adicionales"
-            value={observaciones}
-            onChange={(e) => setObservaciones(e.target.value)}
-            placeholder="Explique cualquier documento faltante, aclaración o información adicional relevante."
-          />
         </div>
 
         {/* Extra evidence */}
@@ -663,76 +634,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
             )}
           </div>
         </div>
-
-        {/* A6 — Alerta de posible duplicidad */}
-        {duplicadosPendientes.length > 0 && (
-          <div style={{
-            gridColumn: '1 / -1',
-            border: '1.5px solid #f59e0b',
-            borderRadius: 10,
-            background: '#fffbeb',
-            padding: '16px 20px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <AlertCircle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
-              <strong style={{ color: '#92400e', fontSize: 14 }}>
-                Posible duplicidad detectada
-              </strong>
-            </div>
-            <p style={{ fontSize: 13, color: '#78350f', margin: '0 0 10px 0' }}>
-              Tu organización ya tiene {duplicadosPendientes.length === 1 ? 'un ROS reciente' : `${duplicadosPendientes.length} ROS recientes`} con
-              la misma parte involucrada y monto similar en los últimos 30 días.
-              Si se trata de una operación distinta, puedes continuar de todas formas.
-            </p>
-            <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', marginBottom: 14 }}>
-              <thead>
-                <tr style={{ background: '#fef3c7' }}>
-                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Nº ROS</th>
-                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Partes coincidentes</th>
-                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Monto</th>
-                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Fecha</th>
-                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {duplicadosPendientes.map((d) => (
-                  <tr key={d.id} style={{ borderTop: '1px solid #fde68a' }}>
-                    <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#92400e' }}>{d.numero_ros}</td>
-                    <td style={{ padding: '5px 8px', color: '#92400e' }}>
-                      {d.partes.map((p) => (
-                        <span key={p.enmascarada}>
-                          {p.enmascarada} <span style={{ opacity: .7 }}>({p.rol})</span>
-                          {i < d.partes.length - 1 && <br />}
-                        </span>
-                      ))}
-                    </td>
-                    <td style={{ padding: '5px 8px', color: '#92400e' }}>${d.monto.toLocaleString()}</td>
-                    <td style={{ padding: '5px 8px', color: '#92400e' }}>{new Date(d.fecha_recepcion).toLocaleDateString('es-PA')}</td>
-                    <td style={{ padding: '5px 8px', color: '#92400e' }}>{d.estado}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button
-                type="submit"
-                className="btn primary"
-                style={{ background: '#d97706', borderColor: '#d97706', fontSize: 13 }}
-                onClick={() => { confirmarPeseRef.current = true; }}
-              >
-                Continuar de todas formas
-              </button>
-              <button
-                type="button"
-                className="btn secondary"
-                style={{ fontSize: 13 }}
-                onClick={() => setDuplicadosPendientes([])}
-              >
-                Cancelar y revisar
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Feedback */}
         {error && (
@@ -778,6 +679,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
 
       </div>
 
+      <ConfirmModal
+        isOpen={showCondicionalModal}
+        variant="warning"
+        title="Documentos condicionales faltantes"
+        message="Faltan documentos condicionales. ¿Desea enviar igual? La UAF puede solicitar subsanación."
+        confirmLabel="Enviar de todas formas"
+        cancelLabel="Revisar documentos"
+        onConfirm={() => { setShowCondicionalModal(false); doSubmit(); }}
+        onCancel={() => setShowCondicionalModal(false)}
+      />
     </form>
   );
 }

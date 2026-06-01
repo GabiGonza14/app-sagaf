@@ -47,6 +47,7 @@ const tables = [
   'plantilla_ros',
   'usuario',
   'sujeto_obligado',
+  'persona_mock',
   'rol_permiso',
   'permiso',
   'rol',
@@ -276,12 +277,137 @@ if (mfaBackup.length > 0) {
   console.log(`  • MFA restaurado para ${mfaBackup.length} usuario(s) — QR sin cambios`);
 }
 
+// =====================================================================
+// 5. Personas mock — datos sintéticos para verificación Ley 81
+//    El portal público SOLO retorna 'nombre' tras verificación (RF-06).
+// =====================================================================
+const insertPersona = db.prepare(`
+  INSERT INTO persona_mock (identificador, tipo_documento, nombre, direccion, telefono, actividad_economica, nacionalidad)
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+`);
+const personasMock: Array<[string, string, string, string, string, string, string]> = [
+  ['8-888-888', 'cedula',    'María Elena González',         'Vía España, Edif. Plaza, Apt. 14B',         '+507 6123-4567', 'Comerciante',          'Panameña'],
+  ['8-482-917', 'cedula',    'Carlos Alberto Pérez',         'Calle 50, PH Las Torres, Of. 305',          '+507 6987-6543', 'Consultor financiero', 'Panameña'],
+  ['8-095-221', 'cedula',    'Ana Lucía Morales',            'Costa del Este, Tower One, Apt. 21A',       '+507 6555-1212', 'Abogada',              'Panameña'],
+  ['8-777-444', 'cedula',    'Roberto Antonio Castillo',     'San Francisco, Calle 74 Este',              '+507 6444-3333', 'Ingeniero',            'Panameña'],
+  ['PE-8891',   'pasaporte', 'Luis Eduardo Herrera',         'Punta Pacífica, P.H. Oceanía, Apt. 47',     '+507 6321-7890', 'Empresario',           'Venezolana'],
+  ['RUC-77',    'ruc',       'Inversiones del Istmo, S.A.',  'Obarrio, Calle 50, Edif. Global, P.10',     '+507 200-7777',  'Inversión',            'Panamá'],
+];
+for (const p of personasMock) insertPersona.run(...p);
 
 // =====================================================================
-// 6. Eventos de auditoría — semilla del log
+// 6. ROS iniciales (3 reportes, alineados con la bandeja del Prototipo.html)
 // =====================================================================
 function uid(): string { return randomUUID(); }
 
+const insertROS = db.prepare(`
+  INSERT INTO ros (id, numero_ros, sujeto_obligado_id, plantilla_id, oficial_cumplimiento,
+                   correo_oficial, fecha_deteccion, fecha_recepcion, estado, descripcion,
+                   canal_recepcion, creado_por)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'portal_publico', ?)
+`);
+const insertParte = db.prepare(`
+  INSERT INTO parte_involucrada (id, ros_id, rol_en_operacion, tipo_persona,
+                                 identificador, identificador_enmascarado, nombre_visible,
+                                 datos_sensibles_bloqueados)
+  VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+`);
+const insertOp = db.prepare(`
+  INSERT INTO operacion_sospechosa (id, ros_id, monto, moneda, jurisdiccion,
+                                    producto_servicio, tipo_operacion, senal_alerta,
+                                    bien_inmueble, forma_pago)
+  VALUES (?, ?, ?, 'USD', ?, ?, ?, ?, ?, ?)
+`);
+const insertCaso = db.prepare(`
+  INSERT INTO caso_analisis (id, codigo_caso, ros_id, estado)
+  VALUES (?, ?, ?, ?)
+`);
+const insertRiesgo = db.prepare(`
+  INSERT INTO riesgo_caso (id, ros_id, nivel, puntaje, justificacion, clasificado_por)
+  VALUES (?, ?, ?, ?, ?, ?)
+`);
+
+function maskId(id: string): string {
+  const clean = id.replace(/[^0-9A-Z]/gi, '');
+  if (clean.length <= 3) return '***';
+  const tail = clean.slice(-3);
+  return `***-***-${tail}`;
+}
+
+// --- ROS-2026-000248 — Banco · Alto ---
+insertROS.run(
+  'ros_001', 'ROS-2026-000248', 'so_banco_nacional', 'pl_bank_legal',
+  'Lic. Roberto Mendoza', 'cumplimiento@banconacional.com.pa',
+  '2026-05-17', '2026-05-17 14:35:00', 'en_analisis',
+  'Movimientos incompatibles con el perfil declarado, transferencias internacionales y relación con beneficiario final reportado previamente. El expediente contiene estados de cuenta, Swift, ACH y comunicaciones internas de descarte.',
+  'u_so_banco',
+);
+insertParte.run(uid(), 'ros_001', 'ordenante',    'juridica', 'RUC-77',    maskId('RUC-77'),    'Inversiones del Istmo, S.A.');
+insertParte.run(uid(), 'ros_001', 'beneficiario', 'natural',  '8-482-917', maskId('8-482-917'), 'Carlos Alberto Pérez');
+insertOp.run(
+  uid(), 'ros_001', 985000, 'Panamá / Suiza',
+  'Cuenta corriente · transferencias internacionales SWIFT',
+  'Transferencia internacional',
+  'Movimientos incompatibles con el perfil',
+  null, null,
+);
+insertCaso.run(uid(), 'CASO-2026-001', 'ros_001', 'abierto');
+insertRiesgo.run(uid(), 'ros_001', 'alto', 86,
+  'Volumen 18x superior al perfil transaccional declarado; jurisdicción de alto riesgo; beneficiario final vinculado a otro ROS.',
+  'u_analista');
+
+// --- ROS-2026-000249 — Inmobiliaria · Medio ---
+insertROS.run(
+  'ros_002', 'ROS-2026-000249', 'so_inmob_istmo', 'pl_realestate',
+  'Lic. Patricia Vásquez', 'cumplimiento@inmobiliariaistmo.com.pa',
+  '2026-05-18', '2026-05-18 09:12:00', 'revision_documental',
+  'Compra de bien inmueble con forma de pago mixta y sustento parcial de procedencia de fondos. Requiere validación de avalúo, recibos de pago y documentación bancaria asociada.',
+  'u_so_inmob',
+);
+insertParte.run(uid(), 'ros_002', 'comprador', 'natural', '8-095-221', maskId('8-095-221'), 'Ana Lucía Morales');
+insertOp.run(
+  uid(), 'ros_002', 420000, 'Panamá · Costa del Este',
+  null, 'Compraventa de bien inmueble',
+  'Procedencia de fondos no sustentada',
+  'Apartamento PH Oceanía, Punta Pacífica',
+  'Efectivo 40% + transferencia internacional 60%',
+);
+insertCaso.run(uid(), 'CASO-2026-002', 'ros_002', 'abierto');
+insertRiesgo.run(uid(), 'ros_002', 'medio', 58,
+  'Forma de pago atípica con porcentaje significativo en efectivo; falta sustento de procedencia de fondos.',
+  'u_analista');
+
+// --- ROS-2026-000250 — Banco · Vinculado ---
+insertROS.run(
+  'ros_003', 'ROS-2026-000250', 'so_banco_nacional', 'pl_bank_natural',
+  'Lic. Roberto Mendoza', 'cumplimiento@banconacional.com.pa',
+  '2026-05-19', '2026-05-19 16:48:00', 'escalado',
+  'Cliente relacionado con otros ROS por coincidencia parcial de beneficiario final y transferencias internacionales recibidas. El caso fue escalado para revisión supervisora.',
+  'u_so_banco',
+);
+insertParte.run(uid(), 'ros_003', 'ordenante',    'natural', '8-482-917', maskId('8-482-917'), 'Carlos Alberto Pérez');
+insertParte.run(uid(), 'ros_003', 'beneficiario', 'natural', '8-777-444', maskId('8-777-444'), 'Roberto Antonio Castillo');
+insertOp.run(
+  uid(), 'ros_003', 150000, 'Panamá',
+  'Cuenta de ahorros · transferencias recurrentes',
+  'Transferencia local recurrente',
+  'Operaciones fraccionadas',
+  null, null,
+);
+insertCaso.run(uid(), 'CASO-2026-003', 'ros_003', 'abierto');
+insertRiesgo.run(uid(), 'ros_003', 'alto', 79,
+  'Coincidencia de beneficiario final con ROS-2026-000248. Escalado por supervisor.',
+  'u_supervisor');
+
+// Vinculación detectada entre ROS-001 y ROS-003 — cédula enmascarada (Ley 81)
+db.prepare(`
+  INSERT INTO vinculo_intersectorial (id, ros_origen_id, ros_destino_id, tipo_vinculo, descripcion, confirmado, fecha_deteccion)
+  VALUES (?, ?, ?, 'persona', 'Coincidencia: Carlos Alberto Pérez (cédula ***-***-917) figura como beneficiario en ROS-2026-000248 y ordenante en ROS-2026-000250.', 0, CURRENT_TIMESTAMP)
+`).run(uid(), 'ros_001', 'ros_003');
+
+// =====================================================================
+// 7. Eventos de auditoría — semilla del log
+// =====================================================================
 const insertAudit = db.prepare(`
   INSERT INTO evento_auditoria
     (id, usuario_id, usuario_correo, rol, modulo, accion, resultado, recurso_afectado, detalle, criticidad)
@@ -290,12 +416,28 @@ const insertAudit = db.prepare(`
 
 insertAudit.run(uid(), null, 'system', 'system', 'system', 'seed_inicial', 'exito', null, 'Datos iniciales cargados al iniciar el sistema', 'normal');
 
+// Evento de recepción para cada ROS
+insertAudit.run(uid(), 'u_so_banco', 'cumplimiento@banconacional.com.pa', 'sujeto_obligado', 'ros', 'crear_ros', 'exito', 'ROS-2026-000248', JSON.stringify({ monto: 985000 }), 'normal');
+insertAudit.run(uid(), 'u_so_inmob', 'cumplimiento@inmobiliariaistmo.com.pa', 'sujeto_obligado', 'ros', 'crear_ros', 'exito', 'ROS-2026-000249', JSON.stringify({ monto: 420000 }), 'normal');
+insertAudit.run(uid(), 'u_so_banco', 'cumplimiento@banconacional.com.pa', 'sujeto_obligado', 'ros', 'crear_ros', 'exito', 'ROS-2026-000250', JSON.stringify({ monto: 150000 }), 'normal');
+
+// Cambios de estado registrados
+insertAudit.run(uid(), 'u_analista', 'analista@uaf.gob.pa', 'analista', 'ros', 'cambio_estado', 'exito', 'ROS-2026-000248', JSON.stringify({ anterior: 'recibido', nuevo: 'en_analisis' }), 'normal');
+insertAudit.run(uid(), 'u_analista', 'analista@uaf.gob.pa', 'analista', 'ros', 'cambio_estado', 'exito', 'ROS-2026-000249', JSON.stringify({ anterior: 'recibido', nuevo: 'revision_documental' }), 'normal');
+insertAudit.run(uid(), 'u_supervisor', 'supervisor@uaf.gob.pa', 'supervisor', 'ros', 'cambio_estado', 'exito', 'ROS-2026-000250', JSON.stringify({ anterior: 'en_analisis', nuevo: 'escalado' }), 'normal');
+
+// Clasificación de riesgo
+insertAudit.run(uid(), 'u_supervisor', 'supervisor@uaf.gob.pa', 'supervisor', 'ros', 'clasificar_riesgo', 'exito', 'ROS-2026-000250', JSON.stringify({ nivel: 'alto', puntaje: 79 }), 'alta');
+insertAudit.run(uid(), 'u_analista', 'analista@uaf.gob.pa', 'analista', 'ros', 'clasificar_riesgo', 'exito', 'ROS-2026-000248', JSON.stringify({ nivel: 'alto', puntaje: 75 }), 'alta');
+insertAudit.run(uid(), 'u_analista', 'analista@uaf.gob.pa', 'analista', 'ros', 'clasificar_riesgo', 'exito', 'ROS-2026-000249', JSON.stringify({ nivel: 'medio', puntaje: 45 }), 'normal');
+
 console.log(`[SAGAF] Seed completo:`);
 console.log(`  • ${roles.length} roles, ${permisos.length} permisos`);
 console.log(`  • 2 sujetos obligados, 3 plantillas ROS`);
 console.log(`  • ${bankNatural.length + bankLegal.length + realEstate.length} documentos requeridos`);
 console.log(`  • ${usuariosDemo.length} usuarios`);
-console.log(`  • 0 ROS iniciales (BD limpia)`);
+console.log(`  • ${personasMock.length} personas mock`);
+console.log(`  • 3 ROS + 1 vínculo intersectorial`);
 console.log(`[SAGAF] Credenciales: password123 (todos los usuarios)`);
 
 db.close();
