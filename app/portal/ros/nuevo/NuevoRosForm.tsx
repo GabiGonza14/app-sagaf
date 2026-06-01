@@ -146,6 +146,17 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  interface DuplicadoROS {
+    id: string;
+    numero_ros: string;
+    estado: string;
+    fecha_recepcion: string;
+    monto: number;
+    partes: Array<{ enmascarada: string; rol: string }>;
+  }
+  const [duplicadosPendientes, setDuplicadosPendientes] = useState<DuplicadoROS[]>([]);
+  const confirmarPeseRef = useRef(false);
+
   const effectivePlantillaId = useMemo(() => {
     if (!isBank) return plantillaId || defaultPlantilla;
     const want = tipoCliente === 'natural'
@@ -250,6 +261,24 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     return !!(files[docId] || fileLabels[docId]);
   }
 
+  async function checkDuplicados(): Promise<DuplicadoROS[]> {
+    const ids = buildPartes().map((p) => p.identificador).filter(Boolean);
+    const montoNum = Number(monto);
+    if (ids.length === 0 || !montoNum) return [];
+    try {
+      const res = await fetch('/api/ros/duplicado', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identificadores: ids, monto: montoNum }),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.duplicados ?? [];
+    } catch {
+      return [];
+    }
+  }
+
   async function doSubmit() {
     setSubmitting(true);
     try {
@@ -283,6 +312,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       if (!ok) return;
 
       setSuccess(`ROS ${numeroRos} enviado correctamente a la UAF.`);
+      router.refresh();
       startTransition(() => {
         setTimeout(() => router.push(`/portal/ros/${rosId}`), 1200);
       });
@@ -312,6 +342,19 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       return;
     }
 
+    // A6 — Detección de posible duplicidad (solo en envío formal, no borradores)
+    if (!confirmarPeseRef.current) {
+      setSubmitting(true);
+      const dups = await checkDuplicados();
+      setSubmitting(false);
+      if (dups.length > 0) {
+        setDuplicadosPendientes(dups);
+        return;
+      }
+    }
+
+    confirmarPeseRef.current = false;
+    setDuplicadosPendientes([]);
     await doSubmit();
   }
 
@@ -350,6 +393,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       if (!ok) return;
 
       setSuccess(`Borrador ${numeroRos} guardado.`);
+      router.refresh();
       startTransition(() => {
         setTimeout(() => router.push(`/portal/ros/${rosId}`), 1200);
       });
@@ -619,6 +663,76 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
             )}
           </div>
         </div>
+
+        {/* A6 — Alerta de posible duplicidad */}
+        {duplicadosPendientes.length > 0 && (
+          <div style={{
+            gridColumn: '1 / -1',
+            border: '1.5px solid #f59e0b',
+            borderRadius: 10,
+            background: '#fffbeb',
+            padding: '16px 20px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <AlertCircle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
+              <strong style={{ color: '#92400e', fontSize: 14 }}>
+                Posible duplicidad detectada
+              </strong>
+            </div>
+            <p style={{ fontSize: 13, color: '#78350f', margin: '0 0 10px 0' }}>
+              Tu organización ya tiene {duplicadosPendientes.length === 1 ? 'un ROS reciente' : `${duplicadosPendientes.length} ROS recientes`} con
+              la misma parte involucrada y monto similar en los últimos 30 días.
+              Si se trata de una operación distinta, puedes continuar de todas formas.
+            </p>
+            <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', marginBottom: 14 }}>
+              <thead>
+                <tr style={{ background: '#fef3c7' }}>
+                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Nº ROS</th>
+                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Partes coincidentes</th>
+                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Monto</th>
+                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Fecha</th>
+                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {duplicadosPendientes.map((d) => (
+                  <tr key={d.id} style={{ borderTop: '1px solid #fde68a' }}>
+                    <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#92400e' }}>{d.numero_ros}</td>
+                    <td style={{ padding: '5px 8px', color: '#92400e' }}>
+                      {d.partes.map((p, i) => (
+                        <span key={i}>
+                          {p.enmascarada} <span style={{ opacity: .7 }}>({p.rol})</span>
+                          {i < d.partes.length - 1 && <br />}
+                        </span>
+                      ))}
+                    </td>
+                    <td style={{ padding: '5px 8px', color: '#92400e' }}>${d.monto.toLocaleString()}</td>
+                    <td style={{ padding: '5px 8px', color: '#92400e' }}>{new Date(d.fecha_recepcion).toLocaleDateString('es-PA')}</td>
+                    <td style={{ padding: '5px 8px', color: '#92400e' }}>{d.estado}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="submit"
+                className="btn primary"
+                style={{ background: '#d97706', borderColor: '#d97706', fontSize: 13 }}
+                onClick={() => { confirmarPeseRef.current = true; }}
+              >
+                Continuar de todas formas
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                style={{ fontSize: 13 }}
+                onClick={() => setDuplicadosPendientes([])}
+              >
+                Cancelar y revisar
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Feedback */}
         {error && (
