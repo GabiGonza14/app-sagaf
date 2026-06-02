@@ -23,6 +23,7 @@ interface SujetoRow {
   id: string;
   nombre: string;
   tipo: string;
+  estado: string;
 }
 
 export default async function NuevoRosPage() {
@@ -31,7 +32,7 @@ export default async function NuevoRosPage() {
   const soId = session.user.sujetoObligadoId!;
 
   const so = db
-    .prepare<[string], SujetoRow>('SELECT id, nombre, tipo FROM sujeto_obligado WHERE id = ?')
+    .prepare<[string], SujetoRow>('SELECT id, nombre, tipo, estado FROM sujeto_obligado WHERE id = ?')
     .get(soId);
   if (!so) redirect('/portal');
 
@@ -57,6 +58,40 @@ export default async function NuevoRosPage() {
     if (plantillas.find((p) => p.id === d.plantilla_id)) {
       (docsByPlantilla[d.plantilla_id] ||= []).push(d);
     }
+  }
+
+  // A3 — Bloqueo si sujeto obligado está inactivo (CU-06)
+  if (so.estado !== 'activo') {
+    return (
+      <>
+        <TopBar
+          eyebrow="Recepción y registro"
+          title="Registrar nuevo Reporte de Operación Sospechosa"
+          right={<BackButton href="/portal" label="Inicio" />}
+        />
+        <div className="notice red" style={{ marginTop: 24 }}>
+          <strong>Organización inactiva.</strong> Su organización ha sido desactivada por el administrador del sistema.
+          No puede registrar nuevos ROS mientras esté inactiva. Contacte al administrador para solicitar la reactivación.
+        </div>
+      </>
+    );
+  }
+
+  // A4 — Bloqueo si no tiene plantillas asignadas (CU-06)
+  if (plantillas.length === 0) {
+    return (
+      <>
+        <TopBar
+          eyebrow="Recepción y registro"
+          title="Registrar nuevo Reporte de Operación Sospechosa"
+          right={<BackButton href="/portal" label="Inicio" />}
+        />
+        <div className="notice amber" style={{ marginTop: 24 }}>
+          <strong>Sin plantillas asignadas.</strong> Su organización no tiene plantillas ROS habilitadas.
+          Contacte al administrador para asociar una plantilla antes de registrar un ROS.
+        </div>
+      </>
+    );
   }
 
   return (

@@ -2,6 +2,7 @@ import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
+import { NuevoPlantillaForm } from './NuevoPlantillaForm';
 
 export const revalidate = 0;
 
@@ -36,7 +37,7 @@ export default async function PlantillasAdmin() {
       <TopBar
         eyebrow="Plantillas ROS"
         title="Plantillas dinámicas por sector"
-        description="Define la estructura de un ROS según el tipo de sujeto obligado. El sistema admite nuevas plantillas sin necesidad de rediseñar la solución."
+        description="Define la estructura de un ROS según el tipo de sujeto obligado. El sistema admite nuevas plantillas sin necesidad de rediseñar la solución (RE-02)."
       />
 
       <div className="card">
@@ -69,8 +70,18 @@ export default async function PlantillasAdmin() {
       </div>
 
       <div className="notice" style={{ marginTop: 14 }}>
-        ℹ️ Las plantillas (Banco Persona Natural, Banco Persona Jurídica, Inmobiliaria) traen
-        precargados los documentos requeridos del Manual de Calidad de ROS de la UAF (2018).
+        Las plantillas preexistentes (Banco Persona Natural, Banco Persona Jurídica, Inmobiliaria) traen
+        precargados los documentos requeridos del Manual de Calidad de ROS de la UAF (2018). Las nuevas
+        plantillas se crean sin documentos; un analista puede agregarlos según el sector (RE-02).
+      </div>
+
+      <div className="card" style={{ marginTop: 18 }}>
+        <h3 style={{ margin: 0 }}>Crear nueva plantilla ROS</h3>
+        <p className="small" style={{ marginBottom: 14 }}>
+          Permite registrar nuevos tipos de sujeto obligado sin modificar el código (RE-02).
+          Tras crear la plantilla, asígnela al sujeto obligado correspondiente desde la sección de sujetos obligados.
+        </p>
+        <NuevoPlantillaForm />
       </div>
     </>
   );

@@ -289,6 +289,7 @@ h2 { margin: 0; color: #0b1a30; font-size: 1.75rem; font-weight: 700; line-heigh
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 20px;
+  overflow: hidden;
 }
 
 .kpi { overflow: hidden; position: relative; }
@@ -1008,11 +1009,20 @@ label { color: #344054; font-size: 13px; font-weight: 900; }
 /* ---------- Utility ---------- */
 .hidden { display: none !important; }
 
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: inherit;
+  margin: 0 -20px;
+  padding: 0 20px;
+}
+
 .table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   font-size: 13px;
+  min-width: 800px;
 }
 
 .table th, .table td {
@@ -1164,12 +1174,7 @@ label { color: #344054; font-size: 13px; font-weight: 900; }
   .auth-card { padding: 24px 20px; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
-  /* Tables scroll horizontally */
-  .table-wrapper {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    border-radius: var(--radius);
-  }
+  /* Tables — ya definido globalmente arriba */
 }
 
 /* Mobile: 1-column everything */
@@ -1251,6 +1256,18 @@ label { color: #344054; font-size: 13px; font-weight: 900; }
   width: 100%;
   text-align: center;
   animation: modalSlideUp .2s cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* Native <dialog> used instead of div+role="dialog" */
+dialog.modal-box {
+  margin: auto;
+  border: 1px solid var(--line);
+}
+
+dialog.modal-box::backdrop {
+  background: rgba(15, 23, 42, .52);
+  backdrop-filter: blur(3px);
+  animation: modalFadeIn .18s ease;
 }
 
 @keyframes modalSlideUp {

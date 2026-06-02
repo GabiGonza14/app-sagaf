@@ -9,7 +9,7 @@ import { FileText, FilePlus, RefreshCw, AlertTriangle, CheckCircle, Clock, Arrow
 
 export const revalidate = 0;
 
-interface SujetoRow { id: string; nombre: string; tipo: string; sector: string }
+interface SujetoRow { id: string; nombre: string; tipo: string; sector: string; estado: string }
 
 interface RosResumen {
   id: string;
@@ -35,7 +35,7 @@ export default async function PortalHome() {
   const soId = session!.user.sujetoObligadoId!;
 
   const so = db
-    .prepare<[string], SujetoRow>('SELECT id, nombre, tipo, sector FROM sujeto_obligado WHERE id = ?')
+    .prepare<[string], SujetoRow>('SELECT id, nombre, tipo, sector, estado FROM sujeto_obligado WHERE id = ?')
     .get(soId);
 
   const ros = db
@@ -85,6 +85,18 @@ export default async function PortalHome() {
         title={`Bienvenido, ${so?.nombre ?? 'Sujeto Obligado'}`}
         description="Registre nuevos Reportes de Operaciones Sospechosas, consulte el estado de sus envíos y atienda las solicitudes de subsanación de la UAF."
       />
+
+      {/* A3 — Aviso si la organización está inactiva (CU-06) */}
+      {so?.estado !== 'activo' && (
+        <div className="notice red" style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 18 }}>
+          <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <strong>Organización inactiva.</strong> Su organización ha sido desactivada por el administrador del sistema.
+            Puede consultar sus ROS anteriores pero no puede registrar nuevos hasta ser reactivada.
+            Contacte al administrador para solicitar la reactivación.
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="kpis">

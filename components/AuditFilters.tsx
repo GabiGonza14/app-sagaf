@@ -13,9 +13,21 @@ export interface AuditFilterValues {
 
 interface Props {
   initial: AuditFilterValues;
+  modulosDisponibles?: string[];
 }
 
-export function AuditFilters({ initial }: Props) {
+const MODULO_LABEL: Record<string, string> = {
+  autenticacion: 'Autenticación',
+  ros:           'ROS',
+  admin:         'Administración',
+  documentos:    'Documentos',
+  reportes:      'Reportes',
+  vinculos:      'Vínculos',
+  auditoria:     'Auditoría',
+  system:        'Sistema',
+};
+
+export function AuditFilters({ initial, modulosDisponibles }: Readonly<Props>) {
   const router = useRouter();
   const pathname = usePathname();
   const [v, setV] = useState<AuditFilterValues>(initial);
@@ -37,25 +49,32 @@ export function AuditFilters({ initial }: Props) {
   return (
     <form onSubmit={apply} className="form-grid" style={{ marginBottom: 16 }}>
       <div className="field">
-        <label>Buscar (correo · acción · recurso)</label>
-        <input value={v.q} onChange={(e) => setV({ ...v, q: e.target.value })} placeholder="ej: ROS-2026-000248" />
+        <label htmlFor="af-q">Buscar (correo · acción · recurso · detalle)</label>
+        <input id="af-q" value={v.q} onChange={(e) => setV({ ...v, q: e.target.value })} placeholder="ej: admin@uaf.gob.pa" />
       </div>
       <div className="field">
-        <label>Módulo</label>
-        <select value={v.modulo} onChange={(e) => setV({ ...v, modulo: e.target.value })}>
+        <label htmlFor="af-modulo">Módulo</label>
+        <select id="af-modulo" value={v.modulo} onChange={(e) => setV({ ...v, modulo: e.target.value })}>
           <option value="">Todos</option>
-          <option value="autenticacion">Autenticación</option>
-          <option value="ros">ROS</option>
-          <option value="documentos">Documentos</option>
-          <option value="reportes">Reportes</option>
-          <option value="vinculos">Vínculos</option>
-          <option value="admin">Admin</option>
-          <option value="auditoria">Auditoría</option>
+          {modulosDisponibles
+            ? modulosDisponibles.map((m) => (
+                <option key={m} value={m}>{MODULO_LABEL[m] ?? m}</option>
+              ))
+            : (
+              <>
+                <option value="autenticacion">Autenticación</option>
+                <option value="ros">ROS</option>
+                <option value="documentos">Documentos</option>
+                <option value="admin">Administración</option>
+                <option value="auditoria">Auditoría</option>
+                <option value="system">Sistema</option>
+              </>
+            )}
         </select>
       </div>
       <div className="field">
-        <label>Resultado</label>
-        <select value={v.resultado} onChange={(e) => setV({ ...v, resultado: e.target.value })}>
+        <label htmlFor="af-resultado">Resultado</label>
+        <select id="af-resultado" value={v.resultado} onChange={(e) => setV({ ...v, resultado: e.target.value })}>
           <option value="">Cualquiera</option>
           <option value="exito">Éxito</option>
           <option value="fallo">Fallo</option>
@@ -63,8 +82,8 @@ export function AuditFilters({ initial }: Props) {
         </select>
       </div>
       <div className="field">
-        <label>Criticidad</label>
-        <select value={v.criticidad} onChange={(e) => setV({ ...v, criticidad: e.target.value })}>
+        <label htmlFor="af-criticidad">Criticidad</label>
+        <select id="af-criticidad" value={v.criticidad} onChange={(e) => setV({ ...v, criticidad: e.target.value })}>
           <option value="">Cualquiera</option>
           <option value="normal">Normal</option>
           <option value="alta">Alta</option>
@@ -72,12 +91,12 @@ export function AuditFilters({ initial }: Props) {
         </select>
       </div>
       <div className="field">
-        <label>Desde</label>
-        <input type="date" value={v.desde} onChange={(e) => setV({ ...v, desde: e.target.value })} />
+        <label htmlFor="af-desde">Desde</label>
+        <input id="af-desde" type="date" value={v.desde} onChange={(e) => setV({ ...v, desde: e.target.value })} />
       </div>
       <div className="field">
-        <label>Hasta</label>
-        <input type="date" value={v.hasta} onChange={(e) => setV({ ...v, hasta: e.target.value })} />
+        <label htmlFor="af-hasta">Hasta</label>
+        <input id="af-hasta" type="date" value={v.hasta} onChange={(e) => setV({ ...v, hasta: e.target.value })} />
       </div>
       <div className="field full" style={{ display: 'flex', gap: 8 }}>
         <button type="submit" className="btn primary">Aplicar filtros</button>

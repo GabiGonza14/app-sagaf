@@ -11,9 +11,10 @@ const schema = z.object({
   ruc: z.string().optional().nullable(),
   tipo: z.string().min(1),
   sector: z.string().min(1),
-  organismo_supervisor: z.string().optional().nullable(),
-  responsable_cumpl: z.string().optional().nullable(),
-  plantillas: z.array(z.string()).min(1, 'Asocie al menos una plantilla ROS'),
+  estado: z.enum(['activo', 'inactivo']).default('activo'),
+  organismo_supervisor: z.string().min(1, 'El organismo supervisor es obligatorio'),
+  responsable_cumpl: z.string().min(1, 'El responsable de cumplimiento es obligatorio'),
+  plantillas: z.array(z.string()).min(1, 'Asocie al menos una plantilla ROS (RE-01)'),
 });
 
 export async function POST(req: Request) {
@@ -32,14 +33,22 @@ export async function POST(req: Request) {
     if (existe) return NextResponse.json({ error: 'RUC ya registrado' }, { status: 409 });
   }
 
+  // A2 — Duplicidad por nombre cuando no hay RUC (el nombre actúa como identificador)
+  if (!parsed.data.ruc) {
+    const existeNombre = db.prepare(
+      'SELECT 1 FROM sujeto_obligado WHERE nombre = ? AND (ruc IS NULL OR ruc = "")',
+    ).get(parsed.data.nombre);
+    if (existeNombre) return NextResponse.json({ error: 'Ya existe un sujeto obligado sin RUC con ese nombre' }, { status: 409 });
+  }
+
   const id = randomUUID();
   const tx = db.transaction(() => {
     db.prepare(`
       INSERT INTO sujeto_obligado (id, nombre, ruc, tipo, sector, organismo_supervisor, responsable_cumpl, estado)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'activo')
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id, parsed.data.nombre, parsed.data.ruc ?? null, parsed.data.tipo, parsed.data.sector,
-      parsed.data.organismo_supervisor ?? null, parsed.data.responsable_cumpl ?? null,
+      parsed.data.organismo_supervisor, parsed.data.responsable_cumpl, parsed.data.estado,
     );
     for (const plId of parsed.data.plantillas) {
       db.prepare(
