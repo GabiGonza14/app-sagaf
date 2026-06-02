@@ -32,6 +32,14 @@ export function NuevoSujetoForm({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!organismo.trim()) {
+      setError('El organismo supervisor es obligatorio.');
+      return;
+    }
+    if (!responsable.trim()) {
+      setError('El responsable de cumplimiento es obligatorio.');
+      return;
+    }
     if (seleccionadas.length === 0) {
       setError('Debe asociar al menos una plantilla ROS (RE-01).');
       return;
@@ -92,12 +100,12 @@ export function NuevoSujetoForm({
           </select>
         </div>
         <div className="field">
-          <label htmlFor="so-organismo">Organismo supervisor</label>
-          <input id="so-organismo" value={organismo} onChange={(e) => setOrganismo(e.target.value)} placeholder="Ej. Superintendencia de Bancos" />
+          <label htmlFor="so-organismo">Organismo supervisor <span aria-hidden="true" style={{ color: 'var(--danger, #dc2626)' }}>*</span></label>
+          <input id="so-organismo" value={organismo} onChange={(e) => setOrganismo(e.target.value)} placeholder="Ej. Superintendencia de Bancos" required />
         </div>
         <div className="field">
-          <label htmlFor="so-responsable">Responsable de cumplimiento</label>
-          <input id="so-responsable" value={responsable} onChange={(e) => setResponsable(e.target.value)} />
+          <label htmlFor="so-responsable">Responsable de cumplimiento <span aria-hidden="true" style={{ color: 'var(--danger, #dc2626)' }}>*</span></label>
+          <input id="so-responsable" value={responsable} onChange={(e) => setResponsable(e.target.value)} required />
         </div>
 
         <div className="field full">

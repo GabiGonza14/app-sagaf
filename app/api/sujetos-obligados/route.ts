@@ -12,8 +12,8 @@ const schema = z.object({
   tipo: z.string().min(1),
   sector: z.string().min(1),
   estado: z.enum(['activo', 'inactivo']).default('activo'),
-  organismo_supervisor: z.string().optional().nullable(),
-  responsable_cumpl: z.string().optional().nullable(),
+  organismo_supervisor: z.string().min(1, 'El organismo supervisor es obligatorio'),
+  responsable_cumpl: z.string().min(1, 'El responsable de cumplimiento es obligatorio'),
   plantillas: z.array(z.string()).min(1, 'Asocie al menos una plantilla ROS (RE-01)'),
 });
 
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id, parsed.data.nombre, parsed.data.ruc ?? null, parsed.data.tipo, parsed.data.sector,
-      parsed.data.organismo_supervisor ?? null, parsed.data.responsable_cumpl ?? null, parsed.data.estado,
+      parsed.data.organismo_supervisor, parsed.data.responsable_cumpl, parsed.data.estado,
     );
     for (const plId of parsed.data.plantillas) {
       db.prepare(
