@@ -51,7 +51,6 @@ button, input, textarea, select { font: inherit; }
   display: grid;
   grid-template-columns: 280px 1fr;
   min-height: 100vh;
-  overflow-x: hidden;
 }
 
 .sidebar {
@@ -207,7 +206,7 @@ button, input, textarea, select { font: inherit; }
   line-height: 1.55;
 }
 
-.main { padding: 30px; min-width: 0; position: relative; }
+.main { padding: 30px; min-width: 0; overflow-x: hidden; position: relative; }
 
 /* Mobile header (hidden on desktop) */
 .mobile-header {
@@ -290,6 +289,7 @@ h2 { margin: 0; color: #0b1a30; font-size: 1.75rem; font-weight: 700; line-heigh
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 20px;
+  overflow: hidden;
 }
 
 .kpi { overflow: hidden; position: relative; }
@@ -1012,9 +1012,9 @@ label { color: #344054; font-size: 13px; font-weight: 900; }
 .table-wrapper {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  border-radius: var(--radius);
-  width: 100%;
-  display: block;
+  border-radius: inherit;
+  margin: 0 -20px;
+  padding: 0 20px;
 }
 
 .table {
@@ -1022,16 +1022,14 @@ label { color: #344054; font-size: 13px; font-weight: 900; }
   border-collapse: separate;
   border-spacing: 0;
   font-size: 13px;
+  min-width: 800px;
 }
 
 .table th, .table td {
   text-align: left;
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
-  white-space: nowrap;
 }
-
-.table td.wrap { white-space: normal; }
 
 .table th {
   color: var(--muted);
@@ -1176,7 +1174,7 @@ label { color: #344054; font-size: 13px; font-weight: 900; }
   .auth-card { padding: 24px 20px; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
-  /* table-wrapper overflow ya definido globalmente */
+  /* Tables — ya definido globalmente arriba */
 }
 
 /* Mobile: 1-column everything */
