@@ -24,6 +24,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Solo admin/supervisor' }, { status: 403 });
 
   const payload = await req.json().catch(() => null);
+  const isStatusToggle = payload && Object.keys(payload).length === 1 && 'estado' in payload;
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: 'Datos inválidos', issues: parsed.error.flatten() }, { status: 400 });
 
@@ -36,6 +37,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (parsed.data.ruc && parsed.data.ruc !== so.ruc) {
     const existe = db.prepare('SELECT 1 FROM sujeto_obligado WHERE ruc = ? AND id != ?').get(parsed.data.ruc, id);
     if (existe) return NextResponse.json({ error: 'RUC ya registrado en otro sujeto obligado' }, { status: 409 });
+  }
+
+  // A2 — Duplicidad por nombre cuando el sujeto resultante no tendrá RUC
+  const effectiveRuc = parsed.data.ruc !== undefined ? (parsed.data.ruc || null) : so.ruc;
+  if (!effectiveRuc && parsed.data.nombre && parsed.data.nombre !== so.nombre) {
+    const existeNombre = db.prepare(
+      'SELECT 1 FROM sujeto_obligado WHERE nombre = ? AND (ruc IS NULL OR ruc = "") AND id != ?',
+    ).get(parsed.data.nombre, id);
+    if (existeNombre) return NextResponse.json({ error: 'Ya existe un sujeto obligado sin RUC con ese nombre' }, { status: 409 });
   }
 
   const d = parsed.data;
@@ -70,8 +80,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   });
   tx();
 
+  const accionAudit = isStatusToggle
+    ? (d.estado === 'inactivo' ? 'desactivar_sujeto_obligado' : 'activar_sujeto_obligado')
+    : 'actualizar_sujeto_obligado';
+
   audit({
-    modulo: 'admin', accion: 'actualizar_sujeto_obligado', resultado: 'exito',
+    modulo: 'admin', accion: accionAudit, resultado: 'exito',
     usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
     ip: ctx.ip, user_agent: ctx.user_agent,
     detalle: { id, nombre: d.nombre ?? so.nombre, cambios: d },

@@ -29,6 +29,7 @@ export function SujetoActions({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   // form state
   const [nombre, setNombre] = useState(sujeto.nombre);
@@ -74,6 +75,7 @@ export function SujetoActions({
 
   async function toggleEstado() {
     const nuevoEstado = sujeto.estado === 'activo' ? 'inactivo' : 'activo';
+    setToggleError(null);
     setBusy(true);
     try {
       const res = await fetch(`/api/sujetos-obligados/${sujeto.id}`, {
@@ -81,32 +83,41 @@ export function SujetoActions({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: nuevoEstado }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setToggleError(data.error ?? 'Error al cambiar el estado.');
+        return;
+      }
       router.refresh();
     } finally { setBusy(false); }
   }
 
   return (
     <>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button
-          className="btn secondary"
-          onClick={() => { setOpen(true); setError(null); }}
-          disabled={busy}
-          title="Editar sujeto obligado"
-          style={{ fontSize: 13, padding: '6px 12px' }}
-        >
-          Editar
-        </button>
-        <button
-          className={`btn ${sujeto.estado === 'activo' ? 'red' : 'green'}`}
-          onClick={toggleEstado}
-          disabled={busy}
-          title={sujeto.estado === 'activo' ? 'Desactivar' : 'Activar'}
-          style={{ fontSize: 13, padding: '6px 12px' }}
-        >
-          {sujeto.estado === 'activo' ? 'Desactivar' : 'Activar'}
-        </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            className="btn secondary"
+            onClick={() => { setOpen(true); setError(null); setToggleError(null); }}
+            disabled={busy}
+            title="Editar sujeto obligado"
+            style={{ fontSize: 13, padding: '6px 12px' }}
+          >
+            Editar
+          </button>
+          <button
+            className={`btn ${sujeto.estado === 'activo' ? 'red' : 'green'}`}
+            onClick={toggleEstado}
+            disabled={busy}
+            title={sujeto.estado === 'activo' ? 'Desactivar' : 'Activar'}
+            style={{ fontSize: 13, padding: '6px 12px' }}
+          >
+            {sujeto.estado === 'activo' ? 'Desactivar' : 'Activar'}
+          </button>
+        </div>
+        {toggleError && (
+          <div className="client-status error" style={{ fontSize: 12, padding: '4px 8px' }}>{toggleError}</div>
+        )}
       </div>
 
       {open && (

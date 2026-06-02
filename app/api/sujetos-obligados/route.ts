@@ -33,6 +33,14 @@ export async function POST(req: Request) {
     if (existe) return NextResponse.json({ error: 'RUC ya registrado' }, { status: 409 });
   }
 
+  // A2 — Duplicidad por nombre cuando no hay RUC (el nombre actúa como identificador)
+  if (!parsed.data.ruc) {
+    const existeNombre = db.prepare(
+      'SELECT 1 FROM sujeto_obligado WHERE nombre = ? AND (ruc IS NULL OR ruc = "")',
+    ).get(parsed.data.nombre);
+    if (existeNombre) return NextResponse.json({ error: 'Ya existe un sujeto obligado sin RUC con ese nombre' }, { status: 409 });
+  }
+
   const id = randomUUID();
   const tx = db.transaction(() => {
     db.prepare(`

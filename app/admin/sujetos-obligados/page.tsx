@@ -16,9 +16,17 @@ interface AuditRow {
 }
 
 const ACCION_LABEL: Record<string, string> = {
-  crear_sujeto_obligado:      'Crear',
-  actualizar_sujeto_obligado: 'Modificar',
+  crear_sujeto_obligado:       'Crear',
+  actualizar_sujeto_obligado:  'Modificar',
+  desactivar_sujeto_obligado:  'Desactivar',
+  activar_sujeto_obligado:     'Activar',
 };
+
+function accionTone(accion: string): 'green' | 'blue' | 'red' | 'amber' {
+  if (accion === 'crear_sujeto_obligado' || accion === 'activar_sujeto_obligado') return 'green';
+  if (accion === 'desactivar_sujeto_obligado') return 'red';
+  return 'blue';
+}
 
 function parsearEntidad(detalle: string | null): string {
   if (!detalle) return '—';
@@ -90,7 +98,7 @@ export default async function SujetosAdmin() {
   const ultimasAcciones = db.prepare<[], AuditRow>(`
     SELECT fecha_hora_servidor, usuario_correo, accion, detalle, resultado
       FROM evento_auditoria
-     WHERE modulo = 'admin' AND accion IN ('crear_sujeto_obligado', 'actualizar_sujeto_obligado')
+     WHERE modulo = 'admin' AND accion IN ('crear_sujeto_obligado', 'actualizar_sujeto_obligado', 'desactivar_sujeto_obligado', 'activar_sujeto_obligado')
      ORDER BY fecha_hora_servidor DESC
      LIMIT 10
   `).all();
@@ -181,7 +189,7 @@ export default async function SujetosAdmin() {
               {ultimasAcciones.map((a, i) => (
                 <tr key={i}>
                   <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatPanama(a.fecha_hora_servidor)}</td>
-                  <td><Badge tone={a.accion === 'crear_sujeto_obligado' ? 'green' : 'blue'}>{ACCION_LABEL[a.accion] ?? a.accion}</Badge></td>
+                  <td><Badge tone={accionTone(a.accion)}>{ACCION_LABEL[a.accion] ?? a.accion}</Badge></td>
                   <td><strong style={{ fontSize: 13 }}>{parsearEntidad(a.detalle)}</strong></td>
                   <td style={{ fontSize: 12, color: 'var(--muted)' }}>{parsearCambios(a.detalle) || '—'}</td>
                   <td style={{ fontSize: 12 }}>{a.usuario_correo ?? '—'}</td>
