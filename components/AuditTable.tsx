@@ -179,8 +179,8 @@ export function AuditTable({ filters, modulosDisponibles }: Props) {
                         {ACCION_LABEL[r.accion] ?? r.accion}
                       </strong>
                     </td>
-                    <td style={{ fontSize: 13 }}>{entidad}</td>
-                    <td style={{ fontSize: 12, color: 'var(--muted)' }}>{cambios || '—'}</td>
+                    <td className="wrap" style={{ fontSize: 13, maxWidth: 200 }}>{entidad}</td>
+                    <td className="wrap" style={{ fontSize: 12, color: 'var(--muted)', maxWidth: 180 }}>{cambios || '—'}</td>
                     <td>
                       <Badge tone={TONO_RESULTADO[r.resultado] ?? 'gray'}>{r.resultado}</Badge>
                     </td>

@@ -1008,6 +1008,12 @@ label { color: #344054; font-size: 13px; font-weight: 900; }
 /* ---------- Utility ---------- */
 .hidden { display: none !important; }
 
+.table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius);
+}
+
 .table {
   width: 100%;
   border-collapse: separate;
@@ -1019,7 +1025,10 @@ label { color: #344054; font-size: 13px; font-weight: 900; }
   text-align: left;
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
+  white-space: nowrap;
 }
+
+.table td.wrap { white-space: normal; }
 
 .table th {
   color: var(--muted);
@@ -1164,12 +1173,7 @@ label { color: #344054; font-size: 13px; font-weight: 900; }
   .auth-card { padding: 24px 20px; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
-  /* Tables scroll horizontally */
-  .table-wrapper {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    border-radius: var(--radius);
-  }
+  /* table-wrapper overflow ya definido globalmente */
 }
 
 /* Mobile: 1-column everything */
