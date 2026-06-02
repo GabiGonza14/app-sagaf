@@ -63,7 +63,7 @@ export async function POST(req: Request) {
        FROM sujeto_obligado so WHERE so.id = ?`,
   ).get(subject.sujeto_obligado_id);
 
-  if (!so || so.estado !== 'activo') {
+  if (so?.estado !== 'activo') {
     return NextResponse.json(
       { error: 'Su organización está inactiva. No puede registrar nuevos ROS hasta que el administrador la habilite.' },
       { status: 403 },

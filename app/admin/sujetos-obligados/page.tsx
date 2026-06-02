@@ -8,6 +8,7 @@ import { SujetoActions } from './SujetoActions';
 import { formatPanama } from '@/lib/date';
 
 interface AuditRow {
+  id: string;
   fecha_hora_servidor: string;
   usuario_correo: string | null;
   accion: string;
@@ -96,7 +97,7 @@ export default async function SujetosAdmin() {
 
   // RE-03: últimas acciones sobre sujetos obligados para vista rápida
   const ultimasAcciones = db.prepare<[], AuditRow>(`
-    SELECT fecha_hora_servidor, usuario_correo, accion, detalle, resultado
+    SELECT id, fecha_hora_servidor, usuario_correo, accion, detalle, resultado
       FROM evento_auditoria
      WHERE modulo = 'admin' AND accion IN ('crear_sujeto_obligado', 'actualizar_sujeto_obligado', 'desactivar_sujeto_obligado', 'activar_sujeto_obligado')
      ORDER BY fecha_hora_servidor DESC
@@ -186,8 +187,8 @@ export default async function SujetosAdmin() {
               </tr>
             </thead>
             <tbody>
-              {ultimasAcciones.map((a, i) => (
-                <tr key={i}>
+              {ultimasAcciones.map((a) => (
+                <tr key={a.id}>
                   <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatPanama(a.fecha_hora_servidor)}</td>
                   <td><Badge tone={accionTone(a.accion)}>{ACCION_LABEL[a.accion] ?? a.accion}</Badge></td>
                   <td><strong style={{ fontSize: 13 }}>{parsearEntidad(a.detalle)}</strong></td>

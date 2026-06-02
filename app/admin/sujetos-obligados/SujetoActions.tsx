@@ -20,11 +20,11 @@ export function SujetoActions({
   sujeto,
   todasPlantillas,
   tiposDisponibles,
-}: {
+}: Readonly<{
   sujeto: Sujeto;
   todasPlantillas: Plantilla[];
   tiposDisponibles: string[];
-}) {
+}>) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -121,9 +121,21 @@ export function SujetoActions({
       </div>
 
       {open && (
-        <div className="modal-overlay" onClick={() => setOpen(false)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 12px' }}>Editar sujeto obligado</h3>
+        <div
+          className="modal-overlay"
+          onClick={() => setOpen(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
+          role="presentation"
+        >
+          <div
+            className="modal-box"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`dialog-title-${sujeto.id}`}
+          >
+            <h3 id={`dialog-title-${sujeto.id}`} style={{ margin: '0 0 12px' }}>Editar sujeto obligado</h3>
             <form onSubmit={onSave}>
               <div className="form-grid">
                 <div className="field">
@@ -166,8 +178,8 @@ export function SujetoActions({
                   <input id={`edit-responsable-${sujeto.id}`} value={responsable} onChange={(e) => setResponsable(e.target.value)} />
                 </div>
 
-                <div className="field full">
-                  <label>Plantillas ROS</label>
+                <div className="field full" role="group" aria-labelledby={`plantillas-label-${sujeto.id}`}>
+                  <p id={`plantillas-label-${sujeto.id}`} style={{ fontWeight: 600, margin: '0 0 6px' }}>Plantillas ROS</p>
                   {compatibles.length === 0 ? (
                     <div className="notice amber">No hay plantillas activas para este tipo.</div>
                   ) : (

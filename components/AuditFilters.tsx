@@ -27,7 +27,7 @@ const MODULO_LABEL: Record<string, string> = {
   system:        'Sistema',
 };
 
-export function AuditFilters({ initial, modulosDisponibles }: Props) {
+export function AuditFilters({ initial, modulosDisponibles }: Readonly<Props>) {
   const router = useRouter();
   const pathname = usePathname();
   const [v, setV] = useState<AuditFilterValues>(initial);
@@ -49,12 +49,12 @@ export function AuditFilters({ initial, modulosDisponibles }: Props) {
   return (
     <form onSubmit={apply} className="form-grid" style={{ marginBottom: 16 }}>
       <div className="field">
-        <label>Buscar (correo · acción · recurso · detalle)</label>
-        <input value={v.q} onChange={(e) => setV({ ...v, q: e.target.value })} placeholder="ej: admin@uaf.gob.pa" />
+        <label htmlFor="af-q">Buscar (correo · acción · recurso · detalle)</label>
+        <input id="af-q" value={v.q} onChange={(e) => setV({ ...v, q: e.target.value })} placeholder="ej: admin@uaf.gob.pa" />
       </div>
       <div className="field">
-        <label>Módulo</label>
-        <select value={v.modulo} onChange={(e) => setV({ ...v, modulo: e.target.value })}>
+        <label htmlFor="af-modulo">Módulo</label>
+        <select id="af-modulo" value={v.modulo} onChange={(e) => setV({ ...v, modulo: e.target.value })}>
           <option value="">Todos</option>
           {modulosDisponibles
             ? modulosDisponibles.map((m) => (
@@ -73,8 +73,8 @@ export function AuditFilters({ initial, modulosDisponibles }: Props) {
         </select>
       </div>
       <div className="field">
-        <label>Resultado</label>
-        <select value={v.resultado} onChange={(e) => setV({ ...v, resultado: e.target.value })}>
+        <label htmlFor="af-resultado">Resultado</label>
+        <select id="af-resultado" value={v.resultado} onChange={(e) => setV({ ...v, resultado: e.target.value })}>
           <option value="">Cualquiera</option>
           <option value="exito">Éxito</option>
           <option value="fallo">Fallo</option>
@@ -82,8 +82,8 @@ export function AuditFilters({ initial, modulosDisponibles }: Props) {
         </select>
       </div>
       <div className="field">
-        <label>Criticidad</label>
-        <select value={v.criticidad} onChange={(e) => setV({ ...v, criticidad: e.target.value })}>
+        <label htmlFor="af-criticidad">Criticidad</label>
+        <select id="af-criticidad" value={v.criticidad} onChange={(e) => setV({ ...v, criticidad: e.target.value })}>
           <option value="">Cualquiera</option>
           <option value="normal">Normal</option>
           <option value="alta">Alta</option>
@@ -91,12 +91,12 @@ export function AuditFilters({ initial, modulosDisponibles }: Props) {
         </select>
       </div>
       <div className="field">
-        <label>Desde</label>
-        <input type="date" value={v.desde} onChange={(e) => setV({ ...v, desde: e.target.value })} />
+        <label htmlFor="af-desde">Desde</label>
+        <input id="af-desde" type="date" value={v.desde} onChange={(e) => setV({ ...v, desde: e.target.value })} />
       </div>
       <div className="field">
-        <label>Hasta</label>
-        <input type="date" value={v.hasta} onChange={(e) => setV({ ...v, hasta: e.target.value })} />
+        <label htmlFor="af-hasta">Hasta</label>
+        <input id="af-hasta" type="date" value={v.hasta} onChange={(e) => setV({ ...v, hasta: e.target.value })} />
       </div>
       <div className="field full" style={{ display: 'flex', gap: 8 }}>
         <button type="submit" className="btn primary">Aplicar filtros</button>

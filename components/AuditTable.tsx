@@ -108,7 +108,7 @@ const TONO_MODULO: Record<string, 'blue' | 'teal' | 'amber' | 'red' | 'gray' | '
   system:        'gray',
 };
 
-export function AuditTable({ filters, modulosDisponibles }: Props) {
+export function AuditTable({ filters, modulosDisponibles }: Readonly<Props>) {
   const where: string[] = [];
   const params: unknown[] = [];
 

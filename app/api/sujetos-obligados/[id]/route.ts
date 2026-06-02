@@ -16,6 +16,26 @@ const schema = z.object({
   plantillas: z.array(z.string()).min(1).optional(),
 });
 
+type Data = z.infer<typeof schema>;
+
+function buildUpdateFields(d: Data): { fields: string[]; vals: unknown[] } {
+  const fields: string[] = [];
+  const vals: unknown[] = [];
+  if (d.nombre !== undefined)               { fields.push('nombre = ?');               vals.push(d.nombre); }
+  if (d.ruc !== undefined)                  { fields.push('ruc = ?');                  vals.push(d.ruc ?? null); }
+  if (d.tipo !== undefined)                 { fields.push('tipo = ?');                 vals.push(d.tipo); }
+  if (d.sector !== undefined)               { fields.push('sector = ?');               vals.push(d.sector); }
+  if (d.organismo_supervisor !== undefined) { fields.push('organismo_supervisor = ?'); vals.push(d.organismo_supervisor ?? null); }
+  if (d.responsable_cumpl !== undefined)    { fields.push('responsable_cumpl = ?');    vals.push(d.responsable_cumpl ?? null); }
+  if (d.estado !== undefined)               { fields.push('estado = ?');               vals.push(d.estado); }
+  return { fields, vals };
+}
+
+function resolveAuditAction(isStatusToggle: boolean, estado: string | undefined): string {
+  if (!isStatusToggle) return 'actualizar_sujeto_obligado';
+  return estado === 'inactivo' ? 'desactivar_sujeto_obligado' : 'activar_sujeto_obligado';
+}
+
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
@@ -40,7 +60,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   // A2 — Duplicidad por nombre cuando el sujeto resultante no tendrá RUC
-  const effectiveRuc = parsed.data.ruc !== undefined ? (parsed.data.ruc || null) : so.ruc;
+  const effectiveRuc = parsed.data.ruc === undefined ? so.ruc : (parsed.data.ruc || null);
   if (!effectiveRuc && parsed.data.nombre && parsed.data.nombre !== so.nombre) {
     const existeNombre = db.prepare(
       'SELECT 1 FROM sujeto_obligado WHERE nombre = ? AND (ruc IS NULL OR ruc = "") AND id != ?',
@@ -50,25 +70,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const d = parsed.data;
   const ctx = extractRequestContext(req);
+  const { fields, vals } = buildUpdateFields(d);
 
   const tx = db.transaction(() => {
-    // Actualizar campos enviados
-    const fields: string[] = [];
-    const vals: unknown[] = [];
-
-    if (d.nombre !== undefined) { fields.push('nombre = ?'); vals.push(d.nombre); }
-    if (d.ruc !== undefined)    { fields.push('ruc = ?');    vals.push(d.ruc ?? null); }
-    if (d.tipo !== undefined)   { fields.push('tipo = ?');   vals.push(d.tipo); }
-    if (d.sector !== undefined) { fields.push('sector = ?'); vals.push(d.sector); }
-    if (d.organismo_supervisor !== undefined) { fields.push('organismo_supervisor = ?'); vals.push(d.organismo_supervisor ?? null); }
-    if (d.responsable_cumpl !== undefined)    { fields.push('responsable_cumpl = ?');    vals.push(d.responsable_cumpl ?? null); }
-    if (d.estado !== undefined) { fields.push('estado = ?'); vals.push(d.estado); }
-
     if (fields.length > 0) {
       db.prepare(`UPDATE sujeto_obligado SET ${fields.join(', ')} WHERE id = ?`).run(...vals, id);
     }
-
-    // Reemplazar plantillas si se enviaron
     if (d.plantillas) {
       db.prepare('DELETE FROM sujeto_obligado_plantilla WHERE sujeto_obligado_id = ?').run(id);
       for (const plId of d.plantillas) {
@@ -80,9 +87,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   });
   tx();
 
-  const accionAudit = isStatusToggle
-    ? (d.estado === 'inactivo' ? 'desactivar_sujeto_obligado' : 'activar_sujeto_obligado')
-    : 'actualizar_sujeto_obligado';
+  const accionAudit = resolveAuditAction(isStatusToggle, d.estado);
 
   audit({
     modulo: 'admin', accion: accionAudit, resultado: 'exito',
