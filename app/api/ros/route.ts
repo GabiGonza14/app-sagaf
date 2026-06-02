@@ -55,6 +55,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Usuario sin entidad asociada' }, { status: 400 });
   }
 
+  // A3 — Sujeto obligado inactivo no puede registrar ROS (CU-06)
+  // A4 — Sin plantilla asignada no puede registrar ROS (CU-06)
+  const so = db.prepare<[string], { estado: string; plantillas: number }>(
+    `SELECT so.estado,
+            (SELECT COUNT(*) FROM sujeto_obligado_plantilla WHERE sujeto_obligado_id = so.id) AS plantillas
+       FROM sujeto_obligado so WHERE so.id = ?`,
+  ).get(subject.sujeto_obligado_id);
+
+  if (!so || so.estado !== 'activo') {
+    return NextResponse.json(
+      { error: 'Su organización está inactiva. No puede registrar nuevos ROS hasta que el administrador la habilite.' },
+      { status: 403 },
+    );
+  }
+  if (so.plantillas === 0) {
+    return NextResponse.json(
+      { error: 'Su organización no tiene plantillas ROS asignadas. Contacte al administrador.' },
+      { status: 403 },
+    );
+  }
+
   const payload = await req.json().catch(() => null);
   const baseSchema = payload?.modo === 'borrador'
     ? schema.extend({
