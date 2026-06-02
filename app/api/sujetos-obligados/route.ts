@@ -11,9 +11,10 @@ const schema = z.object({
   ruc: z.string().optional().nullable(),
   tipo: z.string().min(1),
   sector: z.string().min(1),
+  estado: z.enum(['activo', 'inactivo']).default('activo'),
   organismo_supervisor: z.string().optional().nullable(),
   responsable_cumpl: z.string().optional().nullable(),
-  plantillas: z.array(z.string()).min(1, 'Asocie al menos una plantilla ROS'),
+  plantillas: z.array(z.string()).min(1, 'Asocie al menos una plantilla ROS (RE-01)'),
 });
 
 export async function POST(req: Request) {
@@ -36,10 +37,10 @@ export async function POST(req: Request) {
   const tx = db.transaction(() => {
     db.prepare(`
       INSERT INTO sujeto_obligado (id, nombre, ruc, tipo, sector, organismo_supervisor, responsable_cumpl, estado)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 'activo')
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id, parsed.data.nombre, parsed.data.ruc ?? null, parsed.data.tipo, parsed.data.sector,
-      parsed.data.organismo_supervisor ?? null, parsed.data.responsable_cumpl ?? null,
+      parsed.data.organismo_supervisor ?? null, parsed.data.responsable_cumpl ?? null, parsed.data.estado,
     );
     for (const plId of parsed.data.plantillas) {
       db.prepare(

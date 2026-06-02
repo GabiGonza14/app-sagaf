@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
 import { NuevoSujetoForm } from './NuevoSujetoForm';
+import { SujetoActions } from './SujetoActions';
 
 export const revalidate = 0;
 
@@ -16,6 +17,11 @@ interface Row {
   estado: string;
   responsable_cumpl: string | null;
   plantillas: number;
+}
+
+interface PlantillaAsig {
+  sujeto_obligado_id: string;
+  plantilla_id: string;
 }
 
 export default async function SujetosAdmin() {
@@ -35,12 +41,23 @@ export default async function SujetosAdmin() {
     `SELECT id, nombre, tipo_sujeto_obligado FROM plantilla_ros WHERE activa = 1 ORDER BY nombre`,
   ).all();
 
+  // Cargar todas las asociaciones para pasarlas al componente de edición
+  const asignaciones = db.prepare<[], PlantillaAsig>(
+    `SELECT sujeto_obligado_id, plantilla_id FROM sujeto_obligado_plantilla`,
+  ).all();
+
+  const plantillasPorSujeto: Record<string, string[]> = {};
+  for (const a of asignaciones) {
+    if (!plantillasPorSujeto[a.sujeto_obligado_id]) plantillasPorSujeto[a.sujeto_obligado_id] = [];
+    plantillasPorSujeto[a.sujeto_obligado_id].push(a.plantilla_id);
+  }
+
   return (
     <>
       <TopBar
         eyebrow="Gestión de sujetos obligados"
         title="Sujetos obligados"
-        description="Registra, clasifica y administra sujetos obligados. Cada uno debe tener tipo, sector y plantilla ROS asociada. El registro queda auditado."
+        description="Registra, clasifica y administra sujetos obligados. Cada uno debe tener tipo, sector, estado y plantilla ROS asociada (RE-01). Todo cambio queda auditado (RE-03)."
       />
 
       <div className="card">
@@ -55,6 +72,7 @@ export default async function SujetosAdmin() {
               <th>Responsable cumplimiento</th>
               <th>Plantillas</th>
               <th>Estado</th>
+              <th>Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -68,6 +86,22 @@ export default async function SujetosAdmin() {
                 <td>{r.responsable_cumpl ?? '—'}</td>
                 <td><Badge tone={r.plantillas > 0 ? 'green' : 'amber'}>{r.plantillas}</Badge></td>
                 <td><Badge tone={r.estado === 'activo' ? 'green' : 'red'}>{r.estado}</Badge></td>
+                <td>
+                  <SujetoActions
+                    sujeto={{
+                      id: r.id,
+                      nombre: r.nombre,
+                      ruc: r.ruc,
+                      tipo: r.tipo,
+                      sector: r.sector,
+                      organismo_supervisor: r.organismo_supervisor,
+                      responsable_cumpl: r.responsable_cumpl,
+                      estado: r.estado,
+                      plantillasAsignadas: plantillasPorSujeto[r.id] ?? [],
+                    }}
+                    todasPlantillas={plantillas}
+                  />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -76,7 +110,9 @@ export default async function SujetosAdmin() {
 
       <div className="card" style={{ marginTop: 18 }}>
         <h3 style={{ margin: 0 }}>Registrar nuevo sujeto obligado</h3>
-        <p className="small" style={{ marginBottom: 14 }}>Debe asociarse al menos una plantilla ROS válida.</p>
+        <p className="small" style={{ marginBottom: 14 }}>
+          Campos obligatorios: nombre, tipo, sector, estado y al menos una plantilla ROS (RE-01).
+        </p>
         <NuevoSujetoForm plantillas={plantillas} />
       </div>
     </>
