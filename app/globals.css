@@ -206,7 +206,7 @@ button, input, textarea, select { font: inherit; }
   line-height: 1.55;
 }
 
-.main { padding: 30px; min-width: 0; overflow-x: hidden; position: relative; }
+.main { padding: 30px; min-width: 0; overflow-x: clip; position: relative; }
 
 /* Mobile header (hidden on desktop) */
 .mobile-header {
