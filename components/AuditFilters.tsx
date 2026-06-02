@@ -13,9 +13,21 @@ export interface AuditFilterValues {
 
 interface Props {
   initial: AuditFilterValues;
+  modulosDisponibles?: string[];
 }
 
-export function AuditFilters({ initial }: Props) {
+const MODULO_LABEL: Record<string, string> = {
+  autenticacion: 'Autenticación',
+  ros:           'ROS',
+  admin:         'Administración',
+  documentos:    'Documentos',
+  reportes:      'Reportes',
+  vinculos:      'Vínculos',
+  auditoria:     'Auditoría',
+  system:        'Sistema',
+};
+
+export function AuditFilters({ initial, modulosDisponibles }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const [v, setV] = useState<AuditFilterValues>(initial);
@@ -37,20 +49,27 @@ export function AuditFilters({ initial }: Props) {
   return (
     <form onSubmit={apply} className="form-grid" style={{ marginBottom: 16 }}>
       <div className="field">
-        <label>Buscar (correo · acción · recurso)</label>
-        <input value={v.q} onChange={(e) => setV({ ...v, q: e.target.value })} placeholder="ej: ROS-2026-000248" />
+        <label>Buscar (correo · acción · recurso · detalle)</label>
+        <input value={v.q} onChange={(e) => setV({ ...v, q: e.target.value })} placeholder="ej: admin@uaf.gob.pa" />
       </div>
       <div className="field">
         <label>Módulo</label>
         <select value={v.modulo} onChange={(e) => setV({ ...v, modulo: e.target.value })}>
           <option value="">Todos</option>
-          <option value="autenticacion">Autenticación</option>
-          <option value="ros">ROS</option>
-          <option value="documentos">Documentos</option>
-          <option value="reportes">Reportes</option>
-          <option value="vinculos">Vínculos</option>
-          <option value="admin">Admin</option>
-          <option value="auditoria">Auditoría</option>
+          {modulosDisponibles
+            ? modulosDisponibles.map((m) => (
+                <option key={m} value={m}>{MODULO_LABEL[m] ?? m}</option>
+              ))
+            : (
+              <>
+                <option value="autenticacion">Autenticación</option>
+                <option value="ros">ROS</option>
+                <option value="documentos">Documentos</option>
+                <option value="admin">Administración</option>
+                <option value="auditoria">Auditoría</option>
+                <option value="system">Sistema</option>
+              </>
+            )}
         </select>
       </div>
       <div className="field">
