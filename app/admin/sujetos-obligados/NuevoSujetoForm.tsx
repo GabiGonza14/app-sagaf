@@ -4,11 +4,17 @@ import { useRouter } from 'next/navigation';
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 
-export function NuevoSujetoForm({ plantillas }: { plantillas: Plantilla[] }) {
+export function NuevoSujetoForm({
+  plantillas,
+  tiposDisponibles,
+}: {
+  plantillas: Plantilla[];
+  tiposDisponibles: string[];
+}) {
   const router = useRouter();
   const [nombre, setNombre] = useState('');
   const [ruc, setRuc] = useState('');
-  const [tipo, setTipo] = useState('bank');
+  const [tipo, setTipo] = useState('');
   const [sector, setSector] = useState('financiero');
   const [estado, setEstado] = useState('activo');
   const [organismo, setOrganismo] = useState('');
@@ -63,12 +69,11 @@ export function NuevoSujetoForm({ plantillas }: { plantillas: Plantilla[] }) {
         </div>
         <div className="field">
           <label htmlFor="so-tipo">Tipo</label>
-          <select id="so-tipo" value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }}>
-            <option value="bank">Banco</option>
-            <option value="realestate">Inmobiliaria / Promotora</option>
-            <option value="casino">Casino</option>
-            <option value="abogado">Abogado / Notario</option>
-            <option value="otro">Otro sector regulado</option>
+          <select id="so-tipo" value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }} required>
+            <option value="">— Seleccione —</option>
+            {tiposDisponibles.map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
           </select>
         </div>
         <div className="field">

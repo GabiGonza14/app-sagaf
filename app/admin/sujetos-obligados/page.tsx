@@ -41,6 +41,11 @@ export default async function SujetosAdmin() {
     `SELECT id, nombre, tipo_sujeto_obligado FROM plantilla_ros WHERE activa = 1 ORDER BY nombre`,
   ).all();
 
+  // RE-02: tipos disponibles cargados dinámicamente desde la DB (no hardcodeados)
+  const tiposDisponibles = db.prepare<[], { tipo: string }>(
+    `SELECT DISTINCT tipo_sujeto_obligado AS tipo FROM plantilla_ros WHERE activa = 1 ORDER BY tipo`,
+  ).all().map((r) => r.tipo);
+
   // Cargar todas las asociaciones para pasarlas al componente de edición
   const asignaciones = db.prepare<[], PlantillaAsig>(
     `SELECT sujeto_obligado_id, plantilla_id FROM sujeto_obligado_plantilla`,
@@ -100,6 +105,7 @@ export default async function SujetosAdmin() {
                       plantillasAsignadas: plantillasPorSujeto[r.id] ?? [],
                     }}
                     todasPlantillas={plantillas}
+                    tiposDisponibles={tiposDisponibles}
                   />
                 </td>
               </tr>
@@ -113,7 +119,7 @@ export default async function SujetosAdmin() {
         <p className="small" style={{ marginBottom: 14 }}>
           Campos obligatorios: nombre, tipo, sector, estado y al menos una plantilla ROS (RE-01).
         </p>
-        <NuevoSujetoForm plantillas={plantillas} />
+        <NuevoSujetoForm plantillas={plantillas} tiposDisponibles={tiposDisponibles} />
       </div>
     </>
   );

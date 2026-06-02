@@ -19,9 +19,11 @@ interface Sujeto {
 export function SujetoActions({
   sujeto,
   todasPlantillas,
+  tiposDisponibles,
 }: {
   sujeto: Sujeto;
   todasPlantillas: Plantilla[];
+  tiposDisponibles: string[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -123,12 +125,10 @@ export function SujetoActions({
                 </div>
                 <div className="field">
                   <label htmlFor={`edit-tipo-${sujeto.id}`}>Tipo</label>
-                  <select id={`edit-tipo-${sujeto.id}`} value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }}>
-                    <option value="bank">Banco</option>
-                    <option value="realestate">Inmobiliaria / Promotora</option>
-                    <option value="casino">Casino</option>
-                    <option value="abogado">Abogado / Notario</option>
-                    <option value="otro">Otro sector regulado</option>
+                  <select id={`edit-tipo-${sujeto.id}`} value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }} required>
+                    {tiposDisponibles.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="field">
