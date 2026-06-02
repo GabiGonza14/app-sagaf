@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
@@ -26,6 +26,7 @@ export function SujetoActions({
   tiposDisponibles: string[];
 }>) {
   const router = useRouter();
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +41,16 @@ export function SujetoActions({
   const [organismo, setOrganismo] = useState(sujeto.organismo_supervisor ?? '');
   const [responsable, setResponsable] = useState(sujeto.responsable_cumpl ?? '');
   const [seleccionadas, setSeleccionadas] = useState<string[]>(sujeto.plantillasAsignadas);
+
+  useEffect(() => {
+    const el = dialogRef.current;
+    if (!el) return;
+    if (open && !el.open) {
+      el.showModal();
+    } else if (!open && el.open) {
+      el.close();
+    }
+  }, [open]);
 
   const compatibles = todasPlantillas.filter((p) => p.tipo_sujeto_obligado === tipo);
 
@@ -120,99 +131,92 @@ export function SujetoActions({
         )}
       </div>
 
-      {open && (
-        <div
-          className="modal-overlay"
-          onClick={() => setOpen(false)}
-          onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}
-          role="presentation"
-        >
-          <div
-            className="modal-box"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={`dialog-title-${sujeto.id}`}
-          >
-            <h3 id={`dialog-title-${sujeto.id}`} style={{ margin: '0 0 12px' }}>Editar sujeto obligado</h3>
-            <form onSubmit={onSave}>
-              <div className="form-grid">
-                <div className="field">
-                  <label htmlFor={`edit-nombre-${sujeto.id}`}>Nombre</label>
-                  <input id={`edit-nombre-${sujeto.id}`} value={nombre} onChange={(e) => setNombre(e.target.value)} required />
-                </div>
-                <div className="field">
-                  <label htmlFor={`edit-ruc-${sujeto.id}`}>RUC / identificador</label>
-                  <input id={`edit-ruc-${sujeto.id}`} value={ruc} onChange={(e) => setRuc(e.target.value)} />
-                </div>
-                <div className="field">
-                  <label htmlFor={`edit-tipo-${sujeto.id}`}>Tipo</label>
-                  <select id={`edit-tipo-${sujeto.id}`} value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }} required>
-                    {tiposDisponibles.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor={`edit-sector-${sujeto.id}`}>Sector</label>
-                  <select id={`edit-sector-${sujeto.id}`} value={sector} onChange={(e) => setSector(e.target.value)}>
-                    <option value="financiero">Financiero</option>
-                    <option value="no_financiero">No financiero</option>
-                    <option value="actividad_profesional">Actividad profesional</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor={`edit-estado-${sujeto.id}`}>Estado</label>
-                  <select id={`edit-estado-${sujeto.id}`} value={estado} onChange={(e) => setEstado(e.target.value)}>
-                    <option value="activo">Activo</option>
-                    <option value="inactivo">Inactivo</option>
-                  </select>
-                </div>
-                <div className="field">
-                  <label htmlFor={`edit-organismo-${sujeto.id}`}>Organismo supervisor</label>
-                  <input id={`edit-organismo-${sujeto.id}`} value={organismo} onChange={(e) => setOrganismo(e.target.value)} />
-                </div>
-                <div className="field">
-                  <label htmlFor={`edit-responsable-${sujeto.id}`}>Responsable de cumplimiento</label>
-                  <input id={`edit-responsable-${sujeto.id}`} value={responsable} onChange={(e) => setResponsable(e.target.value)} />
-                </div>
+      {/* Native <dialog> — no ARIA roles needed, backdrop via ::backdrop CSS */}
+      <dialog
+        ref={dialogRef}
+        className="modal-box"
+        style={{ textAlign: 'left', maxWidth: 560 }}
+        aria-labelledby={`dialog-title-${sujeto.id}`}
+        onClose={() => setOpen(false)}
+      >
+        <h3 id={`dialog-title-${sujeto.id}`} style={{ margin: '0 0 12px' }}>Editar sujeto obligado</h3>
+        <form onSubmit={onSave}>
+          <div className="form-grid">
+            <div className="field">
+              <label htmlFor={`edit-nombre-${sujeto.id}`}>Nombre</label>
+              <input id={`edit-nombre-${sujeto.id}`} value={nombre} onChange={(e) => setNombre(e.target.value)} required />
+            </div>
+            <div className="field">
+              <label htmlFor={`edit-ruc-${sujeto.id}`}>RUC / identificador</label>
+              <input id={`edit-ruc-${sujeto.id}`} value={ruc} onChange={(e) => setRuc(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor={`edit-tipo-${sujeto.id}`}>Tipo</label>
+              <select id={`edit-tipo-${sujeto.id}`} value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }} required>
+                {tiposDisponibles.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor={`edit-sector-${sujeto.id}`}>Sector</label>
+              <select id={`edit-sector-${sujeto.id}`} value={sector} onChange={(e) => setSector(e.target.value)}>
+                <option value="financiero">Financiero</option>
+                <option value="no_financiero">No financiero</option>
+                <option value="actividad_profesional">Actividad profesional</option>
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor={`edit-estado-${sujeto.id}`}>Estado</label>
+              <select id={`edit-estado-${sujeto.id}`} value={estado} onChange={(e) => setEstado(e.target.value)}>
+                <option value="activo">Activo</option>
+                <option value="inactivo">Inactivo</option>
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor={`edit-organismo-${sujeto.id}`}>Organismo supervisor</label>
+              <input id={`edit-organismo-${sujeto.id}`} value={organismo} onChange={(e) => setOrganismo(e.target.value)} />
+            </div>
+            <div className="field">
+              <label htmlFor={`edit-responsable-${sujeto.id}`}>Responsable de cumplimiento</label>
+              <input id={`edit-responsable-${sujeto.id}`} value={responsable} onChange={(e) => setResponsable(e.target.value)} />
+            </div>
 
-                <div className="field full" role="group" aria-labelledby={`plantillas-label-${sujeto.id}`}>
-                  <p id={`plantillas-label-${sujeto.id}`} style={{ fontWeight: 600, margin: '0 0 6px' }}>Plantillas ROS</p>
-                  {compatibles.length === 0 ? (
-                    <div className="notice amber">No hay plantillas activas para este tipo.</div>
-                  ) : (
-                    <div className="lookup-grid">
-                      {compatibles.map((p) => (
-                        <label key={p.id} className="lookup-card" style={{ cursor: 'pointer' }}>
-                          <div className="lookup-row">
-                            <input type="checkbox" style={{ width: 18, flex: 'none' }}
-                                   checked={seleccionadas.includes(p.id)}
-                                   onChange={() => toggle(p.id)} />
-                            <strong>{p.nombre}</strong>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  )}
+            {/* <fieldset> es el elemento nativo para agrupar controles de formulario */}
+            <fieldset className="field full" style={{ border: 'none', padding: 0, margin: 0 }}>
+              <legend style={{ fontWeight: 600, marginBottom: 6, display: 'block', width: '100%' }}>Plantillas ROS</legend>
+              {compatibles.length === 0 ? (
+                <div className="notice amber">No hay plantillas activas para este tipo.</div>
+              ) : (
+                <div className="lookup-grid">
+                  {compatibles.map((p) => (
+                    <label key={p.id} className="lookup-card lookup-row" style={{ cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        style={{ width: 18, flex: 'none' }}
+                        checked={seleccionadas.includes(p.id)}
+                        onChange={() => toggle(p.id)}
+                      />
+                      <strong>{p.nombre}</strong>
+                    </label>
+                  ))}
                 </div>
+              )}
+            </fieldset>
 
-                {error && <div className="client-status error" style={{ gridColumn: '1 / -1' }}>{error}</div>}
+            {error && <div className="client-status error" style={{ gridColumn: '1 / -1' }}>{error}</div>}
 
-                <div className="field full" style={{ display: 'flex', gap: 8 }}>
-                  <button type="submit" className="btn primary" disabled={busy}>
-                    {busy ? 'Guardando…' : 'Guardar cambios'}
-                  </button>
-                  <button type="button" className="btn secondary" onClick={() => setOpen(false)} disabled={busy}>
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            </form>
+            <div className="field full" style={{ display: 'flex', gap: 8 }}>
+              <button type="submit" className="btn primary" disabled={busy}>
+                {busy ? 'Guardando…' : 'Guardar cambios'}
+              </button>
+              <button type="button" className="btn secondary" onClick={() => setOpen(false)} disabled={busy}>
+                Cancelar
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        </form>
+      </dialog>
     </>
   );
 }
