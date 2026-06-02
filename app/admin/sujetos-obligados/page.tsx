@@ -1,9 +1,38 @@
+import Link from 'next/link';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
 import { NuevoSujetoForm } from './NuevoSujetoForm';
 import { SujetoActions } from './SujetoActions';
+import { formatPanama } from '@/lib/date';
+
+interface AuditRow {
+  fecha_hora_servidor: string;
+  usuario_correo: string | null;
+  accion: string;
+  detalle: string | null;
+  resultado: string;
+}
+
+const ACCION_LABEL: Record<string, string> = {
+  crear_sujeto_obligado:      'Crear',
+  actualizar_sujeto_obligado: 'Modificar',
+};
+
+function parsearEntidad(detalle: string | null): string {
+  if (!detalle) return '—';
+  try { return JSON.parse(detalle).nombre ?? '—'; } catch { return '—'; }
+}
+
+function parsearCambios(detalle: string | null): string {
+  if (!detalle) return '';
+  try {
+    const d = JSON.parse(detalle);
+    if (!d.cambios) return '';
+    return Object.entries(d.cambios).map(([k, v]) => `${k}: ${v}`).join(', ');
+  } catch { return ''; }
+}
 
 export const revalidate = 0;
 
@@ -56,6 +85,15 @@ export default async function SujetosAdmin() {
     if (!plantillasPorSujeto[a.sujeto_obligado_id]) plantillasPorSujeto[a.sujeto_obligado_id] = [];
     plantillasPorSujeto[a.sujeto_obligado_id].push(a.plantilla_id);
   }
+
+  // RE-03: últimas acciones sobre sujetos obligados para vista rápida
+  const ultimasAcciones = db.prepare<[], AuditRow>(`
+    SELECT fecha_hora_servidor, usuario_correo, accion, detalle, resultado
+      FROM evento_auditoria
+     WHERE modulo = 'admin' AND accion IN ('crear_sujeto_obligado', 'actualizar_sujeto_obligado')
+     ORDER BY fecha_hora_servidor DESC
+     LIMIT 10
+  `).all();
 
   return (
     <>
@@ -112,6 +150,47 @@ export default async function SujetosAdmin() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* RE-03 — Historial de cambios en sujetos obligados */}
+      <div className="card" style={{ marginTop: 18 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Últimas acciones (RE-03)</h3>
+            <p className="small" style={{ margin: '2px 0 0' }}>Registro de creaciones, modificaciones y desactivaciones</p>
+          </div>
+          <Link href="/admin/auditoria" className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }}>
+            Ver historial completo →
+          </Link>
+        </div>
+        {ultimasAcciones.length === 0 ? (
+          <div className="notice">Sin acciones registradas aún.</div>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Fecha y hora</th>
+                <th>Acción</th>
+                <th>Entidad</th>
+                <th>Cambios</th>
+                <th>Usuario</th>
+                <th>Resultado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ultimasAcciones.map((a, i) => (
+                <tr key={i}>
+                  <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatPanama(a.fecha_hora_servidor)}</td>
+                  <td><Badge tone={a.accion === 'crear_sujeto_obligado' ? 'green' : 'blue'}>{ACCION_LABEL[a.accion] ?? a.accion}</Badge></td>
+                  <td><strong style={{ fontSize: 13 }}>{parsearEntidad(a.detalle)}</strong></td>
+                  <td style={{ fontSize: 12, color: 'var(--muted)' }}>{parsearCambios(a.detalle) || '—'}</td>
+                  <td style={{ fontSize: 12 }}>{a.usuario_correo ?? '—'}</td>
+                  <td><Badge tone={a.resultado === 'exito' ? 'green' : 'red'}>{a.resultado}</Badge></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       <div className="card" style={{ marginTop: 18 }}>
