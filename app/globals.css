@@ -51,6 +51,7 @@ button, input, textarea, select { font: inherit; }
   display: grid;
   grid-template-columns: 280px 1fr;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 .sidebar {
@@ -206,7 +207,7 @@ button, input, textarea, select { font: inherit; }
   line-height: 1.55;
 }
 
-.main { padding: 30px; min-width: 0; overflow-x: clip; position: relative; }
+.main { padding: 30px; min-width: 0; position: relative; }
 
 /* Mobile header (hidden on desktop) */
 .mobile-header {
@@ -1012,6 +1013,8 @@ label { color: #344054; font-size: 13px; font-weight: 900; }
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   border-radius: var(--radius);
+  width: 100%;
+  display: block;
 }
 
 .table {
