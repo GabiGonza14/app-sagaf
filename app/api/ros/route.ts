@@ -14,7 +14,7 @@ const schema = z.object({
   oficial_cumplimiento: z.string().min(2),
   correo_oficial: z.string().email().optional(),
   fecha_deteccion: z.string().min(8),
-  descripcion: z.string().min(1),
+  descripcion: z.string().min(30, 'La descripción debe tener al menos 30 caracteres'),
   operacion: z.object({
     monto: z.number().positive(),
     jurisdiccion: z.string().optional().nullable(),

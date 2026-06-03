@@ -35,8 +35,8 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
   const session = await auth();
   const { q = '', tipo = '', riesgo = '', estado = '' } = await searchParams;
 
-  // Construcción dinámica de filtros (RF-02)
-  const filters: string[] = [];
+  // Construcción dinámica de filtros (RF-02); borradores nunca visibles en bandeja UAF
+  const filters: string[] = ["r.estado != 'borrador'"];
   const params: unknown[] = [];
 
   if (q) {

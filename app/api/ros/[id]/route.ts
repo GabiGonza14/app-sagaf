@@ -142,6 +142,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: 'Datos inválidos', issues: parsed.error.flatten() }, { status: 400 });
   }
 
+  // Verifica que la nueva plantilla_id esté autorizada para este sujeto obligado
+  const plOk = db.prepare(
+    'SELECT 1 FROM sujeto_obligado_plantilla WHERE sujeto_obligado_id = ? AND plantilla_id = ?',
+  ).get(session.user.sujetoObligadoId, parsed.data.plantilla_id);
+  if (!plOk) {
+    return NextResponse.json({ error: 'Plantilla no autorizada para este sujeto obligado' }, { status: 403 });
+  }
+
   const ctx = extractRequestContext(req);
   const esSubmit = parsed.data.submit;
 
