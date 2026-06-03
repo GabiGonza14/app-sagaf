@@ -16,12 +16,12 @@ const patchSchema = z.object({
 
 const putSchema = z.object({
   plantilla_id: z.string().min(1),
-  oficial_cumplimiento: z.string().min(2),
-  correo_oficial: z.string().email().optional(),
-  fecha_deteccion: z.string().min(8),
+  oficial_cumplimiento: z.string().optional().default(''),
+  correo_oficial: z.string().optional().default(''),
+  fecha_deteccion: z.string().optional().default(''),
   descripcion: z.string().optional().default(''),
   operacion: z.object({
-    monto: z.number().positive().optional().default(0),
+    monto: z.number().min(0).optional().default(0),
     jurisdiccion: z.string().optional().nullable(),
     senal_alerta: z.string().optional().default(''),
     producto_servicio: z.string().optional().nullable(),
@@ -147,6 +147,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   // Validación estricta si es submit
   if (esSubmit) {
+    if (!parsed.data.oficial_cumplimiento || parsed.data.oficial_cumplimiento.length < 2) {
+      return NextResponse.json({ error: 'El nombre del oficial de cumplimiento es obligatorio' }, { status: 400 });
+    }
+    if (!parsed.data.fecha_deteccion || parsed.data.fecha_deteccion.length < 8) {
+      return NextResponse.json({ error: 'La fecha de detección es obligatoria' }, { status: 400 });
+    }
     if (!parsed.data.descripcion || parsed.data.descripcion.length < 30) {
       return NextResponse.json({ error: 'La descripción debe tener al menos 30 caracteres' }, { status: 400 });
     }

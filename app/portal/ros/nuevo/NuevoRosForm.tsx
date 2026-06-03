@@ -138,6 +138,15 @@ function FileDropZone({
   );
 }
 
+function formatApiError(data: { error?: string; issues?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } }, fallback: string): string {
+  if (!data.error) return fallback;
+  if (data.error !== 'Datos inválidos') return data.error;
+  const fieldErrs = Object.entries(data.issues?.fieldErrors ?? {}).map(([k, v]) => `${k}: ${v.join(', ')}`);
+  const formErrs = data.issues?.formErrors ?? [];
+  const detail = [...formErrs, ...fieldErrs].join(' | ');
+  return detail ? `Datos inválidos — ${detail}` : fallback;
+}
+
 export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefault, correoDefault, initialData }: Props) {
   const esEdicion = !!initialData;
   const router = useRouter();
@@ -202,6 +211,10 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const cargados = Object.values(files).filter((f) => f).length;
   const pct = docList.length > 0 ? Math.round((cargados / docList.length) * 100) : 0;
   const todosDocumentosCargados = docList.length === 0 || cargados >= docList.length;
+  const hayAlgunDato = [
+    ordenante.id, beneficiario.id, comprador.id,
+    monto, descripcion, productoServicio, bienInmueble, formaPago, jurisdiccion,
+  ].some((v) => v.trim() !== '') || cargados > 0;
 
   async function verifyParty(
     field: 'ordenante' | 'beneficiario' | 'comprador',
@@ -412,7 +425,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           body: JSON.stringify({ ...body, submit: false }),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? 'Error al guardar borrador.'); return; }
+        if (!res.ok) { setError(formatApiError(data, 'Error al guardar borrador.')); return; }
         rosId = initialData!.rosId;
         numeroRos = data.numero_ros;
       } else {
@@ -422,7 +435,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           body: JSON.stringify({ ...body, modo: 'borrador' }),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? 'No fue posible guardar el borrador.'); return; }
+        if (!res.ok) { setError(formatApiError(data, 'No fue posible guardar el borrador.')); return; }
         rosId = data.id;
         numeroRos = data.numero_ros;
       }
@@ -804,7 +817,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           <button
             type="button"
             className="btn secondary"
-            disabled={submitting || pending}
+            disabled={submitting || pending || !hayAlgunDato}
             style={{ minWidth: 160, justifyContent: 'center' }}
             onClick={onSaveDraft}
           >

@@ -79,6 +79,9 @@ export async function POST(req: Request) {
   const payload = await req.json().catch(() => null);
   const baseSchema = payload?.modo === 'borrador'
     ? schema.extend({
+        oficial_cumplimiento: z.string().optional().default(''),
+        correo_oficial: z.string().optional().default(''),
+        fecha_deteccion: z.string().optional().default(''),
         partes: z.array(z.object({
           rol: z.string().min(1),
           tipo: z.enum(['natural', 'juridica']),
@@ -87,7 +90,7 @@ export async function POST(req: Request) {
         })).optional().default([]),
         descripcion: z.string().optional().default(''),
         operacion: z.object({
-          monto: z.number().positive().optional().default(0),
+          monto: z.number().min(0).optional().default(0),
           jurisdiccion: z.string().optional().nullable(),
           senal_alerta: z.string().optional().default(''),
           producto_servicio: z.string().optional().nullable(),
