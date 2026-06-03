@@ -44,6 +44,7 @@ interface Props {
 
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 const ALLOWED_EXT = /\.(pdf|jpg|jpeg|png)$/i;
+const MAX_BYTES = 10 * 1024 * 1024;
 
 function isAllowedFile(f: File) {
   return ALLOWED_TYPES.includes(f.type) || ALLOWED_EXT.test(f.name);
@@ -58,15 +59,22 @@ function FileDropZone({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [typeError, setTypeError] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  function validate(f: File): string | null {
+    if (!isAllowedFile(f)) return 'Solo se permiten archivos PDF, JPG o PNG.';
+    if (f.size > MAX_BYTES) return 'El archivo supera el límite de 10 MB.';
+    return null;
+  }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
     const dropped = e.dataTransfer.files[0];
     if (!dropped) return;
-    if (!isAllowedFile(dropped)) { setTypeError(true); return; }
-    setTypeError(false);
+    const err = validate(dropped);
+    if (err) { setFileError(err); return; }
+    setFileError(null);
     onChange(dropped);
   };
 
@@ -88,8 +96,11 @@ function FileDropZone({
         style={{ display: 'none' }}
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
-          if (f && !isAllowedFile(f)) { setTypeError(true); e.target.value = ''; return; }
-          setTypeError(false);
+          if (f) {
+            const err = validate(f);
+            if (err) { setFileError(err); e.target.value = ''; return; }
+          }
+          setFileError(null);
           onChange(f);
         }}
       />
@@ -103,7 +114,7 @@ function FileDropZone({
           <button
             type="button"
             className="upload-zone-remove"
-            onClick={(e) => { e.stopPropagation(); onChange(null); }}
+            onClick={(e) => { e.stopPropagation(); onChange(null); if (inputRef.current) inputRef.current.value = ''; }}
             aria-label="Quitar archivo"
           >
             ×
@@ -118,9 +129,9 @@ function FileDropZone({
           </div>
         </div>
       )}
-      {typeError && (
+      {fileError && (
         <div style={{ color: 'var(--red, #dc2626)', fontSize: '0.75rem', marginTop: 4, paddingLeft: 4 }}>
-          Solo se permiten archivos PDF, JPG o PNG.
+          {fileError}
         </div>
       )}
     </div>
@@ -665,7 +676,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
               accept=".pdf,.jpg,.jpeg,.png"
               style={{ display: 'none' }}
               onChange={(e) => {
-                const valid = Array.from(e.target.files ?? []).filter(isAllowedFile);
+                const valid = Array.from(e.target.files ?? []).filter((f) => isAllowedFile(f) && f.size <= MAX_BYTES);
                 setExtras(valid);
               }}
             />
