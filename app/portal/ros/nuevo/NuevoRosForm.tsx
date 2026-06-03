@@ -168,6 +168,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const docList = docsByPlantilla[effectivePlantillaId] ?? [];
   const cargados = Object.values(files).filter((f) => f).length;
   const pct = docList.length > 0 ? Math.round((cargados / docList.length) * 100) : 0;
+  const todosDocumentosCargados = docList.length === 0 || cargados >= docList.length;
 
   async function verifyParty(
     field: 'ordenante' | 'beneficiario' | 'comprador',
@@ -339,6 +340,10 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     }
     if (isRealEstate && !comprador.id.trim()) {
       setError('Debe registrar la cédula del comprador.');
+      return;
+    }
+    if (!todosDocumentosCargados) {
+      setError(`Debe cargar todos los documentos requeridos antes de enviar. Faltan ${docList.length - cargados} documento(s).`);
       return;
     }
 
@@ -749,7 +754,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         )}
 
         <div className="action-row" style={{ gridColumn: '1 / -1' }}>
-          <button type="submit" className="btn primary" disabled={submitting || pending} style={{ minWidth: 200, justifyContent: 'center' }}>
+          <button type="submit" className="btn primary" disabled={submitting || pending || !todosDocumentosCargados} style={{ minWidth: 200, justifyContent: 'center' }}>
             {submitting ? (
               <>Enviando ROS a la UAF…</>
             ) : (
@@ -769,9 +774,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
             <Save size={16} />
             {esEdicion ? 'Guardar borrador' : 'Guardar borrador'}
           </button>
-          {!esEdicion && docList.length > 0 && cargados < docList.length && (
-            <div className="helper" style={{ margin: 0, alignSelf: 'center' }}>
-              {docList.length - cargados} documento{docList.length - cargados > 1 ? 's' : ''} pendiente{docList.length - cargados > 1 ? 's' : ''} — puede enviar con documentos faltantes.
+          {docList.length > 0 && cargados < docList.length && (
+            <div className="helper" style={{ margin: 0, alignSelf: 'center', color: 'var(--amber)' }}>
+              {docList.length - cargados} documento{docList.length - cargados > 1 ? 's' : ''} pendiente{docList.length - cargados > 1 ? 's' : ''} — todos los documentos son obligatorios para enviar el ROS.
             </div>
           )}
         </div>
