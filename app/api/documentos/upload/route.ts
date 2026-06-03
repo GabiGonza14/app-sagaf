@@ -12,16 +12,9 @@ import { db } from '@/lib/db';
 import { audit, extractRequestContext } from '@/lib/audit';
 import { canAccessROS } from '@/lib/permissions';
 
-const ALLOWED_MIME = new Set([
-  'application/pdf',
-  'image/jpeg', 'image/png', 'image/webp',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'text/plain', 'text/csv',
-]);
-const MAX_BYTES = 15 * 1024 * 1024;
+const ALLOWED_MIME = new Set(['application/pdf', 'image/jpeg', 'image/png']);
+const ALLOWED_EXT = /\.(pdf|jpg|jpeg|png)$/i;
+const MAX_BYTES = 10 * 1024 * 1024;
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -72,8 +65,9 @@ export async function POST(req: Request) {
   }
 
   const mime = (file as File).type;
-  if (mime && !ALLOWED_MIME.has(mime)) {
-    return NextResponse.json({ error: `Tipo MIME no permitido: ${mime}` }, { status: 400 });
+  const fileName = (file as File).name ?? '';
+  if (!ALLOWED_MIME.has(mime) || !ALLOWED_EXT.test(fileName)) {
+    return NextResponse.json({ error: 'Solo se permiten archivos PDF, JPG o PNG.' }, { status: 400 });
   }
 
   const dir = process.env.UPLOADS_DIR ?? './public/uploads';

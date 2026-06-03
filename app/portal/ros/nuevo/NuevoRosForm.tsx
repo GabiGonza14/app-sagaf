@@ -42,6 +42,13 @@ interface Props {
   initialData?: InitialData;
 }
 
+const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+const ALLOWED_EXT = /\.(pdf|jpg|jpeg|png)$/i;
+
+function isAllowedFile(f: File) {
+  return ALLOWED_TYPES.includes(f.type) || ALLOWED_EXT.test(f.name);
+}
+
 function FileDropZone({
   file,
   onChange,
@@ -51,12 +58,16 @@ function FileDropZone({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [typeError, setTypeError] = useState(false);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setDragging(false);
     const dropped = e.dataTransfer.files[0];
-    if (dropped) onChange(dropped);
+    if (!dropped) return;
+    if (!isAllowedFile(dropped)) { setTypeError(true); return; }
+    setTypeError(false);
+    onChange(dropped);
   };
 
   return (
@@ -73,8 +84,14 @@ function FileDropZone({
       <input
         ref={inputRef}
         type="file"
+        accept=".pdf,.jpg,.jpeg,.png"
         style={{ display: 'none' }}
-        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
+        onChange={(e) => {
+          const f = e.target.files?.[0] ?? null;
+          if (f && !isAllowedFile(f)) { setTypeError(true); e.target.value = ''; return; }
+          setTypeError(false);
+          onChange(f);
+        }}
       />
       {file ? (
         <div className="upload-zone-content">
@@ -99,6 +116,11 @@ function FileDropZone({
             <div className="upload-zone-hint">Arrastra o haz clic para subir</div>
             <div className="upload-zone-types">PDF, JPG, PNG — máx. 10 MB</div>
           </div>
+        </div>
+      )}
+      {typeError && (
+        <div style={{ color: 'var(--red, #dc2626)', fontSize: '0.75rem', marginTop: 4, paddingLeft: 4 }}>
+          Solo se permiten archivos PDF, JPG o PNG.
         </div>
       )}
     </div>
@@ -640,8 +662,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
               id="extras-input"
               type="file"
               multiple
+              accept=".pdf,.jpg,.jpeg,.png"
               style={{ display: 'none' }}
-              onChange={(e) => setExtras(Array.from(e.target.files ?? []))}
+              onChange={(e) => {
+                const valid = Array.from(e.target.files ?? []).filter(isAllowedFile);
+                setExtras(valid);
+              }}
             />
             {extras.length > 0 ? (
               <div className="upload-zone-content">
