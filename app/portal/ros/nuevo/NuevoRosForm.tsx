@@ -42,12 +42,12 @@ interface Props {
   initialData?: InitialData;
 }
 
-const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 const ALLOWED_EXT = /\.(pdf|jpg|jpeg|png)$/i;
 const MAX_BYTES = 10 * 1024 * 1024;
 
 function isAllowedFile(f: File) {
-  return ALLOWED_TYPES.includes(f.type) || ALLOWED_EXT.test(f.name);
+  return ALLOWED_TYPES.has(f.type) || ALLOWED_EXT.test(f.name);
 }
 
 function FileDropZone({

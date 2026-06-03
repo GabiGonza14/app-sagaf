@@ -117,6 +117,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   return NextResponse.json({ ok: true });
 }
 
+function validateSubmitFields(data: z.infer<typeof putSchema>): string | null {
+  if (!data.oficial_cumplimiento || data.oficial_cumplimiento.length < 2)
+    return 'El nombre del oficial de cumplimiento es obligatorio';
+  if (!data.fecha_deteccion || data.fecha_deteccion.length < 8)
+    return 'La fecha de detección es obligatoria';
+  if (!data.descripcion || data.descripcion.length < 30)
+    return 'La descripción debe tener al menos 30 caracteres';
+  if (data.partes.length === 0)
+    return 'Debe registrar al menos una parte involucrada';
+  return null;
+}
+
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
@@ -153,20 +165,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const ctx = extractRequestContext(req);
   const esSubmit = parsed.data.submit;
 
-  // Validación estricta si es submit
   if (esSubmit) {
-    if (!parsed.data.oficial_cumplimiento || parsed.data.oficial_cumplimiento.length < 2) {
-      return NextResponse.json({ error: 'El nombre del oficial de cumplimiento es obligatorio' }, { status: 400 });
-    }
-    if (!parsed.data.fecha_deteccion || parsed.data.fecha_deteccion.length < 8) {
-      return NextResponse.json({ error: 'La fecha de detección es obligatoria' }, { status: 400 });
-    }
-    if (!parsed.data.descripcion || parsed.data.descripcion.length < 30) {
-      return NextResponse.json({ error: 'La descripción debe tener al menos 30 caracteres' }, { status: 400 });
-    }
-    if (parsed.data.partes.length === 0) {
-      return NextResponse.json({ error: 'Debe registrar al menos una parte involucrada' }, { status: 400 });
-    }
+    const validationError = validateSubmitFields(parsed.data);
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
   const tx = db.transaction(() => {

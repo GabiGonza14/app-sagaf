@@ -59,13 +59,13 @@ export async function POST(req: Request) {
     if (!ok) return NextResponse.json({ error: 'documento_requerido_id no pertenece al ROS' }, { status: 400 });
   }
 
-  const buffer = Buffer.from(await (file as File).arrayBuffer());
+  const buffer = Buffer.from(await file.arrayBuffer());
   if (buffer.byteLength > MAX_BYTES) {
     return NextResponse.json({ error: `Archivo supera el límite de ${MAX_BYTES / (1024 * 1024)} MB` }, { status: 400 });
   }
 
-  const mime = (file as File).type;
-  const fileName = (file as File).name ?? '';
+  const mime = file.type;
+  const fileName = file.name ?? '';
   if (!ALLOWED_MIME.has(mime) || !ALLOWED_EXT.test(fileName)) {
     return NextResponse.json({ error: 'Solo se permiten archivos PDF, JPG o PNG.' }, { status: 400 });
   }
