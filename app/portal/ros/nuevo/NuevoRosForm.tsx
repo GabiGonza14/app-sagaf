@@ -443,8 +443,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         </div>
         <div className="notice" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
           <Shield size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
-          <strong>Privacidad (Ley 81/2019)</strong>: si una cédula/RUC ya existe en nuestros registros,
-          solo verás el <strong>nombre</strong> para corroboración. No se autocompletan datos sensibles.
+          <strong>Privacidad (Ley 81/2019)</strong>: si {isBank && tipoCliente === 'juridica' ? 'un RUC' : 'una cédula/RUC'} ya existe en nuestros registros,
+          solo verás {isBank && tipoCliente === 'juridica' ? <strong>la razón social</strong> : <strong>el nombre</strong>} para corroboración. No se autocompletan datos sensibles.
         </div>
 
         {isBank && (
@@ -462,9 +462,11 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
               </div>
               <div className="lookup-grid">
                 <PartyCard label="Persona que realiza la transacción" role="Ordenante" icon={<User size={14} />} required
+                  esJuridica={tipoCliente === 'juridica'}
                   state={ordenante} setState={setOrdenante}
                   onVerify={() => verifyParty('ordenante', ordenante, setOrdenante)} />
                 <PartyCard label="Beneficiario" role="Beneficiario" icon={<User size={14} />} required
+                  esJuridica={tipoCliente === 'juridica'}
                   state={beneficiario} setState={setBeneficiario}
                   onVerify={() => verifyParty('beneficiario', beneficiario, setBeneficiario)} />
               </div>
@@ -796,16 +798,23 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
 }
 
 function PartyCard({
-  label, role, icon, required, state, setState, onVerify,
+  label, role, icon, required, esJuridica, state, setState, onVerify,
 }: {
   label: string;
   role: string;
   icon: React.ReactNode;
   required?: boolean;
+  esJuridica?: boolean;
   state: PartyState;
   setState: (s: PartyState) => void;
   onVerify: () => void;
 }) {
+  const idLabel    = esJuridica ? 'RUC' : 'Cédula';
+  const nombreLabel = esJuridica ? 'Razón social encontrada' : 'Nombre encontrado';
+  const coincidenciaMsg = esJuridica
+    ? `Coincidencia encontrada. Por privacidad, únicamente se muestra la razón social del ${role.toLowerCase()}.`
+    : `Coincidencia encontrada. Por privacidad, únicamente se muestra el nombre del ${role.toLowerCase()}.`;
+
   return (
     <div className="lookup-card">
       <div className="lookup-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -814,7 +823,7 @@ function PartyCard({
       </div>
       <div className="lookup-row">
         <input
-          placeholder={`Cédula del ${role.toLowerCase()}`}
+          placeholder={`${idLabel} del ${role.toLowerCase()}`}
           value={state.id}
           onChange={(e) => setState({ ...state, id: e.target.value, status: 'idle', nombre: '' })}
           autoComplete="off"
@@ -827,7 +836,7 @@ function PartyCard({
       {state.status === 'verified' && (
         <div className="client-status found" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <CheckCircle size={13} style={{ flexShrink: 0 }} />
-          Coincidencia encontrada. Por privacidad, únicamente se muestra el nombre del {role.toLowerCase()}.
+          {coincidenciaMsg}
         </div>
       )}
       {state.status === 'not_found' && (
@@ -843,8 +852,8 @@ function PartyCard({
         </div>
       )}
       <div className="field full">
-        <label>Nombre encontrado</label>
-        <input value={state.nombre} readOnly placeholder="Solo se mostrará el nombre si existe coincidencia" />
+        <label>{nombreLabel}</label>
+        <input value={state.nombre} readOnly placeholder={`Solo se mostrará ${esJuridica ? 'la razón social' : 'el nombre'} si existe coincidencia`} />
       </div>
     </div>
   );
