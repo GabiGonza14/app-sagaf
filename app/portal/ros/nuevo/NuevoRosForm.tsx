@@ -290,20 +290,48 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       setError('La fecha de detección es obligatoria.');
       return;
     }
-    if (!descripcion.trim() || descripcion.length < 30) {
-      setError('La descripción narrativa debe tener al menos 30 caracteres.');
-      return;
-    }
     if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0) {
       setError('El monto debe ser un número mayor a 0.');
       return;
     }
-    if (isBank && !ordenante.id.trim()) {
-      setError('Debe registrar al menos la cédula del ordenante.');
-      return;
+    if (isBank) {
+      if (!ordenante.id.trim()) {
+        setError('Debe registrar la cédula de la persona que realiza la transacción (ordenante).');
+        return;
+      }
+      if (!beneficiario.id.trim()) {
+        setError('Debe registrar la cédula del beneficiario.');
+        return;
+      }
+      if (!jurisdiccion.trim()) {
+        setError('La jurisdicción relacionada es obligatoria.');
+        return;
+      }
+      if (!productoServicio.trim()) {
+        setError('El producto bancario involucrado es obligatorio.');
+        return;
+      }
     }
-    if (isRealEstate && !comprador.id.trim()) {
-      setError('Debe registrar la cédula del comprador.');
+    if (isRealEstate) {
+      if (!comprador.id.trim()) {
+        setError('Debe registrar la cédula del cliente / comprador.');
+        return;
+      }
+      if (!jurisdiccion.trim()) {
+        setError('La ubicación del bien inmueble es obligatoria.');
+        return;
+      }
+      if (!bienInmueble.trim()) {
+        setError('El bien inmueble involucrado es obligatorio.');
+        return;
+      }
+      if (!formaPago.trim()) {
+        setError('La forma de pago es obligatoria.');
+        return;
+      }
+    }
+    if (!descripcion.trim() || descripcion.length < 30) {
+      setError('La descripción narrativa debe tener al menos 30 caracteres.');
       return;
     }
     if (!todosDocumentosCargados) {
