@@ -278,6 +278,18 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     e.preventDefault();
     setError(null); setSuccess(null);
 
+    if (!oficial.trim()) {
+      setError('El nombre del oficial de cumplimiento es obligatorio.');
+      return;
+    }
+    if (!correoOficial.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoOficial)) {
+      setError('El correo institucional del oficial es obligatorio y debe tener un formato válido.');
+      return;
+    }
+    if (!fechaDeteccion) {
+      setError('La fecha de detección es obligatoria.');
+      return;
+    }
     if (!descripcion.trim() || descripcion.length < 30) {
       setError('La descripción narrativa debe tener al menos 30 caracteres.');
       return;
