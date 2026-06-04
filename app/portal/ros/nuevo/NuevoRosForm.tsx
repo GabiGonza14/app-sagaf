@@ -298,70 +298,48 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     }
   }
 
+  function validateForm(): string | null {
+    if (!oficial.trim()) return 'El nombre del oficial de cumplimiento es obligatorio.';
+    if (!correoOficial.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoOficial))
+      return 'El correo institucional del oficial es obligatorio y debe tener un formato válido.';
+    if (!fechaDeteccion) return 'La fecha de detección es obligatoria.';
+    if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0)
+      return 'El monto debe ser un número mayor a 0.';
+    const bankError = validateBank();
+    if (bankError) return bankError;
+    const realEstateError = validateRealEstate();
+    if (realEstateError) return realEstateError;
+    if (!descripcion.trim() || descripcion.length < 30)
+      return 'La descripción narrativa debe tener al menos 30 caracteres.';
+    if (!todosDocumentosCargados)
+      return `Debe cargar todos los documentos requeridos antes de enviar. Faltan ${docList.length - cargados} documento(s).`;
+    return null;
+  }
+
+  function validateBank(): string | null {
+    if (!isBank) return null;
+    if (ordenante.id.trim().length < 3) return 'La cédula del ordenante debe tener al menos 3 caracteres.';
+    if (beneficiario.id.trim().length < 3) return 'La cédula del beneficiario debe tener al menos 3 caracteres.';
+    if (!jurisdiccion.trim()) return 'La jurisdicción relacionada es obligatoria.';
+    if (!productoServicio.trim()) return 'El producto bancario involucrado es obligatorio.';
+    return null;
+  }
+
+  function validateRealEstate(): string | null {
+    if (!isRealEstate) return null;
+    if (comprador.id.trim().length < 3) return 'La cédula del cliente / comprador debe tener al menos 3 caracteres.';
+    if (!jurisdiccion.trim()) return 'La ubicación del bien inmueble es obligatoria.';
+    if (!bienInmueble.trim()) return 'El bien inmueble involucrado es obligatorio.';
+    if (!formaPago.trim()) return 'La forma de pago es obligatoria.';
+    return null;
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setSuccess(null);
 
-    if (!oficial.trim()) {
-      setError('El nombre del oficial de cumplimiento es obligatorio.');
-      return;
-    }
-    if (!correoOficial.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoOficial)) {
-      setError('El correo institucional del oficial es obligatorio y debe tener un formato válido.');
-      return;
-    }
-    if (!fechaDeteccion) {
-      setError('La fecha de detección es obligatoria.');
-      return;
-    }
-    if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0) {
-      setError('El monto debe ser un número mayor a 0.');
-      return;
-    }
-    if (isBank) {
-      if (ordenante.id.trim().length < 3) {
-        setError('La cédula del ordenante debe tener al menos 3 caracteres.');
-        return;
-      }
-      if (beneficiario.id.trim().length < 3) {
-        setError('La cédula del beneficiario debe tener al menos 3 caracteres.');
-        return;
-      }
-      if (!jurisdiccion.trim()) {
-        setError('La jurisdicción relacionada es obligatoria.');
-        return;
-      }
-      if (!productoServicio.trim()) {
-        setError('El producto bancario involucrado es obligatorio.');
-        return;
-      }
-    }
-    if (isRealEstate) {
-      if (comprador.id.trim().length < 3) {
-        setError('La cédula del cliente / comprador debe tener al menos 3 caracteres.');
-        return;
-      }
-      if (!jurisdiccion.trim()) {
-        setError('La ubicación del bien inmueble es obligatoria.');
-        return;
-      }
-      if (!bienInmueble.trim()) {
-        setError('El bien inmueble involucrado es obligatorio.');
-        return;
-      }
-      if (!formaPago.trim()) {
-        setError('La forma de pago es obligatoria.');
-        return;
-      }
-    }
-    if (!descripcion.trim() || descripcion.length < 30) {
-      setError('La descripción narrativa debe tener al menos 30 caracteres.');
-      return;
-    }
-    if (!todosDocumentosCargados) {
-      setError(`Debe cargar todos los documentos requeridos antes de enviar. Faltan ${docList.length - cargados} documento(s).`);
-      return;
-    }
+    const validationError = validateForm();
+    if (validationError) { setError(validationError); return; }
 
     // A6 — Detección de posible duplicidad (solo en envío formal, no borradores)
     if (!confirmarPeseRef.current) {
@@ -438,16 +416,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           <input value={sujeto.nombre} disabled />
         </div>
         <div className="field">
-          <label>Fecha de detección <span className="req">*</span></label>
-          <input type="date" value={fechaDeteccion} onChange={(e) => setFechaDeteccion(e.target.value)} required />
+          <label htmlFor="fecha-deteccion">Fecha de detección <span className="req">*</span></label>
+          <input id="fecha-deteccion" type="date" value={fechaDeteccion} onChange={(e) => setFechaDeteccion(e.target.value)} required />
         </div>
         <div className="field">
-          <label>Oficial de cumplimiento <span className="req">*</span></label>
-          <input value={oficial} onChange={(e) => setOficial(e.target.value)} required placeholder="Nombre completo" />
+          <label htmlFor="oficial-cumplimiento">Oficial de cumplimiento <span className="req">*</span></label>
+          <input id="oficial-cumplimiento" value={oficial} onChange={(e) => setOficial(e.target.value)} required placeholder="Nombre completo" />
         </div>
         <div className="field">
-          <label>Correo institucional <span className="req">*</span></label>
-          <input type="email" value={correoOficial} onChange={(e) => setCorreoOficial(e.target.value)} required placeholder="correo@entidad.com" />
+          <label htmlFor="correo-oficial">Correo institucional <span className="req">*</span></label>
+          <input id="correo-oficial" type="email" value={correoOficial} onChange={(e) => setCorreoOficial(e.target.value)} required placeholder="correo@entidad.com" />
         </div>
 
         {/* ── Sección 2: Personas relacionadas ── */}
@@ -505,12 +483,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           Información de la operación sospechosa
         </div>
         <div className="field">
-          <label>Monto aproximado (USD) <span className="req">*</span></label>
-          <input type="number" step="0.01" min="0" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="985000" required />
+          <label htmlFor="monto">Monto aproximado (USD) <span className="req">*</span></label>
+          <input id="monto" type="number" step="0.01" min="0" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="985000" required />
         </div>
         <div className="field">
-          <label>{isRealEstate ? 'Ubicación del bien inmueble' : 'Jurisdicción relacionada'} <span className="req">*</span></label>
-          <input value={jurisdiccion} onChange={(e) => setJurisdiccion(e.target.value)} placeholder={isRealEstate ? 'Costa del Este, Panamá' : 'Panamá / Suiza'} />
+          <label htmlFor="jurisdiccion">{isRealEstate ? 'Ubicación del bien inmueble' : 'Jurisdicción relacionada'} <span className="req">*</span></label>
+          <input id="jurisdiccion" value={jurisdiccion} onChange={(e) => setJurisdiccion(e.target.value)} placeholder={isRealEstate ? 'Costa del Este, Panamá' : 'Panamá / Suiza'} />
         </div>
         <div className="field">
           <label>Tipología / señal de alerta</label>
@@ -524,25 +502,25 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         </div>
         {isBank && (
           <div className="field">
-            <label>Producto bancario involucrado <span className="req">*</span></label>
-            <input value={productoServicio} onChange={(e) => setProductoServicio(e.target.value)} placeholder="Cuenta, préstamo, tarjeta, transferencia…" />
+            <label htmlFor="producto-servicio">Producto bancario involucrado <span className="req">*</span></label>
+            <input id="producto-servicio" value={productoServicio} onChange={(e) => setProductoServicio(e.target.value)} placeholder="Cuenta, préstamo, tarjeta, transferencia…" />
           </div>
         )}
         {isRealEstate && (
           <>
             <div className="field">
-              <label>Bien inmueble involucrado <span className="req">*</span></label>
-              <input value={bienInmueble} onChange={(e) => setBienInmueble(e.target.value)} placeholder="Apartamento, finca, casa, local…" />
+              <label htmlFor="bien-inmueble">Bien inmueble involucrado <span className="req">*</span></label>
+              <input id="bien-inmueble" value={bienInmueble} onChange={(e) => setBienInmueble(e.target.value)} placeholder="Apartamento, finca, casa, local…" />
             </div>
             <div className="field">
-              <label>Forma de pago <span className="req">*</span></label>
-              <input value={formaPago} onChange={(e) => setFormaPago(e.target.value)} placeholder="Efectivo, transferencia, mixto…" />
+              <label htmlFor="forma-pago">Forma de pago <span className="req">*</span></label>
+              <input id="forma-pago" value={formaPago} onChange={(e) => setFormaPago(e.target.value)} placeholder="Efectivo, transferencia, mixto…" />
             </div>
           </>
         )}
         <div className="field full">
-          <label>Descripción narrativa de los hechos <span className="req">*</span></label>
-          <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required minLength={30}
+          <label htmlFor="descripcion">Descripción narrativa de los hechos <span className="req">*</span></label>
+          <textarea id="descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required minLength={30}
             placeholder="Explique la operación, la inusualidad detectada, las gestiones realizadas y por qué se considera sospechosa." />
           <div className="helper">
             Mínimo 30 caracteres ({descripcion.length} escritos).
