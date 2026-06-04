@@ -16,12 +16,12 @@ const patchSchema = z.object({
 
 const putSchema = z.object({
   plantilla_id: z.string().min(1),
-  oficial_cumplimiento: z.string().min(2),
-  correo_oficial: z.string().email().optional(),
-  fecha_deteccion: z.string().min(8),
+  oficial_cumplimiento: z.string().optional().default(''),
+  correo_oficial: z.string().optional().default(''),
+  fecha_deteccion: z.string().optional().default(''),
   descripcion: z.string().optional().default(''),
   operacion: z.object({
-    monto: z.number().positive().optional().default(0),
+    monto: z.number().min(0).optional().default(0),
     jurisdiccion: z.string().optional().nullable(),
     senal_alerta: z.string().optional().default(''),
     producto_servicio: z.string().optional().nullable(),
@@ -32,7 +32,7 @@ const putSchema = z.object({
   partes: z.array(z.object({
     rol: z.string().min(1),
     tipo: z.enum(['natural', 'juridica']),
-    identificador: z.string().min(3),
+    identificador: z.string().min(3, 'La cédula/RUC debe tener al menos 3 caracteres.'),
     nombre_visible: z.string().optional().nullable(),
   })).optional().default([]),
   submit: z.boolean().optional().default(false),
@@ -117,6 +117,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   return NextResponse.json({ ok: true });
 }
 
+function validateSubmitFields(data: z.infer<typeof putSchema>): string | null {
+  if (!data.oficial_cumplimiento || data.oficial_cumplimiento.length < 2)
+    return 'El nombre del oficial de cumplimiento es obligatorio';
+  if (!data.fecha_deteccion || data.fecha_deteccion.length < 8)
+    return 'La fecha de detección es obligatoria';
+  if (!data.descripcion || data.descripcion.length < 30)
+    return 'La descripción debe tener al menos 30 caracteres';
+  if (data.partes.length === 0)
+    return 'Debe registrar al menos una parte involucrada';
+  return null;
+}
+
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
@@ -142,17 +154,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     return NextResponse.json({ error: 'Datos inválidos', issues: parsed.error.flatten() }, { status: 400 });
   }
 
+  // Verifica que la nueva plantilla_id esté autorizada para este sujeto obligado
+  const plOk = db.prepare(
+    'SELECT 1 FROM sujeto_obligado_plantilla WHERE sujeto_obligado_id = ? AND plantilla_id = ?',
+  ).get(session.user.sujetoObligadoId, parsed.data.plantilla_id);
+  if (!plOk) {
+    return NextResponse.json({ error: 'Plantilla no autorizada para este sujeto obligado' }, { status: 403 });
+  }
+
   const ctx = extractRequestContext(req);
   const esSubmit = parsed.data.submit;
 
-  // Validación estricta si es submit
   if (esSubmit) {
-    if (!parsed.data.descripcion || parsed.data.descripcion.length < 30) {
-      return NextResponse.json({ error: 'La descripción debe tener al menos 30 caracteres' }, { status: 400 });
-    }
-    if (parsed.data.partes.length === 0) {
-      return NextResponse.json({ error: 'Debe registrar al menos una parte involucrada' }, { status: 400 });
-    }
+    const validationError = validateSubmitFields(parsed.data);
+    if (validationError) return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
   const tx = db.transaction(() => {

@@ -1,7 +1,8 @@
 'use client';
 import { useRef, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, CheckCircle, FileText, AlertCircle, User, Building2, Shield, FileCheck, Save } from 'lucide-react';
+import { CheckCircle, FileText, AlertCircle, User, Building2, Shield, FileCheck, Save } from 'lucide-react';
+import { FileDropZone, isAllowedFile, MAX_BYTES } from '@/components/FileDropZone';
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 interface DocReq    { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string }
@@ -42,67 +43,24 @@ interface Props {
   initialData?: InitialData;
 }
 
-function FileDropZone({
-  file,
-  onChange,
-}: {
-  file: File | null;
-  onChange: (f: File | null) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const dropped = e.dataTransfer.files[0];
-    if (dropped) onChange(dropped);
-  };
+function isValidEmail(email: string): boolean {
+  const at = email.indexOf('@');
+  if (at < 1) return false;
+  const domain = email.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+  return dot > 0 && dot < domain.length - 1 && !email.includes(' ');
+}
 
-  return (
-    <div
-      className={`upload-zone${file ? ' has-file' : ''}${dragging ? ' dragging' : ''}`}
-      onClick={() => inputRef.current?.click()}
-      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={handleDrop}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        style={{ display: 'none' }}
-        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
-      />
-      {file ? (
-        <div className="upload-zone-content">
-          <CheckCircle size={18} className="upload-zone-icon uploaded" />
-          <div>
-            <div className="upload-zone-filename">{file.name}</div>
-            <div className="upload-zone-size">{(file.size / 1024).toFixed(1)} KB</div>
-          </div>
-          <button
-            type="button"
-            className="upload-zone-remove"
-            onClick={(e) => { e.stopPropagation(); onChange(null); }}
-            aria-label="Quitar archivo"
-          >
-            ×
-          </button>
-        </div>
-      ) : (
-        <div className="upload-zone-content">
-          <Upload size={16} className="upload-zone-icon" />
-          <div className="upload-zone-empty">
-            <div className="upload-zone-hint">Arrastra o haz clic para subir</div>
-            <div className="upload-zone-types">PDF, JPG, PNG — máx. 10 MB</div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+function formatApiError(data: { error?: string; issues?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } }, fallback: string): string {
+  if (!data.error) return fallback;
+  if (data.error !== 'Datos inválidos') return data.error;
+  const allMsgs = [
+    ...(data.issues?.formErrors ?? []),
+    ...Object.values(data.issues?.fieldErrors ?? {}).flat(),
+  ];
+  const detail = allMsgs.join(' ');
+  return detail || fallback;
 }
 
 export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefault, correoDefault, initialData }: Props) {
@@ -166,8 +124,35 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   }, [isBank, tipoCliente, plantillaId, plantillas, defaultPlantilla]);
 
   const docList = docsByPlantilla[effectivePlantillaId] ?? [];
-  const cargados = Object.values(files).filter((f) => f).length;
+  const cargados = docList.filter((d) => files[d.id] || fileLabels[d.id]).length;
   const pct = docList.length > 0 ? Math.round((cargados / docList.length) * 100) : 0;
+  const todosDocumentosCargados = docList.length === 0 || cargados >= docList.length;
+
+  const camposBaseOk = Boolean(
+    oficial.trim() &&
+    isValidEmail(correoOficial) &&
+    fechaDeteccion &&
+    Number(monto) > 0 &&
+    descripcion.trim().length >= 30 &&
+    todosDocumentosCargados,
+  );
+  const camposBancoOk = !isBank || Boolean(
+    ordenante.id.trim().length >= 3 &&
+    beneficiario.id.trim().length >= 3 &&
+    jurisdiccion.trim() &&
+    productoServicio.trim(),
+  );
+  const camposInmobiliariaOk = !isRealEstate || Boolean(
+    comprador.id.trim().length >= 3 &&
+    jurisdiccion.trim() &&
+    bienInmueble.trim() &&
+    formaPago.trim(),
+  );
+  const formListo = camposBaseOk && camposBancoOk && camposInmobiliariaOk;
+  const hayAlgunDato = [
+    ordenante.id, beneficiario.id, comprador.id,
+    monto, descripcion, productoServicio, bienInmueble, formaPago, jurisdiccion,
+  ].some((v) => v.trim() !== '') || cargados > 0;
 
   async function verifyParty(
     field: 'ordenante' | 'beneficiario' | 'comprador',
@@ -293,7 +278,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           body: JSON.stringify({ ...body, submit: true }),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? 'Error al enviar el ROS.'); return; }
+        if (!res.ok) { setError(formatApiError(data, 'Error al enviar el ROS.')); return; }
         rosId = initialData!.rosId;
         numeroRos = data.numero_ros;
       } else {
@@ -303,7 +288,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           body: JSON.stringify(body),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? 'No fue posible crear el ROS.'); return; }
+        if (!res.ok) { setError(formatApiError(data, 'No fue posible crear el ROS.')); return; }
         rosId = data.id;
         numeroRos = data.numero_ros;
       }
@@ -321,26 +306,48 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     }
   }
 
+  function validateForm(): string | null {
+    if (!oficial.trim()) return 'El nombre del oficial de cumplimiento es obligatorio.';
+    if (!correoOficial.trim() || !isValidEmail(correoOficial))
+      return 'El correo institucional del oficial es obligatorio y debe tener un formato válido.';
+    if (!fechaDeteccion) return 'La fecha de detección es obligatoria.';
+    if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0)
+      return 'El monto debe ser un número mayor a 0.';
+    const bankError = validateBank();
+    if (bankError) return bankError;
+    const realEstateError = validateRealEstate();
+    if (realEstateError) return realEstateError;
+    if (!descripcion.trim() || descripcion.length < 30)
+      return 'La descripción narrativa debe tener al menos 30 caracteres.';
+    if (!todosDocumentosCargados)
+      return `Debe cargar todos los documentos requeridos antes de enviar. Faltan ${docList.length - cargados} documento(s).`;
+    return null;
+  }
+
+  function validateBank(): string | null {
+    if (!isBank) return null;
+    if (ordenante.id.trim().length < 3) return 'La cédula del ordenante debe tener al menos 3 caracteres.';
+    if (beneficiario.id.trim().length < 3) return 'La cédula del beneficiario debe tener al menos 3 caracteres.';
+    if (!jurisdiccion.trim()) return 'La jurisdicción relacionada es obligatoria.';
+    if (!productoServicio.trim()) return 'El producto bancario involucrado es obligatorio.';
+    return null;
+  }
+
+  function validateRealEstate(): string | null {
+    if (!isRealEstate) return null;
+    if (comprador.id.trim().length < 3) return 'La cédula del cliente / comprador debe tener al menos 3 caracteres.';
+    if (!jurisdiccion.trim()) return 'La ubicación del bien inmueble es obligatoria.';
+    if (!bienInmueble.trim()) return 'El bien inmueble involucrado es obligatorio.';
+    if (!formaPago.trim()) return 'La forma de pago es obligatoria.';
+    return null;
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setSuccess(null);
 
-    if (!descripcion.trim() || descripcion.length < 30) {
-      setError('La descripción narrativa debe tener al menos 30 caracteres.');
-      return;
-    }
-    if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0) {
-      setError('El monto debe ser un número mayor a 0.');
-      return;
-    }
-    if (isBank && !ordenante.id.trim()) {
-      setError('Debe registrar al menos la cédula del ordenante.');
-      return;
-    }
-    if (isRealEstate && !comprador.id.trim()) {
-      setError('Debe registrar la cédula del comprador.');
-      return;
-    }
+    const validationError = validateForm();
+    if (validationError) { setError(validationError); return; }
 
     // A6 — Detección de posible duplicidad (solo en envío formal, no borradores)
     if (!confirmarPeseRef.current) {
@@ -374,7 +381,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           body: JSON.stringify({ ...body, submit: false }),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? 'Error al guardar borrador.'); return; }
+        if (!res.ok) { setError(formatApiError(data, 'Error al guardar borrador.')); return; }
         rosId = initialData!.rosId;
         numeroRos = data.numero_ros;
       } else {
@@ -384,7 +391,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           body: JSON.stringify({ ...body, modo: 'borrador' }),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? 'No fue posible guardar el borrador.'); return; }
+        if (!res.ok) { setError(formatApiError(data, 'No fue posible guardar el borrador.')); return; }
         rosId = data.id;
         numeroRos = data.numero_ros;
       }
@@ -417,16 +424,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           <input value={sujeto.nombre} disabled />
         </div>
         <div className="field">
-          <label>Fecha de detección</label>
-          <input type="date" value={fechaDeteccion} onChange={(e) => setFechaDeteccion(e.target.value)} required />
+          <label htmlFor="fecha-deteccion">Fecha de detección <span className="req">*</span></label>
+          <input id="fecha-deteccion" type="date" value={fechaDeteccion} onChange={(e) => setFechaDeteccion(e.target.value)} required />
         </div>
         <div className="field">
-          <label>Oficial de cumplimiento</label>
-          <input value={oficial} onChange={(e) => setOficial(e.target.value)} required placeholder="Nombre completo" />
+          <label htmlFor="oficial-cumplimiento">Oficial de cumplimiento <span className="req">*</span></label>
+          <input id="oficial-cumplimiento" value={oficial} onChange={(e) => setOficial(e.target.value)} required placeholder="Nombre completo" />
         </div>
         <div className="field">
-          <label>Correo institucional</label>
-          <input type="email" value={correoOficial} onChange={(e) => setCorreoOficial(e.target.value)} required placeholder="correo@entidad.com" />
+          <label htmlFor="correo-oficial">Correo institucional <span className="req">*</span></label>
+          <input id="correo-oficial" type="email" value={correoOficial} onChange={(e) => setCorreoOficial(e.target.value)} required placeholder="correo@entidad.com" />
         </div>
 
         {/* ── Sección 2: Personas relacionadas ── */}
@@ -454,10 +461,10 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
                 Para reportes bancarios, valide por separado al <strong>ordenante</strong> y al <strong>beneficiario</strong>.
               </div>
               <div className="lookup-grid">
-                <PartyCard label="Persona que realiza la transacción" role="Ordenante" icon={<User size={14} />}
+                <PartyCard label="Persona que realiza la transacción" role="Ordenante" icon={<User size={14} />} required
                   state={ordenante} setState={setOrdenante}
                   onVerify={() => verifyParty('ordenante', ordenante, setOrdenante)} />
-                <PartyCard label="Beneficiario" role="Beneficiario" icon={<User size={14} />}
+                <PartyCard label="Beneficiario" role="Beneficiario" icon={<User size={14} />} required
                   state={beneficiario} setState={setBeneficiario}
                   onVerify={() => verifyParty('beneficiario', beneficiario, setBeneficiario)} />
               </div>
@@ -471,7 +478,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
               Verifique al comprador. El sistema solo mostrará el nombre si la cédula existe en el directorio.
             </div>
             <div className="lookup-grid single">
-              <PartyCard label="Cliente / Comprador reportado" role="Comprador" icon={<Building2 size={14} />}
+              <PartyCard label="Cliente / Comprador reportado" role="Comprador" icon={<Building2 size={14} />} required
                 state={comprador} setState={setComprador}
                 onVerify={() => verifyParty('comprador', comprador, setComprador)} />
             </div>
@@ -484,12 +491,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           Información de la operación sospechosa
         </div>
         <div className="field">
-          <label>Monto aproximado (USD)</label>
-          <input type="number" step="0.01" min="0" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="985000" required />
+          <label htmlFor="monto">Monto aproximado (USD) <span className="req">*</span></label>
+          <input id="monto" type="number" step="0.01" min="0" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="985000" required />
         </div>
         <div className="field">
-          <label>{isRealEstate ? 'Ubicación del bien inmueble' : 'Jurisdicción relacionada'}</label>
-          <input value={jurisdiccion} onChange={(e) => setJurisdiccion(e.target.value)} placeholder={isRealEstate ? 'Costa del Este, Panamá' : 'Panamá / Suiza'} />
+          <label htmlFor="jurisdiccion">{isRealEstate ? 'Ubicación del bien inmueble' : 'Jurisdicción relacionada'} <span className="req">*</span></label>
+          <input id="jurisdiccion" value={jurisdiccion} onChange={(e) => setJurisdiccion(e.target.value)} placeholder={isRealEstate ? 'Costa del Este, Panamá' : 'Panamá / Suiza'} />
         </div>
         <div className="field">
           <label>Tipología / señal de alerta</label>
@@ -503,25 +510,25 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         </div>
         {isBank && (
           <div className="field">
-            <label>Producto bancario involucrado</label>
-            <input value={productoServicio} onChange={(e) => setProductoServicio(e.target.value)} placeholder="Cuenta, préstamo, tarjeta, transferencia…" />
+            <label htmlFor="producto-servicio">Producto bancario involucrado <span className="req">*</span></label>
+            <input id="producto-servicio" value={productoServicio} onChange={(e) => setProductoServicio(e.target.value)} placeholder="Cuenta, préstamo, tarjeta, transferencia…" />
           </div>
         )}
         {isRealEstate && (
           <>
             <div className="field">
-              <label>Bien inmueble involucrado</label>
-              <input value={bienInmueble} onChange={(e) => setBienInmueble(e.target.value)} placeholder="Apartamento, finca, casa, local…" />
+              <label htmlFor="bien-inmueble">Bien inmueble involucrado <span className="req">*</span></label>
+              <input id="bien-inmueble" value={bienInmueble} onChange={(e) => setBienInmueble(e.target.value)} placeholder="Apartamento, finca, casa, local…" />
             </div>
             <div className="field">
-              <label>Forma de pago</label>
-              <input value={formaPago} onChange={(e) => setFormaPago(e.target.value)} placeholder="Efectivo, transferencia, mixto…" />
+              <label htmlFor="forma-pago">Forma de pago <span className="req">*</span></label>
+              <input id="forma-pago" value={formaPago} onChange={(e) => setFormaPago(e.target.value)} placeholder="Efectivo, transferencia, mixto…" />
             </div>
           </>
         )}
         <div className="field full">
-          <label>Descripción narrativa de los hechos</label>
-          <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required minLength={30}
+          <label htmlFor="descripcion">Descripción narrativa de los hechos <span className="req">*</span></label>
+          <textarea id="descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required minLength={30}
             placeholder="Explique la operación, la inusualidad detectada, las gestiones realizadas y por qué se considera sospechosa." />
           <div className="helper">
             Mínimo 30 caracteres ({descripcion.length} escritos).
@@ -602,10 +609,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
                       </div>
                     </div>
                   ) : null}
-                  <FileDropZone
-                    file={file}
-                    onChange={(f) => setFiles({ ...files, [d.id]: f })}
-                  />
+                  {!fileLabels[d.id] && (
+                    <FileDropZone
+                      file={file}
+                      onChange={(f) => setFiles({ ...files, [d.id]: f })}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -635,8 +644,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
               id="extras-input"
               type="file"
               multiple
+              accept=".pdf,.jpg,.jpeg,.png"
               style={{ display: 'none' }}
-              onChange={(e) => setExtras(Array.from(e.target.files ?? []))}
+              onChange={(e) => {
+                const valid = Array.from(e.target.files ?? []).filter((f) => isAllowedFile(f) && f.size <= MAX_BYTES);
+                setExtras(valid);
+              }}
             />
             {extras.length > 0 ? (
               <div className="upload-zone-content">
@@ -749,7 +762,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         )}
 
         <div className="action-row" style={{ gridColumn: '1 / -1' }}>
-          <button type="submit" className="btn primary" disabled={submitting || pending} style={{ minWidth: 200, justifyContent: 'center' }}>
+          <button type="submit" className="btn primary" disabled={submitting || pending || !formListo} style={{ minWidth: 200, justifyContent: 'center' }}>
             {submitting ? (
               <>Enviando ROS a la UAF…</>
             ) : (
@@ -762,16 +775,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           <button
             type="button"
             className="btn secondary"
-            disabled={submitting || pending}
+            disabled={submitting || pending || !hayAlgunDato}
             style={{ minWidth: 160, justifyContent: 'center' }}
             onClick={onSaveDraft}
           >
             <Save size={16} />
             {esEdicion ? 'Guardar borrador' : 'Guardar borrador'}
           </button>
-          {!esEdicion && docList.length > 0 && cargados < docList.length && (
-            <div className="helper" style={{ margin: 0, alignSelf: 'center' }}>
-              {docList.length - cargados} documento{docList.length - cargados > 1 ? 's' : ''} pendiente{docList.length - cargados > 1 ? 's' : ''} — puede enviar con documentos faltantes.
+          {!formListo && (
+            <div className="helper" style={{ margin: 0, alignSelf: 'center', color: 'var(--amber)' }}>
+              Complete todos los campos obligatorios para habilitar el envío.
             </div>
           )}
         </div>
@@ -783,11 +796,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
 }
 
 function PartyCard({
-  label, role, icon, state, setState, onVerify,
+  label, role, icon, required, state, setState, onVerify,
 }: {
   label: string;
   role: string;
   icon: React.ReactNode;
+  required?: boolean;
   state: PartyState;
   setState: (s: PartyState) => void;
   onVerify: () => void;
@@ -796,7 +810,7 @@ function PartyCard({
     <div className="lookup-card">
       <div className="lookup-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {icon}
-        {label}
+        {label}{required && <span className="req">*</span>}
       </div>
       <div className="lookup-row">
         <input
@@ -819,7 +833,7 @@ function PartyCard({
       {state.status === 'not_found' && (
         <div className="client-status warning" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <AlertCircle size={13} style={{ flexShrink: 0 }} />
-          {state.message}
+          {state.message ?? 'Sin coincidencia. La UAF validará con la documentación adjunta.'}
         </div>
       )}
       {state.status === 'error' && (

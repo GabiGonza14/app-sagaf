@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Download } from 'lucide-react';
+import { CheckCircle, Upload, FileText } from 'lucide-react';
+import { FileDropZone } from '@/components/FileDropZone';
 
 interface Adjunto {
   id: string;
@@ -19,6 +20,24 @@ interface Props {
   adjunto: Adjunto | null;
   readOnly?: boolean;
 }
+
+const CARD_CLASS: Record<string, string> = {
+  cargado:   'doc-card uploaded',
+  validado:  'doc-card validated',
+  observado: 'doc-card observed',
+};
+
+const BADGE_CLASS: Record<string, string> = {
+  cargado:   'badge green',
+  validado:  'badge teal',
+  observado: 'badge red',
+};
+
+const BADGE_LABEL: Record<string, string> = {
+  cargado:   'Cargado',
+  validado:  'Validado',
+  observado: 'Observado',
+};
 
 export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readOnly = false }: Props) {
   const router = useRouter();
@@ -46,61 +65,66 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
   }
 
   const estado = adjunto?.estado ?? 'pendiente';
-  const cardClass =
-    estado === 'cargado'   ? 'doc-card uploaded'
-  : estado === 'validado'  ? 'doc-card validated'
-  : estado === 'observado' ? 'doc-card observed'
-  : 'doc-card';
+  const cardClass = CARD_CLASS[estado] ?? 'doc-card';
+  const badgeClass = BADGE_CLASS[estado] ?? 'badge amber';
+  const badgeLabel = BADGE_LABEL[estado] ?? 'Pendiente';
 
-  const badgeTone =
-    estado === 'cargado'   ? 'green'
-  : estado === 'validado'  ? 'teal'
-  : estado === 'observado' ? 'red'
-  : 'amber';
+  let adjuntoSubtitle: React.ReactNode = readOnly ? 'Documento adjunto' : 'Clic para descargar · Sube uno nuevo para reemplazar';
+  if (adjunto?.observacion) {
+    adjuntoSubtitle = <span style={{ color: 'var(--red, #dc2626)' }}>Observado — {adjunto.observacion}</span>;
+  }
 
   return (
     <div className={cardClass}>
       <div className="doc-top">
-        <div className="doc-title">{index}. {nombre}</div>
-        <span className={`badge ${badgeTone}`}>{estado}</span>
+        <div className="doc-title">
+          <FileText size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 5, opacity: 0.6 }} />
+          {index}. {nombre}
+        </div>
+        <span className={badgeClass}>{badgeLabel}</span>
       </div>
+
       {adjunto && (
-        <a
-          href={`/api/documentos/${adjunto.id}/file`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="file-name"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--primary)', textDecoration: 'none' }}
-        >
-          <Download size={13} style={{ flexShrink: 0 }} />
-          {adjunto.nombre_archivo}
-        </a>
-      )}
-      {adjunto?.observacion && (
-        <div className="client-status warning">
-          <strong>Observación UAF:</strong> {adjunto.observacion}
+        <div className="upload-zone has-file" style={{ marginBottom: 0 }}>
+          <div className="upload-zone-content">
+            <CheckCircle size={18} className="upload-zone-icon uploaded" />
+            <div>
+              <a
+                href={`/api/documentos/${adjunto.id}/file`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="upload-zone-filename"
+                style={{ color: 'var(--primary)', textDecoration: 'none' }}
+              >
+                {adjunto.nombre_archivo}
+              </a>
+              <div className="upload-zone-size">{adjuntoSubtitle}</div>
+            </div>
+          </div>
         </div>
       )}
-      {!readOnly && (
+
+      {!readOnly && !adjunto && (
         <>
-          <input
-            type="file"
-            disabled={uploading}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) onUpload(f);
-            }}
-          />
-          {err && <div className="client-status error">{err}</div>}
-          <div className="helper">
-            {adjunto
-              ? 'Subir un archivo nuevo reemplazará el actual y reiniciará el estado del documento.'
-              : 'Este contenedor está asociado únicamente a este requisito documental.'}
-          </div>
+          <FileDropZone file={null} onChange={(f) => { if (f) onUpload(f); }} />
+          {uploading && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4 }}>Subiendo…</div>
+          )}
+          {err && (
+            <div style={{ color: 'var(--red, #dc2626)', fontSize: '0.75rem', marginTop: 4 }}>{err}</div>
+          )}
         </>
       )}
+
       {readOnly && !adjunto && (
-        <div className="helper">Sin documento adjunto.</div>
+        <div className="upload-zone" style={{ pointerEvents: 'none', opacity: 0.6 }}>
+          <div className="upload-zone-content">
+            <Upload size={16} className="upload-zone-icon" />
+            <div className="upload-zone-empty">
+              <div className="upload-zone-hint">Sin documento adjunto</div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

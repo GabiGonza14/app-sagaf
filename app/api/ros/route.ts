@@ -12,9 +12,9 @@ import { requirePermission, ForbiddenError } from '@/lib/permissions';
 const schema = z.object({
   plantilla_id: z.string().min(1),
   oficial_cumplimiento: z.string().min(2),
-  correo_oficial: z.string().email().optional(),
+  correo_oficial: z.union([z.string().email(), z.literal('')]).optional().default(''),
   fecha_deteccion: z.string().min(8),
-  descripcion: z.string().min(1),
+  descripcion: z.string().min(30, 'La descripción debe tener al menos 30 caracteres'),
   operacion: z.object({
     monto: z.number().positive(),
     jurisdiccion: z.string().optional().nullable(),
@@ -27,9 +27,9 @@ const schema = z.object({
   partes: z.array(z.object({
     rol: z.string().min(1),
     tipo: z.enum(['natural', 'juridica']),
-    identificador: z.string().min(3),
+    identificador: z.string().min(3, 'La cédula/RUC debe tener al menos 3 caracteres.'),
     nombre_visible: z.string().optional().nullable(),
-  })).min(1),
+  })).min(1, 'Debe registrar al menos una parte involucrada.'),
   modo: z.enum(['completo', 'borrador']).optional().default('completo'),
 });
 
@@ -79,15 +79,18 @@ export async function POST(req: Request) {
   const payload = await req.json().catch(() => null);
   const baseSchema = payload?.modo === 'borrador'
     ? schema.extend({
+        oficial_cumplimiento: z.string().optional().default(''),
+        correo_oficial: z.string().optional().default(''),
+        fecha_deteccion: z.string().optional().default(''),
         partes: z.array(z.object({
           rol: z.string().min(1),
           tipo: z.enum(['natural', 'juridica']),
-          identificador: z.string().min(3),
+          identificador: z.string().min(3, 'La cédula/RUC debe tener al menos 3 caracteres.'),
           nombre_visible: z.string().optional().nullable(),
         })).optional().default([]),
         descripcion: z.string().optional().default(''),
         operacion: z.object({
-          monto: z.number().positive().optional().default(0),
+          monto: z.number().min(0).optional().default(0),
           jurisdiccion: z.string().optional().nullable(),
           senal_alerta: z.string().optional().default(''),
           producto_servicio: z.string().optional().nullable(),

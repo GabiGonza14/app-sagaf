@@ -32,6 +32,10 @@ interface DocAdjRow {
   nombre_archivo: string;
 }
 
+function partyStatus(row: ParteRow): 'verified' | 'not_found' {
+  return row.nombre_visible ? 'verified' : 'not_found';
+}
+
 export default async function EditarBorradorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
@@ -105,13 +109,13 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
     formaPago: op?.forma_pago ?? '',
     tipoCliente: (partePorRol['ordenante']?.tipo_persona ?? 'natural') as 'natural' | 'juridica',
     ordenante: partePorRol['ordenante']
-      ? { id: partePorRol['ordenante'].identificador, status: 'verified' as const, nombre: partePorRol['ordenante'].nombre_visible ?? '' }
+      ? { id: partePorRol['ordenante'].identificador, status: partyStatus(partePorRol['ordenante']), nombre: partePorRol['ordenante'].nombre_visible ?? '' }
       : { id: '', status: 'idle' as const, nombre: '' },
     beneficiario: partePorRol['beneficiario']
-      ? { id: partePorRol['beneficiario'].identificador, status: 'verified' as const, nombre: partePorRol['beneficiario'].nombre_visible ?? '' }
+      ? { id: partePorRol['beneficiario'].identificador, status: partyStatus(partePorRol['beneficiario']), nombre: partePorRol['beneficiario'].nombre_visible ?? '' }
       : { id: '', status: 'idle' as const, nombre: '' },
     comprador: partePorRol['comprador']
-      ? { id: partePorRol['comprador'].identificador, status: 'verified' as const, nombre: partePorRol['comprador'].nombre_visible ?? '' }
+      ? { id: partePorRol['comprador'].identificador, status: partyStatus(partePorRol['comprador']), nombre: partePorRol['comprador'].nombre_visible ?? '' }
       : { id: '', status: 'idle' as const, nombre: '' },
     uploadedDocs,
   };
