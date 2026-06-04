@@ -721,6 +721,7 @@ input:disabled, textarea:disabled, select:disabled {
 .field.full { grid-column: 1 / -1; }
 
 label { color: #344054; font-size: 13px; font-weight: 900; }
+.req { color: var(--red, #dc2626); margin-left: 3px; font-weight: 900; }
 
 .section-title {
   grid-column: 1 / -1;

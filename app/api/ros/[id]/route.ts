@@ -32,7 +32,7 @@ const putSchema = z.object({
   partes: z.array(z.object({
     rol: z.string().min(1),
     tipo: z.enum(['natural', 'juridica']),
-    identificador: z.string().min(3),
+    identificador: z.string().min(3, 'La cédula/RUC debe tener al menos 3 caracteres.'),
     nombre_visible: z.string().optional().nullable(),
   })).optional().default([]),
   submit: z.boolean().optional().default(false),
