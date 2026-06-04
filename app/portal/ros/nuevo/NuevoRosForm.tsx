@@ -114,7 +114,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   }, [isBank, tipoCliente, plantillaId, plantillas, defaultPlantilla]);
 
   const docList = docsByPlantilla[effectivePlantillaId] ?? [];
-  const cargados = Object.values(files).filter((f) => f).length;
+  const cargados = docList.filter((d) => files[d.id] || fileLabels[d.id]).length;
   const pct = docList.length > 0 ? Math.round((cargados / docList.length) * 100) : 0;
   const todosDocumentosCargados = docList.length === 0 || cargados >= docList.length;
   const hayAlgunDato = [
