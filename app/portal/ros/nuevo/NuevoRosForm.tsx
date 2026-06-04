@@ -44,6 +44,14 @@ interface Props {
 }
 
 
+function isValidEmail(email: string): boolean {
+  const at = email.indexOf('@');
+  if (at < 1) return false;
+  const domain = email.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+  return dot > 0 && dot < domain.length - 1 && !email.includes(' ');
+}
+
 function formatApiError(data: { error?: string; issues?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } }, fallback: string): string {
   if (!data.error) return fallback;
   if (data.error !== 'Datos inválidos') return data.error;
@@ -122,7 +130,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
 
   const camposBaseOk = Boolean(
     oficial.trim() &&
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoOficial) &&
+    isValidEmail(correoOficial) &&
     fechaDeteccion &&
     Number(monto) > 0 &&
     descripcion.trim().length >= 30 &&
@@ -300,7 +308,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
 
   function validateForm(): string | null {
     if (!oficial.trim()) return 'El nombre del oficial de cumplimiento es obligatorio.';
-    if (!correoOficial.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoOficial))
+    if (!correoOficial.trim() || !isValidEmail(correoOficial))
       return 'El correo institucional del oficial es obligatorio y debe tener un formato válido.';
     if (!fechaDeteccion) return 'La fecha de detección es obligatoria.';
     if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0)
