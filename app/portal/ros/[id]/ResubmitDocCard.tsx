@@ -1,7 +1,8 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, Upload, FileText } from 'lucide-react';
+import { FileDropZone } from '@/components/FileDropZone';
 
 interface Adjunto {
   id: string;
@@ -20,28 +21,28 @@ interface Props {
   readOnly?: boolean;
 }
 
-const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
-const ALLOWED_EXT = /\.(pdf|jpg|jpeg|png)$/i;
-const MAX_BYTES = 10 * 1024 * 1024;
+const CARD_CLASS: Record<string, string> = {
+  cargado:   'doc-card uploaded',
+  validado:  'doc-card validated',
+  observado: 'doc-card observed',
+};
 
-function isAllowedFile(f: File) {
-  return ALLOWED_TYPES.has(f.type) || ALLOWED_EXT.test(f.name);
-}
+const BADGE_CLASS: Record<string, string> = {
+  cargado:   'badge green',
+  validado:  'badge teal',
+  observado: 'badge red',
+};
+
+const BADGE_LABEL: Record<string, string> = {
+  cargado:   'Cargado',
+  validado:  'Validado',
+  observado: 'Observado',
+};
 
 export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readOnly = false }: Props) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const [fileError, setFileError] = useState<string | null>(null);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-
-  function validate(f: File): string | null {
-    if (!isAllowedFile(f)) return 'Solo se permiten archivos PDF, JPG o PNG.';
-    if (f.size > MAX_BYTES) return 'El archivo supera el límite de 10 MB.';
-    return null;
-  }
 
   async function onUpload(file: File) {
     setErr(null);
@@ -55,50 +56,23 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setErr(data.error ?? 'Error al subir el documento.');
-        setPendingFile(null);
         return;
       }
-      setPendingFile(null);
       router.refresh();
     } finally {
       setUploading(false);
     }
   }
 
-  function handleFile(f: File) {
-    const validErr = validate(f);
-    if (validErr) { setFileError(validErr); return; }
-    setFileError(null);
-    setPendingFile(f);
-    onUpload(f);
-  }
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const dropped = e.dataTransfer.files[0];
-    if (dropped) handleFile(dropped);
-  };
-
   const estado = adjunto?.estado ?? 'pendiente';
+  const cardClass = CARD_CLASS[estado] ?? 'doc-card';
+  const badgeClass = BADGE_CLASS[estado] ?? 'badge amber';
+  const badgeLabel = BADGE_LABEL[estado] ?? 'Pendiente';
 
-  const cardClass =
-    estado === 'cargado'   ? 'doc-card uploaded'
-  : estado === 'validado'  ? 'doc-card validated'
-  : estado === 'observado' ? 'doc-card observed'
-  : 'doc-card';
-
-  const badgeClass =
-    estado === 'cargado'   ? 'badge green'
-  : estado === 'validado'  ? 'badge teal'
-  : estado === 'observado' ? 'badge red'
-  : 'badge amber';
-
-  const badgeLabel =
-    estado === 'cargado'   ? 'Cargado'
-  : estado === 'validado'  ? 'Validado'
-  : estado === 'observado' ? 'Observado'
-  : 'Pendiente';
+  let adjuntoSubtitle: React.ReactNode = readOnly ? 'Documento adjunto' : 'Clic para descargar · Sube uno nuevo para reemplazar';
+  if (adjunto?.observacion) {
+    adjuntoSubtitle = <span style={{ color: 'var(--red, #dc2626)' }}>Observado — {adjunto.observacion}</span>;
+  }
 
   return (
     <div className={cardClass}>
@@ -121,15 +95,10 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
                 rel="noopener noreferrer"
                 className="upload-zone-filename"
                 style={{ color: 'var(--primary)', textDecoration: 'none' }}
-                onClick={(e) => e.stopPropagation()}
               >
                 {adjunto.nombre_archivo}
               </a>
-              <div className="upload-zone-size">
-                {adjunto.observacion
-                  ? <span style={{ color: 'var(--red, #dc2626)' }}>Observado — {adjunto.observacion}</span>
-                  : (readOnly ? 'Documento adjunto' : 'Clic para descargar · Sube uno nuevo para reemplazar')}
-              </div>
+              <div className="upload-zone-size">{adjuntoSubtitle}</div>
             </div>
           </div>
         </div>
@@ -137,49 +106,9 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
 
       {!readOnly && !adjunto && (
         <>
-          <div
-            className={`upload-zone${uploading ? ' has-file' : ''}${dragging ? ' dragging' : ''}`}
-            onClick={() => inputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={handleDrop}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
-          >
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleFile(f);
-                e.target.value = '';
-              }}
-            />
-            {uploading && pendingFile ? (
-              <div className="upload-zone-content">
-                <CheckCircle size={18} className="upload-zone-icon uploaded" />
-                <div>
-                  <div className="upload-zone-filename">{pendingFile.name}</div>
-                  <div className="upload-zone-size">Subiendo…</div>
-                </div>
-              </div>
-            ) : (
-              <div className="upload-zone-content">
-                <Upload size={16} className="upload-zone-icon" />
-                <div className="upload-zone-empty">
-                  <div className="upload-zone-hint">
-                    {adjunto ? 'Arrastra o haz clic para reemplazar' : 'Arrastra o haz clic para subir'}
-                  </div>
-                  <div className="upload-zone-types">PDF, JPG, PNG — máx. 10 MB</div>
-                </div>
-              </div>
-            )}
-          </div>
-          {fileError && (
-            <div style={{ color: 'var(--red, #dc2626)', fontSize: '0.75rem', marginTop: 4 }}>{fileError}</div>
+          <FileDropZone file={null} onChange={(f) => { if (f) onUpload(f); }} />
+          {uploading && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4 }}>Subiendo…</div>
           )}
           {err && (
             <div style={{ color: 'var(--red, #dc2626)', fontSize: '0.75rem', marginTop: 4 }}>{err}</div>
