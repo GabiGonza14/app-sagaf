@@ -857,6 +857,8 @@ label { color: #344054; font-size: 13px; font-weight: 900; }
 .doc-summary strong { font-size: 22px; color: var(--primary); }
 
 /* ---------- File Upload Zone ---------- */
+button.upload-zone { font: inherit; width: 100%; text-align: left; }
+
 .upload-zone {
   border: 2px dashed var(--line);
   background: #f8fafc;
