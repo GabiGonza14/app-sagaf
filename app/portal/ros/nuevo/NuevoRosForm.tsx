@@ -653,10 +653,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
                       </div>
                     </div>
                   ) : null}
-                  <FileDropZone
-                    file={file}
-                    onChange={(f) => setFiles({ ...files, [d.id]: f })}
-                  />
+                  {!fileLabels[d.id] && (
+                    <FileDropZone
+                      file={file}
+                      onChange={(f) => setFiles({ ...files, [d.id]: f })}
+                    />
+                  )}
                 </div>
               );
             })}
