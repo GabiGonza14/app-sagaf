@@ -105,13 +105,13 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
     formaPago: op?.forma_pago ?? '',
     tipoCliente: (partePorRol['ordenante']?.tipo_persona ?? 'natural') as 'natural' | 'juridica',
     ordenante: partePorRol['ordenante']
-      ? { id: partePorRol['ordenante'].identificador, status: 'verified' as const, nombre: partePorRol['ordenante'].nombre_visible ?? '' }
+      ? { id: partePorRol['ordenante'].identificador, status: (partePorRol['ordenante'].nombre_visible ? 'verified' : 'not_found') as 'verified' | 'not_found', nombre: partePorRol['ordenante'].nombre_visible ?? '' }
       : { id: '', status: 'idle' as const, nombre: '' },
     beneficiario: partePorRol['beneficiario']
-      ? { id: partePorRol['beneficiario'].identificador, status: 'verified' as const, nombre: partePorRol['beneficiario'].nombre_visible ?? '' }
+      ? { id: partePorRol['beneficiario'].identificador, status: (partePorRol['beneficiario'].nombre_visible ? 'verified' : 'not_found') as 'verified' | 'not_found', nombre: partePorRol['beneficiario'].nombre_visible ?? '' }
       : { id: '', status: 'idle' as const, nombre: '' },
     comprador: partePorRol['comprador']
-      ? { id: partePorRol['comprador'].identificador, status: 'verified' as const, nombre: partePorRol['comprador'].nombre_visible ?? '' }
+      ? { id: partePorRol['comprador'].identificador, status: (partePorRol['comprador'].nombre_visible ? 'verified' : 'not_found') as 'verified' | 'not_found', nombre: partePorRol['comprador'].nombre_visible ?? '' }
       : { id: '', status: 'idle' as const, nombre: '' },
     uploadedDocs,
   };

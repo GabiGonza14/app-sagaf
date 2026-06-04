@@ -47,10 +47,12 @@ interface Props {
 function formatApiError(data: { error?: string; issues?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } }, fallback: string): string {
   if (!data.error) return fallback;
   if (data.error !== 'Datos inválidos') return data.error;
-  const fieldErrs = Object.entries(data.issues?.fieldErrors ?? {}).map(([k, v]) => `${k}: ${v.join(', ')}`);
-  const formErrs = data.issues?.formErrors ?? [];
-  const detail = [...formErrs, ...fieldErrs].join(' | ');
-  return detail ? `Datos inválidos — ${detail}` : fallback;
+  const allMsgs = [
+    ...(data.issues?.formErrors ?? []),
+    ...Object.values(data.issues?.fieldErrors ?? {}).flat(),
+  ];
+  const detail = allMsgs.join(' ');
+  return detail || fallback;
 }
 
 export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefault, correoDefault, initialData }: Props) {
@@ -117,6 +119,28 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const cargados = docList.filter((d) => files[d.id] || fileLabels[d.id]).length;
   const pct = docList.length > 0 ? Math.round((cargados / docList.length) * 100) : 0;
   const todosDocumentosCargados = docList.length === 0 || cargados >= docList.length;
+
+  const camposBaseOk = Boolean(
+    oficial.trim() &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoOficial) &&
+    fechaDeteccion &&
+    Number(monto) > 0 &&
+    descripcion.trim().length >= 30 &&
+    todosDocumentosCargados,
+  );
+  const camposBancoOk = !isBank || Boolean(
+    ordenante.id.trim().length >= 3 &&
+    beneficiario.id.trim().length >= 3 &&
+    jurisdiccion.trim() &&
+    productoServicio.trim(),
+  );
+  const camposInmobiliariaOk = !isRealEstate || Boolean(
+    comprador.id.trim().length >= 3 &&
+    jurisdiccion.trim() &&
+    bienInmueble.trim() &&
+    formaPago.trim(),
+  );
+  const formListo = camposBaseOk && camposBancoOk && camposInmobiliariaOk;
   const hayAlgunDato = [
     ordenante.id, beneficiario.id, comprador.id,
     monto, descripcion, productoServicio, bienInmueble, formaPago, jurisdiccion,
@@ -246,7 +270,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           body: JSON.stringify({ ...body, submit: true }),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? 'Error al enviar el ROS.'); return; }
+        if (!res.ok) { setError(formatApiError(data, 'Error al enviar el ROS.')); return; }
         rosId = initialData!.rosId;
         numeroRos = data.numero_ros;
       } else {
@@ -256,7 +280,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           body: JSON.stringify(body),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? 'No fue posible crear el ROS.'); return; }
+        if (!res.ok) { setError(formatApiError(data, 'No fue posible crear el ROS.')); return; }
         rosId = data.id;
         numeroRos = data.numero_ros;
       }
@@ -295,12 +319,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       return;
     }
     if (isBank) {
-      if (!ordenante.id.trim()) {
-        setError('Debe registrar la cédula de la persona que realiza la transacción (ordenante).');
+      if (ordenante.id.trim().length < 3) {
+        setError('La cédula del ordenante debe tener al menos 3 caracteres.');
         return;
       }
-      if (!beneficiario.id.trim()) {
-        setError('Debe registrar la cédula del beneficiario.');
+      if (beneficiario.id.trim().length < 3) {
+        setError('La cédula del beneficiario debe tener al menos 3 caracteres.');
         return;
       }
       if (!jurisdiccion.trim()) {
@@ -313,8 +337,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       }
     }
     if (isRealEstate) {
-      if (!comprador.id.trim()) {
-        setError('Debe registrar la cédula del cliente / comprador.');
+      if (comprador.id.trim().length < 3) {
+        setError('La cédula del cliente / comprador debe tener al menos 3 caracteres.');
         return;
       }
       if (!jurisdiccion.trim()) {
@@ -414,15 +438,15 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           <input value={sujeto.nombre} disabled />
         </div>
         <div className="field">
-          <label>Fecha de detección</label>
+          <label>Fecha de detección <span className="req">*</span></label>
           <input type="date" value={fechaDeteccion} onChange={(e) => setFechaDeteccion(e.target.value)} required />
         </div>
         <div className="field">
-          <label>Oficial de cumplimiento</label>
+          <label>Oficial de cumplimiento <span className="req">*</span></label>
           <input value={oficial} onChange={(e) => setOficial(e.target.value)} required placeholder="Nombre completo" />
         </div>
         <div className="field">
-          <label>Correo institucional</label>
+          <label>Correo institucional <span className="req">*</span></label>
           <input type="email" value={correoOficial} onChange={(e) => setCorreoOficial(e.target.value)} required placeholder="correo@entidad.com" />
         </div>
 
@@ -451,10 +475,10 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
                 Para reportes bancarios, valide por separado al <strong>ordenante</strong> y al <strong>beneficiario</strong>.
               </div>
               <div className="lookup-grid">
-                <PartyCard label="Persona que realiza la transacción" role="Ordenante" icon={<User size={14} />}
+                <PartyCard label="Persona que realiza la transacción" role="Ordenante" icon={<User size={14} />} required
                   state={ordenante} setState={setOrdenante}
                   onVerify={() => verifyParty('ordenante', ordenante, setOrdenante)} />
-                <PartyCard label="Beneficiario" role="Beneficiario" icon={<User size={14} />}
+                <PartyCard label="Beneficiario" role="Beneficiario" icon={<User size={14} />} required
                   state={beneficiario} setState={setBeneficiario}
                   onVerify={() => verifyParty('beneficiario', beneficiario, setBeneficiario)} />
               </div>
@@ -468,7 +492,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
               Verifique al comprador. El sistema solo mostrará el nombre si la cédula existe en el directorio.
             </div>
             <div className="lookup-grid single">
-              <PartyCard label="Cliente / Comprador reportado" role="Comprador" icon={<Building2 size={14} />}
+              <PartyCard label="Cliente / Comprador reportado" role="Comprador" icon={<Building2 size={14} />} required
                 state={comprador} setState={setComprador}
                 onVerify={() => verifyParty('comprador', comprador, setComprador)} />
             </div>
@@ -481,11 +505,11 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           Información de la operación sospechosa
         </div>
         <div className="field">
-          <label>Monto aproximado (USD)</label>
+          <label>Monto aproximado (USD) <span className="req">*</span></label>
           <input type="number" step="0.01" min="0" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="985000" required />
         </div>
         <div className="field">
-          <label>{isRealEstate ? 'Ubicación del bien inmueble' : 'Jurisdicción relacionada'}</label>
+          <label>{isRealEstate ? 'Ubicación del bien inmueble' : 'Jurisdicción relacionada'} <span className="req">*</span></label>
           <input value={jurisdiccion} onChange={(e) => setJurisdiccion(e.target.value)} placeholder={isRealEstate ? 'Costa del Este, Panamá' : 'Panamá / Suiza'} />
         </div>
         <div className="field">
@@ -500,24 +524,24 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         </div>
         {isBank && (
           <div className="field">
-            <label>Producto bancario involucrado</label>
+            <label>Producto bancario involucrado <span className="req">*</span></label>
             <input value={productoServicio} onChange={(e) => setProductoServicio(e.target.value)} placeholder="Cuenta, préstamo, tarjeta, transferencia…" />
           </div>
         )}
         {isRealEstate && (
           <>
             <div className="field">
-              <label>Bien inmueble involucrado</label>
+              <label>Bien inmueble involucrado <span className="req">*</span></label>
               <input value={bienInmueble} onChange={(e) => setBienInmueble(e.target.value)} placeholder="Apartamento, finca, casa, local…" />
             </div>
             <div className="field">
-              <label>Forma de pago</label>
+              <label>Forma de pago <span className="req">*</span></label>
               <input value={formaPago} onChange={(e) => setFormaPago(e.target.value)} placeholder="Efectivo, transferencia, mixto…" />
             </div>
           </>
         )}
         <div className="field full">
-          <label>Descripción narrativa de los hechos</label>
+          <label>Descripción narrativa de los hechos <span className="req">*</span></label>
           <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required minLength={30}
             placeholder="Explique la operación, la inusualidad detectada, las gestiones realizadas y por qué se considera sospechosa." />
           <div className="helper">
@@ -752,7 +776,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         )}
 
         <div className="action-row" style={{ gridColumn: '1 / -1' }}>
-          <button type="submit" className="btn primary" disabled={submitting || pending || !todosDocumentosCargados} style={{ minWidth: 200, justifyContent: 'center' }}>
+          <button type="submit" className="btn primary" disabled={submitting || pending || !formListo} style={{ minWidth: 200, justifyContent: 'center' }}>
             {submitting ? (
               <>Enviando ROS a la UAF…</>
             ) : (
@@ -772,9 +796,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
             <Save size={16} />
             {esEdicion ? 'Guardar borrador' : 'Guardar borrador'}
           </button>
-          {docList.length > 0 && cargados < docList.length && (
+          {!formListo && (
             <div className="helper" style={{ margin: 0, alignSelf: 'center', color: 'var(--amber)' }}>
-              {docList.length - cargados} documento{docList.length - cargados > 1 ? 's' : ''} pendiente{docList.length - cargados > 1 ? 's' : ''} — todos los documentos son obligatorios para enviar el ROS.
+              Complete todos los campos obligatorios para habilitar el envío.
             </div>
           )}
         </div>
@@ -786,11 +810,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
 }
 
 function PartyCard({
-  label, role, icon, state, setState, onVerify,
+  label, role, icon, required, state, setState, onVerify,
 }: {
   label: string;
   role: string;
   icon: React.ReactNode;
+  required?: boolean;
   state: PartyState;
   setState: (s: PartyState) => void;
   onVerify: () => void;
@@ -799,7 +824,7 @@ function PartyCard({
     <div className="lookup-card">
       <div className="lookup-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {icon}
-        {label}
+        {label}{required && <span className="req">*</span>}
       </div>
       <div className="lookup-row">
         <input
@@ -822,7 +847,7 @@ function PartyCard({
       {state.status === 'not_found' && (
         <div className="client-status warning" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <AlertCircle size={13} style={{ flexShrink: 0 }} />
-          {state.message}
+          {state.message ?? 'Sin coincidencia. La UAF validará con la documentación adjunta.'}
         </div>
       )}
       {state.status === 'error' && (
