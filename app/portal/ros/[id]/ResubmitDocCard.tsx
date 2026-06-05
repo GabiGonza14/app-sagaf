@@ -104,7 +104,7 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
         </div>
       )}
 
-      {!readOnly && !adjunto && (
+      {!readOnly && (!adjunto || adjunto.estado === 'observado') && (
         <>
           <FileDropZone file={null} onChange={(f) => { if (f) onUpload(f); }} />
           {uploading && (
