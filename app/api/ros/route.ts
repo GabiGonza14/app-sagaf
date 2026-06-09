@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { audit, extractRequestContext } from '@/lib/audit';
-import { generateNumeroROS } from '@/lib/ros-number';
+import { generateNumeroROS, generateNumeroBORRADOR } from '@/lib/ros-number';
 import { maskIdentifier } from '@/lib/masking';
 import { requirePermission, ForbiddenError } from '@/lib/permissions';
 
@@ -115,7 +115,7 @@ export async function POST(req: Request) {
   const ctx = extractRequestContext(req);
 
   const tx = db.transaction(() => {
-    const numeroRos = generateNumeroROS();
+    const numeroRos = esBorrador ? generateNumeroBORRADOR() : generateNumeroROS();
     const rosId = randomUUID();
 
     db.prepare(`
