@@ -8,10 +8,13 @@ export function MfaSetupClient() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    console.log('[CLIENT] MFA Setup — useEffect iniciado, solicitando QR...');
     let cancelled = false;
     (async () => {
       const res = await fetch('/api/mfa/setup', { method: 'POST' });
+      console.log('[CLIENT] MFA Setup — Respuesta HTTP status:', res.status);
       const data = await res.json();
+      console.log('[CLIENT] MFA Setup — Data recibida:', data);
       if (!cancelled && res.ok) {
         setQr(data.qr);
       }
@@ -23,6 +26,7 @@ export function MfaSetupClient() {
 
   async function onConfirm(e: React.FormEvent) {
     e.preventDefault();
+    console.log('[CLIENT] MFA Setup Confirm — Submit iniciado, código:', code);
     setError(null);
     setLoading(true);
     try {
@@ -31,11 +35,15 @@ export function MfaSetupClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
       });
+      console.log('[CLIENT] MFA Setup Confirm — Respuesta HTTP status:', res.status);
       const data = await res.json();
+      console.log('[CLIENT] MFA Setup Confirm — Data recibida:', data);
       if (!res.ok) {
+        console.log('[CLIENT] MFA Setup Confirm — Error:', data.error ?? 'Código inválido');
         setError(data.error ?? 'Código inválido');
         return;
       }
+      console.log('[CLIENT] MFA Setup Confirm — OK, redirigiendo a /');
       // El JWT ya fue actualizado por /api/mfa/verify con mfaVerified=true
       window.location.href = '/';
     } finally {

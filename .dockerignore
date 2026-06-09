@@ -1,0 +1,45 @@
+# Docker
+Dockerfile
+docker-compose.yml
+docker-compose.*.yml
+.dockerignore
+
+# Node
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+pnpm-debug.log
+
+# Next.js
+.next
+out
+
+# Git
+.git
+.gitignore
+
+# Base de datos local (se genera/monta como volumen)
+db/*.db
+db/*.db-journal
+db/*.db-wal
+db/*.db-shm
+
+# Logs
+logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Contexto / docs académicos
+Contexto/
+*.md
+!README.md

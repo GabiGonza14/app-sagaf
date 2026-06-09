@@ -49,9 +49,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: 'Contraseña',           type: 'password' },
       },
       async authorize(credentials, req) {
+        console.log('[AUTH] authorize() iniciado');
         const parsed = loginSchema.safeParse(credentials);
         const ctx = extractRequestContext(req as unknown as Request);
+        console.log('[AUTH] IP:', ctx.ip, '| User-Agent:', ctx.user_agent?.slice(0, 60) + '...');
+
         if (!parsed.success) {
+          console.log('[AUTH] Payload inválido — correo recibido:', String(credentials?.correo ?? 'undefined'));
           audit({
             modulo: 'autenticacion', accion: 'login_failed', resultado: 'fallo',
             usuario_correo: String(credentials?.correo ?? ''),
@@ -61,9 +65,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
           return null;
         }
+        console.log('[AUTH] Payload válido para correo:', parsed.data.correo);
 
         const usuario = stmtFindByEmail.get(parsed.data.correo);
         if (!usuario) {
+          console.log('[AUTH] Usuario NO encontrado en BD:', parsed.data.correo);
           audit({
             modulo: 'autenticacion', accion: 'login_failed', resultado: 'fallo',
             usuario_correo: parsed.data.correo,
@@ -73,9 +79,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
           return null;
         }
+        console.log('[AUTH] Usuario encontrado — ID:', usuario.id, '| Rol:', usuario.rol_nombre, '| Estado:', usuario.estado);
 
         const ok = bcrypt.compareSync(parsed.data.password, usuario.password_hash);
         if (!ok) {
+          console.log('[AUTH] Password INCORRECTO para usuario:', usuario.id);
           audit({
             modulo: 'autenticacion', accion: 'login_failed', resultado: 'fallo',
             usuario_id: usuario.id, usuario_correo: usuario.correo, rol: usuario.rol_nombre,
@@ -85,8 +93,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
           return null;
         }
+        console.log('[AUTH] Password OK — usuario autenticado:', usuario.id);
 
         stmtUpdateUltimoAcceso.run(usuario.id);
+        console.log('[AUTH] ultimo_acceso actualizado para:', usuario.id);
 
         audit({
           modulo: 'autenticacion', accion: 'login_password_ok', resultado: 'exito',
@@ -94,6 +104,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           ip: ctx.ip, user_agent: ctx.user_agent,
           detalle: { mfa_activo: usuario.mfa_activo === 1 },
         });
+        console.log('[AUTH] Retornando usuario al JWT — MFA activo:', usuario.mfa_activo === 1);
 
         // El JWT aún no es válido para acceder a las vistas — falta MFA.
         // Los campos extendidos están declarados en types/next-auth.d.ts

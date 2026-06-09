@@ -12,6 +12,7 @@ export function MfaVerifyForm({ qr }: Props) {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    console.log('[CLIENT] MFA Verify — Submit iniciado, código:', code);
     setError(null);
     setLoading(true);
     try {
@@ -20,11 +21,15 @@ export function MfaVerifyForm({ qr }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code }),
       });
+      console.log('[CLIENT] MFA Verify — Respuesta HTTP status:', res.status);
       const data = await res.json();
+      console.log('[CLIENT] MFA Verify — Data recibida:', data);
       if (!res.ok) {
+        console.log('[CLIENT] MFA Verify — Error:', data.error ?? 'Código inválido');
         setError(data.error ?? 'Código inválido');
         return;
       }
+      console.log('[CLIENT] MFA Verify — OK, redirigiendo a /');
       // El JWT ya fue actualizado por /api/mfa/verify con mfaVerified=true
       window.location.href = '/';
     } finally {
