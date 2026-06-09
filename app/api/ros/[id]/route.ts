@@ -7,6 +7,7 @@ import { db } from '@/lib/db';
 import { audit, extractRequestContext } from '@/lib/audit';
 import { canAccessROS } from '@/lib/permissions';
 import { maskIdentifier } from '@/lib/masking';
+import { generateNumeroROS, esNumeroBORRADOR } from '@/lib/ros-number';
 
 const patchSchema = z.object({
   estado: z.enum([
@@ -156,15 +157,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   const tx = db.transaction(() => {
+    const numeroDefinitivo = esSubmit && esNumeroBORRADOR(ros.numero_ros)
+      ? generateNumeroROS()
+      : ros.numero_ros;
+
     db.prepare(`
       UPDATE ros SET plantilla_id = ?, oficial_cumplimiento = ?, correo_oficial = ?,
                       fecha_deteccion = ?, descripcion = ?,
+                      numero_ros = ?,
                       estado = CASE WHEN ? THEN 'recibido' ELSE 'borrador' END
       WHERE id = ?
     `).run(
       parsed.data.plantilla_id, parsed.data.oficial_cumplimiento,
       parsed.data.correo_oficial ?? null, parsed.data.fecha_deteccion,
-      parsed.data.descripcion, esSubmit ? 1 : 0, id,
+      parsed.data.descripcion, numeroDefinitivo, esSubmit ? 1 : 0, id,
     );
 
     // Reemplazar operacion_sospechosa
