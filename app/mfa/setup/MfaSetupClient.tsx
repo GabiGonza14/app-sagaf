@@ -28,7 +28,7 @@ export function MfaSetupClient() {
     console.log('[CLIENT] MFA Setup Confirm — Submit iniciado, código:', code);
     const ok = await verify(code);
     console.log(ok ? '[CLIENT] MFA Setup Confirm — OK, redirigiendo a /' : '[CLIENT] MFA Setup Confirm — Error');
-    if (ok) window.location.href = '/';
+    if (ok) globalThis.location.href = '/';
   }
 
   return (

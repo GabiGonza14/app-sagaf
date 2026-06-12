@@ -13,7 +13,7 @@ export function MfaVerifyForm({ qr }: Props) {
     console.log('[CLIENT] MFA Verify — Submit iniciado, código:', code);
     const ok = await verify(code);
     console.log(ok ? '[CLIENT] MFA Verify — OK, redirigiendo a /' : '[CLIENT] MFA Verify — Error');
-    if (ok) window.location.href = '/';
+    if (ok) globalThis.location.href = '/';
   }
 
   return (
