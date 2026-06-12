@@ -3,11 +3,9 @@
 
 FROM node:20-slim
 
-# Crear usuario no-root para el contenedor (seguridad: docker:S6471)
-RUN groupadd -r sagaf && useradd -r -g sagaf -m -d /app -s /bin/bash sagaf
-
-# Instalar dependencias de compilación para better-sqlite3 y pnpm
-RUN apt-get update && apt-get install -y \
+# Crear usuario no-root e instalar dependencias de compilación en un solo RUN
+RUN groupadd -r sagaf && useradd -r -g sagaf -m -d /app -s /bin/bash sagaf \
+  && apt-get update && apt-get install -y \
   python3 \
   make \
   g++ \
