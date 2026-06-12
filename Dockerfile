@@ -23,9 +23,22 @@ COPY pnpm-lock.yaml ./
 # Instalar dependencias usando pnpm (respeta pnpm-lock.yaml)
 RUN pnpm install --frozen-lockfile
 
-# Copiar todo el código fuente
-# El .dockerignore excluye: env files, node_modules, .git, .next, db-data, logs, etc.
-COPY . .
+# Copiar código fuente explícitamente (evita docker:S6470 — no usar COPY . .)
+COPY app/ ./app/
+COPY components/ ./components/
+COPY db/ ./db/
+COPY lib/ ./lib/
+COPY types/ ./types/
+COPY public/ ./public/
+COPY auth.ts ./
+COPY auth.config.ts ./
+COPY middleware.ts ./
+COPY next.config.js ./
+COPY next-env.d.ts ./
+COPY postcss.config.js ./
+COPY tailwind.config.ts ./
+COPY tsconfig.json ./
+COPY pnpm-workspace.yaml ./
 
 # Cambiar propiedad de /app al usuario sagaf
 RUN chown -R sagaf:sagaf /app
