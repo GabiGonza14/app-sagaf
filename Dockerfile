@@ -3,6 +3,9 @@
 
 FROM node:20-slim
 
+# Crear usuario no-root para el contenedor (seguridad: docker:S6471)
+RUN groupadd -r sagaf && useradd -r -g sagaf -m -d /app -s /bin/bash sagaf
+
 # Instalar dependencias de compilación para better-sqlite3 y pnpm
 RUN apt-get update && apt-get install -y \
   python3 \
@@ -17,13 +20,17 @@ WORKDIR /app
 
 # Copiar dependencias primero para aprovechar cache de capas
 COPY package.json ./
-COPY pnpm-lock.yaml* ./
+COPY pnpm-lock.yaml ./
 
 # Instalar dependencias usando pnpm (respeta pnpm-lock.yaml)
 RUN pnpm install --frozen-lockfile
 
 # Copiar todo el código fuente
+# El .dockerignore excluye: env files, node_modules, .git, .next, db-data, logs, etc.
 COPY . .
+
+# Cambiar propiedad de /app al usuario sagaf
+RUN chown -R sagaf:sagaf /app
 
 # Variables de entorno por defecto (sobrescribibles en docker-compose)
 # NOTA: AUTH_SECRET se pasa via docker-compose, NUNCA hardcodeado aquí.
@@ -31,10 +38,13 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV DB_PATH=/app/db-data/sagaf.db
 
-# Crear directorio de BD, inicializar schema, y compilar Next.js en una sola capa
+# Crear directorio de BD, inicializar schema, y compilar Next.js
 RUN mkdir -p /app/db-data \
   && pnpm tsx db/init.ts \
   && pnpm run build
+
+# Cambiar al usuario no-root para el runtime
+USER sagaf
 
 # Exponer el puerto de Next.js
 EXPOSE 3000

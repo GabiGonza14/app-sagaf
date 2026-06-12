@@ -19,6 +19,12 @@ out
 .git
 .gitignore
 
+# Environment files — NUNCA copiar al contenedor
+.env
+.env.local
+.env.*.local
+.env.*
+
 # Base de datos local (se genera/monta como volumen)
 db/*.db
 db/*.db-journal
