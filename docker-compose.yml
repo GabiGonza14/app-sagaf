@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  sagaf-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sagaf-app
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=production
+      - DB_PATH=/app/db-data/sagaf.db
+    volumes:
+      # Persistencia de la base de datos SQLite fuera del contenedor
+      # NUNCA montar sobre /app/db porque oculta init.ts, seed.ts, schema.sql
+      - ./db-data:/app/db-data
+      # Logs opcionales montados
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

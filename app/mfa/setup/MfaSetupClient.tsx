@@ -1,17 +1,19 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useMfaVerify } from '../useMfaVerify';
 
 export function MfaSetupClient() {
   const [qr, setQr] = useState<string | null>(null);
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { code, setCode, loading, error, verify } = useMfaVerify();
 
   useEffect(() => {
+    console.log('[CLIENT] MFA Setup — useEffect iniciado, solicitando QR...');
     let cancelled = false;
     (async () => {
       const res = await fetch('/api/mfa/setup', { method: 'POST' });
+      console.log('[CLIENT] MFA Setup — Respuesta HTTP status:', res.status);
       const data = await res.json();
+      console.log('[CLIENT] MFA Setup — Data recibida:', data);
       if (!cancelled && res.ok) {
         setQr(data.qr);
       }
@@ -23,24 +25,10 @@ export function MfaSetupClient() {
 
   async function onConfirm(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await fetch('/api/mfa/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Código inválido');
-        return;
-      }
-      // El JWT ya fue actualizado por /api/mfa/verify con mfaVerified=true
-      window.location.href = '/';
-    } finally {
-      setLoading(false);
-    }
+    console.log('[CLIENT] MFA Setup Confirm — Submit iniciado, código:', code);
+    const ok = await verify(code);
+    console.log(ok ? '[CLIENT] MFA Setup Confirm — OK, redirigiendo a /' : '[CLIENT] MFA Setup Confirm — Error');
+    if (ok) globalThis.location.href = '/';
   }
 
   return (
@@ -54,8 +42,6 @@ export function MfaSetupClient() {
             <div style={{ padding: 24, color: '#667085' }}>Generando QR…</div>
           )}
         </div>
-
-
       </div>
 
       <form onSubmit={onConfirm} style={{ marginTop: 18 }}>

@@ -36,6 +36,7 @@ db/sagaf.db
 db/sagaf.db-journal
 db/sagaf.db-shm
 db/sagaf.db-wal
+db-data/
 public/uploads/*
 !public/uploads/.gitkeep
 

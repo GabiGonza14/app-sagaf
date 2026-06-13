@@ -1,35 +1,19 @@
 'use client';
-import { useState } from 'react';
+import { useMfaVerify } from '../useMfaVerify';
 
 interface Props {
   readonly qr: string | null;
 }
 
 export function MfaVerifyForm({ qr }: Props) {
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { code, setCode, loading, error, verify } = useMfaVerify();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await fetch('/api/mfa/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Código inválido');
-        return;
-      }
-      // El JWT ya fue actualizado por /api/mfa/verify con mfaVerified=true
-      window.location.href = '/';
-    } finally {
-      setLoading(false);
-    }
+    console.log('[CLIENT] MFA Verify — Submit iniciado, código:', code);
+    const ok = await verify(code);
+    console.log(ok ? '[CLIENT] MFA Verify — OK, redirigiendo a /' : '[CLIENT] MFA Verify — Error');
+    if (ok) globalThis.location.href = '/';
   }
 
   return (
@@ -41,8 +25,6 @@ export function MfaVerifyForm({ qr }: Props) {
             <img src={qr} alt="Código QR para MFA" width={240} height={240} />
           </div>
         )}
-
-
       </div>
 
       <form onSubmit={onSubmit} style={{ marginTop: 18 }}>

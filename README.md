@@ -55,6 +55,44 @@ Abrir [http://localhost:3000](http://localhost:3000) — serás redirigido a `/l
 
 ---
 
+## 🐳 Docker Compose
+
+Alternativa para levantar el proyecto sin necesidad de instalar Node.js directamente en tu máquina.
+
+### Requisitos
+- **Docker** 20.10+
+- **Docker Compose** v2+
+
+### Pasos
+
+```bash
+# 1. Construir la imagen y levantar el contenedor
+#    - Se inicializa la BD automáticamente si no existe
+#    - Se ejecuta seed para cargar los usuarios demo
+#    - El puerto 3000 se mapea al host
+docker-compose up --build
+
+# 2. Detener y eliminar contenedor
+# docker-compose down
+
+# 3. Resetear la base de datos (elimina volumen y vuelve a construir)
+# docker-compose down -v && docker-compose up --build
+```
+
+### Configuración
+
+- **Volumen persistente**: `./db-data` en tu máquina se monta en `/app/db-data` del contenedor para que la base de datos SQLite sobreviva a reinicios del contenedor. **Importante**: no se monta sobre `/app/db` para no ocultar los scripts `init.ts` y `seed.ts` del contenedor.
+- **Variables de entorno**: `docker-compose.yml` lee automáticamente tu `.env.local` (ya existe en el proyecto). Asegúrate de que contenga al menos:
+  ```env
+  AUTH_SECRET=bf7f99824c8e483c175a26052df64eab3426c7a07e248b3b8350ce3ffe450705
+  AUTH_TRUST_HOST=true
+  ```
+- **Nota**: `better-sqlite3` requiere compilación nativa. El Dockerfile instala `python3`, `make` y `g++` para compilarlo correctamente.
+
+> **Nota**: En producción, cambia `AUTH_SECRET` por un valor seguro generado con `openssl rand -base64 32` y elimina `AUTH_TRUST_HOST=true` (reemplázalo por el dominio real en `AUTH_URL`).
+
+---
+
 ## 🔐 Credenciales
 
 Todas las cuentas usan la contraseña **`password123`** (hash bcrypt en BD).
