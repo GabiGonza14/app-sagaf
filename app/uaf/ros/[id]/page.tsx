@@ -111,10 +111,15 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
   const riesgoActual = riesgos[0] ?? null;
 
   const vinculos = db.prepare<[string, string, string], VinculoRow>(
-    `SELECT v.id, v.ros_destino_id, r2.numero_ros, v.tipo_vinculo, v.descripcion, v.confirmado
-       FROM vinculo_intersectorial v
-       JOIN ros r2 ON r2.id = CASE WHEN v.ros_origen_id = ? THEN v.ros_destino_id ELSE v.ros_origen_id END
-      WHERE v.ros_origen_id = ? OR v.ros_destino_id = ?`,
+    `SELECT v.id, v.ros_destino_id, r2.numero_ros, v.tipo_vinculo, v.descripcion, v.confirmado,
+            (SELECT 1 FROM riesgo_caso rc
+              WHERE rc.ros_id IN (v.ros_origen_id, v.ros_destino_id)
+                AND rc.nivel = 'alto'
+                AND rc.fecha_clasificacion = (SELECT MAX(fecha_clasificacion) FROM riesgo_caso WHERE ros_id = rc.ros_id)
+              LIMIT 1) AS alto_riesgo
+        FROM vinculo_intersectorial v
+        JOIN ros r2 ON r2.id = CASE WHEN v.ros_origen_id = ? THEN v.ros_destino_id ELSE v.ros_origen_id END
+       WHERE v.ros_origen_id = ? OR v.ros_destino_id = ?`,
   ).all(id, id, id);
 
   const auditoria = db.prepare<[string, string], AuditoriaRow>(
@@ -218,6 +223,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
         vinculos={vinculos.map((v) => ({
           id: v.id, numero_ros: v.numero_ros, tipo_vinculo: v.tipo_vinculo,
           descripcion: v.descripcion, confirmado: v.confirmado === 1,
+          alto_riesgo: (v as unknown as { alto_riesgo: number | null }).alto_riesgo === 1,
         }))}
         auditEvents={auditoria.map((a) => ({
           title: `${a.accion} · ${a.usuario_correo ?? 'system'} (${a.rol ?? '—'})`,

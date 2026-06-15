@@ -18,6 +18,7 @@ interface Row {
   descripcion: string | null;
   confirmado: number;
   fecha_deteccion: string;
+  alto_riesgo: number | null;
 }
 
 export default async function VinculosPage() {
@@ -25,7 +26,12 @@ export default async function VinculosPage() {
   const filas = db.prepare<[], Row>(
     `
     SELECT v.id, v.ros_origen_id, v.ros_destino_id, v.tipo_vinculo, v.descripcion, v.confirmado, v.fecha_deteccion,
-           r1.numero_ros AS numero_origen, r2.numero_ros AS numero_destino
+           r1.numero_ros AS numero_origen, r2.numero_ros AS numero_destino,
+           (SELECT 1 FROM riesgo_caso rc
+             WHERE rc.ros_id IN (v.ros_origen_id, v.ros_destino_id)
+               AND rc.nivel = 'alto'
+               AND rc.fecha_clasificacion = (SELECT MAX(fecha_clasificacion) FROM riesgo_caso WHERE ros_id = rc.ros_id)
+             LIMIT 1) AS alto_riesgo
       FROM vinculo_intersectorial v
       JOIN ros r1 ON r1.id = v.ros_origen_id
       JOIN ros r2 ON r2.id = v.ros_destino_id
@@ -50,7 +56,10 @@ export default async function VinculosPage() {
               <div key={v.id} className="report-item" style={{ cursor: 'default' }}>
                 <div className="report-top">
                   <strong>{v.numero_origen} ↔ {v.numero_destino}</strong>
-                  <Badge tone={v.confirmado ? 'green' : 'amber'}>{v.confirmado ? 'Confirmado' : 'Por validar'}</Badge>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {v.alto_riesgo === 1 && <Badge tone="red">Alto riesgo</Badge>}
+                    <Badge tone={v.confirmado ? 'green' : 'amber'}>{v.confirmado ? 'Confirmado' : 'Por validar'}</Badge>
+                  </div>
                 </div>
                 <div className="report-meta">
                   <span><strong>Tipo:</strong> {v.tipo_vinculo}</span>

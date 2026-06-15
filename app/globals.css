@@ -498,6 +498,7 @@ input:disabled, textarea:disabled, select:disabled {
   color: #172033;
   font-size: 14px;
   line-height: 1.4;
+  overflow-wrap: break-word;
 }
 
 .masked {
