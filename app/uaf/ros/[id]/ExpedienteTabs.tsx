@@ -12,7 +12,7 @@ interface DocAdj  {
   id: string; documento_requerido_id: string | null; nombre_archivo: string;
   estado: string; observacion: string | null; fecha_carga: string;
 }
-interface Vinc    { id: string; numero_ros: string; tipo_vinculo: string; descripcion: string | null; confirmado: boolean }
+interface Vinc    { id: string; numero_ros: string; tipo_vinculo: string; descripcion: string | null; confirmado: boolean; alto_riesgo?: boolean }
 interface AuditEv { title: string; description: string; tone?: 'default' | 'red' | 'amber' | 'green' }
 interface SubsRow { id: string; motivo: string; estado: string; fecha_solicitud: string; documento_adjunto_id: string | null }
 
@@ -44,7 +44,7 @@ export function RosExpedienteTabs({
 
   // Clasificación de riesgo
   const [riesgoNivel, setRiesgoNivel] = useState<'alto' | 'medio' | 'bajo'>('alto');
-  const [riesgoPuntaje, setRiesgoPuntaje] = useState(70);
+  const [riesgoPuntaje, setRiesgoPuntaje] = useState(0);
   const [riesgoJustif, setRiesgoJustif] = useState('');
 
   // Subsanación
@@ -60,6 +60,7 @@ export function RosExpedienteTabs({
   const [pendingDocId, setPendingDocId] = useState<string>('');
   const [observacionText, setObservacionText] = useState('');
   const [pendingVincId, setPendingVincId] = useState<string>('');
+  const [detectando, setDetectando] = useState(false);
 
   async function clasificar(e: React.FormEvent) {
     e.preventDefault();
@@ -143,8 +144,30 @@ export function RosExpedienteTabs({
         body: JSON.stringify({ id: pendingVincId, confirmado: confirmar }),
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'Error.'); return; }
+      const data = await res.json().catch(() => ({}));
+      if (data.alto_riesgo) {
+        alert('⚠️ Alerta: este vínculo involucra un ROS clasificado como ALTO RIESGO. Se ha registrado con criticidad crítica en auditoría.');
+      }
       router.refresh();
     } finally { setBusy(false); }
+  }
+
+  async function detectarVinculos() {
+    setDetectando(true);
+    try {
+      const res = await fetch(`/api/vinculos/detectar`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ros_id: rosId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { alert(data.error ?? 'Error al detectar vínculos.'); return; }
+      if (data.detectados === 0) {
+        alert('No se encontraron coincidencias intersectoriales para este ROS.');
+      } else {
+        alert(`Se detectaron ${data.detectados} vínculo(s). Revísalos en la pestaña de Vínculos.`);
+      }
+      router.refresh();
+    } finally { setDetectando(false); }
   }
 
   const adjByReq = new Map(docsAdj.filter((d) => d.documento_requerido_id).map((d) => [d.documento_requerido_id!, d]));
@@ -325,6 +348,12 @@ export function RosExpedienteTabs({
 
       {tab === 'vinculos' && (
         <>
+          <div className="action-row" style={{ marginBottom: 12 }}>
+            <button className="btn primary" onClick={detectarVinculos} disabled={detectando || busy}>
+              {detectando ? 'Detectando…' : 'Detectar vínculos automáticamente'}
+            </button>
+          </div>
+
           {vinculos.length === 0 ? (
             <div className="notice">No se detectaron vínculos para este ROS.</div>
           ) : (
@@ -333,7 +362,10 @@ export function RosExpedienteTabs({
                 <div key={v.id} className="report-item" style={{ cursor: 'default' }}>
                   <div className="report-top">
                     <strong>↔ {v.numero_ros}</strong>
-                    <Badge tone={v.confirmado ? 'green' : 'amber'}>{v.confirmado ? 'Confirmado' : 'Por validar'}</Badge>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {v.alto_riesgo && <Badge tone="red">Alto riesgo</Badge>}
+                      <Badge tone={v.confirmado ? 'green' : 'amber'}>{v.confirmado ? 'Confirmado' : 'Por validar'}</Badge>
+                    </div>
                   </div>
                   <div className="report-meta">
                     <span><strong>Tipo:</strong> {v.tipo_vinculo}</span>

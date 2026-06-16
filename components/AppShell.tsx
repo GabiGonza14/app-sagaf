@@ -65,15 +65,6 @@ export function AppShell({ role, userName, userInitials, userBadge, navItems, no
           <span className="mobile-header-title">SAGAF</span>
         </div>
 
-        <div className="user-chip-corner">
-          <div className="user-chip">
-            <div className="avatar">{userInitials ?? userName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</div>
-            <div>
-              <strong>{userName}</strong>
-              <div className="small">{userBadge ?? 'MFA activo'}</div>
-            </div>
-          </div>
-        </div>
         {children}
       </main>
     </div>
