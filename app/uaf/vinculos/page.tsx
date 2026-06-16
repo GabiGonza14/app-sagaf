@@ -55,15 +55,18 @@ export default async function VinculosPage() {
           <div className="report-list">
             {filas.map((v) => {
               const descartado = !v.confirmado && v.decidido_por !== null;
-              const badgeTone  = v.confirmado ? 'green' : descartado ? 'gray' : 'amber';
-              const badgeLabel = v.confirmado ? 'Confirmado' : descartado ? 'Descartado' : 'Por validar';
+              let badgeTone: 'green' | 'gray' | 'amber';
+              let badgeLabel: string;
+              if (v.confirmado) { badgeTone = 'green'; badgeLabel = 'Confirmado'; }
+              else if (descartado) { badgeTone = 'gray'; badgeLabel = 'Descartado'; }
+              else { badgeTone = 'amber'; badgeLabel = 'Por validar'; }
               return (
                 <div key={v.id} className="report-item" style={{ cursor: 'default' }}>
                   <div className="report-top">
                     <strong>{v.numero_origen} ↔ {v.numero_destino}</strong>
                     <div style={{ display: 'flex', gap: 6 }}>
                       {v.alto_riesgo === 1 && <Badge tone="red">Alto riesgo</Badge>}
-                      <Badge tone={badgeTone as 'green' | 'gray' | 'amber'}>{badgeLabel}</Badge>
+                      <Badge tone={badgeTone}>{badgeLabel}</Badge>
                     </div>
                   </div>
                   <div className="report-meta">

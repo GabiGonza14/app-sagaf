@@ -629,6 +629,14 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
             {docList.map((d, i) => {
               const file = files[d.id] ?? null;
               const uploaded = file || fileLabels[d.id];
+              let badgeColor: string;
+              if (uploaded) badgeColor = 'green';
+              else if (d.tipo_requerimiento === 'requerido') badgeColor = 'amber';
+              else badgeColor = 'gray';
+              let badgeText: string;
+              if (file) badgeText = 'Listo para subir';
+              else if (fileLabels[d.id]) badgeText = 'Adjunto guardado';
+              else badgeText = 'Pendiente';
               return (
                 <div key={d.id} className={`doc-card${file ? ' uploaded' : ''}`}>
                   <div className="doc-top">
@@ -640,8 +648,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
                       {d.tipo_requerimiento !== 'requerido' && (
                         <span className="badge gray" style={{ fontSize: 10 }}>Opcional</span>
                       )}
-                      <span className={`badge ${uploaded ? 'green' : d.tipo_requerimiento === 'requerido' ? 'amber' : 'gray'}`}>
-                        {file ? 'Listo para subir' : fileLabels[d.id] ? 'Adjunto guardado' : 'Pendiente'}
+                      <span className={`badge ${badgeColor}`}>
+                        {badgeText}
                       </span>
                     </div>
                   </div>

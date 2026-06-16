@@ -41,6 +41,99 @@ const TIPO_LABEL: Record<string, string> = {
   inteligencia: 'Inteligencia Financiera',
 };
 
+type FilterResult = ReturnType<typeof buildFilter>;
+
+function fetchOperativoData(f: FilterResult) {
+  interface ResumenSector { sector: string; total: number; alto: number; medio: number; bajo: number; monto: number }
+  interface ResumenTiempo { numero_ros: string; fecha_recepcion: string; estado: string; tiempo_horas: number | null }
+  const porSector = db.prepare<unknown[], ResumenSector>(
+    `SELECT so.sector, COUNT(*) AS total,
+            SUM(CASE WHEN (SELECT nivel FROM riesgo_caso WHERE ros_id = r.id ORDER BY fecha_clasificacion DESC LIMIT 1) = 'alto'  THEN 1 ELSE 0 END) AS alto,
+            SUM(CASE WHEN (SELECT nivel FROM riesgo_caso WHERE ros_id = r.id ORDER BY fecha_clasificacion DESC LIMIT 1) = 'medio' THEN 1 ELSE 0 END) AS medio,
+            SUM(CASE WHEN (SELECT nivel FROM riesgo_caso WHERE ros_id = r.id ORDER BY fecha_clasificacion DESC LIMIT 1) = 'bajo'  THEN 1 ELSE 0 END) AS bajo,
+            COALESCE(SUM((SELECT monto FROM operacion_sospechosa WHERE ros_id = r.id)), 0) AS monto
+       FROM ros r JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
+       ${f.where} GROUP BY so.sector ORDER BY total DESC`,
+  ).all(...f.vals);
+  const tiempos = db.prepare<unknown[], ResumenTiempo>(
+    `SELECT r.numero_ros, r.fecha_recepcion, r.estado,
+            CAST((julianday(COALESCE(
+              (SELECT MAX(fecha_hora_servidor) FROM evento_auditoria WHERE recurso_afectado = r.numero_ros),
+              r.fecha_recepcion)) - julianday(r.fecha_recepcion)) * 24 AS REAL) AS tiempo_horas
+       FROM ros r JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
+       ${f.where} ORDER BY r.fecha_recepcion DESC LIMIT 10`,
+  ).all(...f.vals);
+  return { porSector, tiempos };
+}
+
+function fetchDocumentalData(f: FilterResult) {
+  interface DocCompletitud { nombre: string; total_ros: number; cargados: number }
+  interface DocEstado { estado: string; total: number }
+  const completitudDocs = db.prepare<unknown[], DocCompletitud>(
+    `SELECT dr.nombre, COUNT(DISTINCT r.id) AS total_ros, COUNT(da.id) AS cargados
+       FROM documento_requerido dr
+       JOIN ros r ON r.plantilla_id = dr.plantilla_id
+       JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
+       LEFT JOIN documento_adjunto da ON da.documento_requerido_id = dr.id AND da.ros_id = r.id
+       ${f.where} GROUP BY dr.id, dr.nombre ORDER BY dr.plantilla_id, dr.orden LIMIT 25`,
+  ).all(...f.vals);
+  const docsPorEstado = db.prepare<unknown[], DocEstado>(
+    `SELECT da.estado, COUNT(*) AS total
+       FROM documento_adjunto da
+       JOIN ros r ON r.id = da.ros_id
+       JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
+       ${f.where} GROUP BY da.estado ORDER BY total DESC`,
+  ).all(...f.vals);
+  return { completitudDocs, docsPorEstado };
+}
+
+function fetchEstadisticoData(f: FilterResult) {
+  interface ResumenRiesgo { nivel: string; total: number }
+  interface ResumenEstado { estado: string; total: number }
+  const porRiesgo = db.prepare<unknown[], ResumenRiesgo>(
+    `SELECT rc.nivel, COUNT(DISTINCT rc.ros_id) AS total
+       FROM riesgo_caso rc
+       JOIN ros r ON r.id = rc.ros_id
+       JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
+       WHERE rc.fecha_clasificacion = (SELECT MAX(fecha_clasificacion) FROM riesgo_caso WHERE ros_id = rc.ros_id) ${f.and}
+       GROUP BY rc.nivel ORDER BY total DESC`,
+  ).all(...f.vals);
+  const porEstado = db.prepare<unknown[], ResumenEstado>(
+    `SELECT r.estado, COUNT(*) AS total
+       FROM ros r JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
+       ${f.where} GROUP BY r.estado ORDER BY total DESC`,
+  ).all(...f.vals);
+  return { porRiesgo, porEstado };
+}
+
+function fetchInteligenciaData(f: FilterResult) {
+  interface Jurisdiccion { jurisdiccion: string; total: number }
+  interface Senal { senal_alerta: string; total: number }
+  interface VinculoStats { total: number; confirmados: number }
+  const jurisdiccionWhere = f.where
+    ? `${f.where} AND os.jurisdiccion IS NOT NULL`
+    : 'WHERE os.jurisdiccion IS NOT NULL';
+  const jurisdicciones = db.prepare<unknown[], Jurisdiccion>(
+    `SELECT os.jurisdiccion, COUNT(*) AS total
+       FROM operacion_sospechosa os
+       JOIN ros r ON r.id = os.ros_id
+       JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
+       ${jurisdiccionWhere}
+       GROUP BY os.jurisdiccion ORDER BY total DESC LIMIT 10`,
+  ).all(...f.vals);
+  const senales = db.prepare<unknown[], Senal>(
+    `SELECT os.senal_alerta, COUNT(*) AS total
+       FROM operacion_sospechosa os
+       JOIN ros r ON r.id = os.ros_id
+       JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
+       ${f.where} GROUP BY os.senal_alerta ORDER BY total DESC LIMIT 10`,
+  ).all(...f.vals);
+  const vinculoStats = db.prepare<[], VinculoStats>(
+    `SELECT COUNT(*) AS total, SUM(confirmado) AS confirmados FROM vinculo_intersectorial`,
+  ).get() ?? { total: 0, confirmados: 0 };
+  return { jurisdicciones, senales, vinculoStats };
+}
+
 export default async function ReportesPage({ searchParams }: { searchParams: Promise<SP> }) {
   const session = await auth();
   const sp = await searchParams;
@@ -90,117 +183,20 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
   });
 
   // ── Queries por tipo (solo la sección activa) ───────────────────────────
+  const operativoData  = tipo === 'operativo'    ? fetchOperativoData(f)    : null;
+  const documentalData = tipo === 'documental'   ? fetchDocumentalData(f)   : null;
+  const estadisticoData= tipo === 'estadistico'  ? fetchEstadisticoData(f)  : null;
+  const inteligenciaData=tipo === 'inteligencia' ? fetchInteligenciaData(f) : null;
 
-  // OPERATIVO
-  interface ResumenSector {
-    sector: string; total: number; alto: number; medio: number; bajo: number; monto: number;
-  }
-  interface ResumenTiempo {
-    numero_ros: string; fecha_recepcion: string; estado: string; tiempo_horas: number | null;
-  }
-  const porSector = tipo === 'operativo'
-    ? db.prepare<unknown[], ResumenSector>(
-        `SELECT so.sector, COUNT(*) AS total,
-                SUM(CASE WHEN (SELECT nivel FROM riesgo_caso WHERE ros_id = r.id ORDER BY fecha_clasificacion DESC LIMIT 1) = 'alto'  THEN 1 ELSE 0 END) AS alto,
-                SUM(CASE WHEN (SELECT nivel FROM riesgo_caso WHERE ros_id = r.id ORDER BY fecha_clasificacion DESC LIMIT 1) = 'medio' THEN 1 ELSE 0 END) AS medio,
-                SUM(CASE WHEN (SELECT nivel FROM riesgo_caso WHERE ros_id = r.id ORDER BY fecha_clasificacion DESC LIMIT 1) = 'bajo'  THEN 1 ELSE 0 END) AS bajo,
-                COALESCE(SUM((SELECT monto FROM operacion_sospechosa WHERE ros_id = r.id)), 0) AS monto
-           FROM ros r JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
-           ${f.where} GROUP BY so.sector ORDER BY total DESC`,
-      ).all(...f.vals)
-    : [];
-
-  const tiempos = tipo === 'operativo'
-    ? db.prepare<unknown[], ResumenTiempo>(
-        `SELECT r.numero_ros, r.fecha_recepcion, r.estado,
-                CAST((julianday(COALESCE(
-                  (SELECT MAX(fecha_hora_servidor) FROM evento_auditoria WHERE recurso_afectado = r.numero_ros),
-                  r.fecha_recepcion)) - julianday(r.fecha_recepcion)) * 24 AS REAL) AS tiempo_horas
-           FROM ros r JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
-           ${f.where} ORDER BY r.fecha_recepcion DESC LIMIT 10`,
-      ).all(...f.vals)
-    : [];
-
-  // DOCUMENTAL
-  interface DocCompletitud { nombre: string; total_ros: number; cargados: number }
-  const completitudDocs = tipo === 'documental'
-    ? db.prepare<unknown[], DocCompletitud>(
-        `SELECT dr.nombre,
-                COUNT(DISTINCT r.id) AS total_ros,
-                COUNT(da.id)         AS cargados
-           FROM documento_requerido dr
-           JOIN ros r ON r.plantilla_id = dr.plantilla_id
-           JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
-           LEFT JOIN documento_adjunto da ON da.documento_requerido_id = dr.id AND da.ros_id = r.id
-           ${f.where}
-           GROUP BY dr.id, dr.nombre ORDER BY dr.plantilla_id, dr.orden LIMIT 25`,
-      ).all(...f.vals)
-    : [];
-
-  interface DocEstado { estado: string; total: number }
-  const docsPorEstado = tipo === 'documental'
-    ? db.prepare<unknown[], DocEstado>(
-        `SELECT da.estado, COUNT(*) AS total
-           FROM documento_adjunto da
-           JOIN ros r ON r.id = da.ros_id
-           JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
-           ${f.where} GROUP BY da.estado ORDER BY total DESC`,
-      ).all(...f.vals)
-    : [];
-
-  // ESTADÍSTICO
-  interface ResumenRiesgo { nivel: string; total: number }
-  const porRiesgo = tipo === 'estadistico'
-    ? db.prepare<unknown[], ResumenRiesgo>(
-        `SELECT rc.nivel, COUNT(DISTINCT rc.ros_id) AS total
-           FROM riesgo_caso rc
-           JOIN ros r ON r.id = rc.ros_id
-           JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
-           WHERE rc.fecha_clasificacion = (SELECT MAX(fecha_clasificacion) FROM riesgo_caso WHERE ros_id = rc.ros_id)
-             ${f.and}
-           GROUP BY rc.nivel ORDER BY total DESC`,
-      ).all(...f.vals)
-    : [];
-
-  interface ResumenEstado { estado: string; total: number }
-  const porEstado = tipo === 'estadistico'
-    ? db.prepare<unknown[], ResumenEstado>(
-        `SELECT r.estado, COUNT(*) AS total
-           FROM ros r JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
-           ${f.where} GROUP BY r.estado ORDER BY total DESC`,
-      ).all(...f.vals)
-    : [];
-
-  // INTELIGENCIA
-  interface Jurisdiccion { jurisdiccion: string; total: number }
-  const jurisdicciones = tipo === 'inteligencia'
-    ? db.prepare<unknown[], Jurisdiccion>(
-        `SELECT os.jurisdiccion, COUNT(*) AS total
-           FROM operacion_sospechosa os
-           JOIN ros r ON r.id = os.ros_id
-           JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
-           ${f.where ? f.where + ' AND os.jurisdiccion IS NOT NULL' : 'WHERE os.jurisdiccion IS NOT NULL'}
-           GROUP BY os.jurisdiccion ORDER BY total DESC LIMIT 10`,
-      ).all(...f.vals)
-    : [];
-
-  interface Senal { senal_alerta: string; total: number }
-  const senales = tipo === 'inteligencia'
-    ? db.prepare<unknown[], Senal>(
-        `SELECT os.senal_alerta, COUNT(*) AS total
-           FROM operacion_sospechosa os
-           JOIN ros r ON r.id = os.ros_id
-           JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
-           ${f.where} GROUP BY os.senal_alerta ORDER BY total DESC LIMIT 10`,
-      ).all(...f.vals)
-    : [];
-
-  interface VinculoStats { total: number; confirmados: number }
-  const vinculoStats = tipo === 'inteligencia'
-    ? (db.prepare<[], VinculoStats>(
-        `SELECT COUNT(*) AS total, SUM(confirmado) AS confirmados FROM vinculo_intersectorial`,
-      ).get() ?? { total: 0, confirmados: 0 })
-    : null;
+  const porSector        = operativoData?.porSector      ?? [];
+  const tiempos          = operativoData?.tiempos        ?? [];
+  const completitudDocs  = documentalData?.completitudDocs  ?? [];
+  const docsPorEstado    = documentalData?.docsPorEstado    ?? [];
+  const porRiesgo        = estadisticoData?.porRiesgo    ?? [];
+  const porEstado        = estadisticoData?.porEstado    ?? [];
+  const jurisdicciones   = inteligenciaData?.jurisdicciones ?? [];
+  const senales          = inteligenciaData?.senales        ?? [];
+  const vinculoStats     = inteligenciaData?.vinculoStats   ?? null;
 
   const EMPTY = <div className="notice">Sin datos para los criterios seleccionados.</div>;
 
@@ -224,8 +220,8 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
       <form method="get" className="card" style={{ padding: 16 }}>
         <div className="form-grid" style={{ gap: 10 }}>
           <div className="field">
-            <label>Tipo de reporte</label>
-            <select name="tipo" defaultValue={tipo}>
+            <label htmlFor="rep-tipo">Tipo de reporte</label>
+            <select id="rep-tipo" name="tipo" defaultValue={tipo}>
               <option value="operativo">Operativo</option>
               <option value="documental">Documental</option>
               <option value="estadistico">Estadístico</option>
@@ -233,8 +229,8 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
             </select>
           </div>
           <div className="field">
-            <label>Sector</label>
-            <select name="sector" defaultValue={sector}>
+            <label htmlFor="rep-sector">Sector</label>
+            <select id="rep-sector" name="sector" defaultValue={sector}>
               <option value="">Todos</option>
               <option value="financiero">Financiero</option>
               <option value="no_financiero">No financiero</option>
@@ -242,8 +238,8 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
             </select>
           </div>
           <div className="field">
-            <label>Estado del ROS</label>
-            <select name="estado" defaultValue={estado}>
+            <label htmlFor="rep-estado">Estado del ROS</label>
+            <select id="rep-estado" name="estado" defaultValue={estado}>
               <option value="">Todos</option>
               <option value="recibido">Recibido</option>
               <option value="en_analisis">En análisis</option>
@@ -255,12 +251,12 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
             </select>
           </div>
           <div className="field">
-            <label>Desde</label>
-            <input type="date" name="fecha_desde" defaultValue={fd} />
+            <label htmlFor="rep-fd">Desde</label>
+            <input id="rep-fd" type="date" name="fecha_desde" defaultValue={fd} />
           </div>
           <div className="field">
-            <label>Hasta</label>
-            <input type="date" name="fecha_hasta" defaultValue={fh} />
+            <label htmlFor="rep-fh">Hasta</label>
+            <input id="rep-fh" type="date" name="fecha_hasta" defaultValue={fh} />
           </div>
           <div className="field" style={{ alignSelf: 'flex-end' }}>
             <button type="submit" className="btn primary">Aplicar filtros</button>
@@ -335,13 +331,17 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
                   {completitudDocs.map((d) => {
                     const faltantes = Math.max(0, d.total_ros - d.cargados);
                     const pct = d.total_ros > 0 ? Math.round((d.cargados / d.total_ros) * 100) : 0;
+                    let pctTone: 'green' | 'amber' | 'red';
+                    if (pct >= 90) pctTone = 'green';
+                    else if (pct >= 60) pctTone = 'amber';
+                    else pctTone = 'red';
                     return (
                       <tr key={d.nombre}>
                         <td>{d.nombre}</td>
                         <td>{d.total_ros}</td>
                         <td><Badge tone="green">{d.cargados}</Badge></td>
                         <td><Badge tone={faltantes > 0 ? 'amber' : 'green'}>{faltantes}</Badge></td>
-                        <td><Badge tone={pct >= 90 ? 'green' : pct >= 60 ? 'amber' : 'red'}>{pct}%</Badge></td>
+                        <td><Badge tone={pctTone}>{pct}%</Badge></td>
                       </tr>
                     );
                   })}

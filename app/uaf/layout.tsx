@@ -14,8 +14,8 @@ export default async function UafLayout({ children }: { children: React.ReactNod
     { href: '/uaf/reportes',  label: 'Reportes e inteligencia', icon: <BarChart2 size={16} /> },
     ...(session.user.rol === 'supervisor'
       ? [
-          { href: '/uaf/sujetos-obligados', label: 'Sujetos obligados',   icon: <Building2 size={16} /> } as NavItem,
-          { href: '/uaf/auditoria',          label: 'Auditoría del sistema', icon: <ShieldCheck size={16} /> } as NavItem,
+          { href: '/uaf/sujetos-obligados', label: 'Sujetos obligados',   icon: <Building2 size={16} /> },
+          { href: '/uaf/auditoria',          label: 'Auditoría del sistema', icon: <ShieldCheck size={16} /> },
         ]
       : []),
   ];

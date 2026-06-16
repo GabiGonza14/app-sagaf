@@ -37,6 +37,100 @@ interface Props {
 
 type Tab = 'resumen' | 'riesgo' | 'documentos' | 'vinculos' | 'auditoria';
 
+interface DocCardItemProps {
+  dr: DocReq; index: number; adj: DocAdj | undefined;
+  pendingSubsByAdjId: Set<string>; pendingSubsByDocReqId: Set<string>;
+  canClassify: boolean; busy: boolean;
+  onMarcar: (docId: string, estado: 'observado' | 'validado') => void;
+  onObservar: (docId: string) => void;
+  onNoAplica: (docId: string) => void;
+  onSolicitar: (docReqId: string, docNombre: string) => void;
+}
+
+function DocCardItem({ dr, index, adj, pendingSubsByAdjId, pendingSubsByDocReqId, canClassify, busy, onMarcar, onObservar, onNoAplica, onSolicitar }: DocCardItemProps) {
+  const hasPendingSubsOnAdj = adj ? pendingSubsByAdjId.has(adj.id) : false;
+  const hasSolicitudPend    = !adj && pendingSubsByDocReqId.has(dr.id);
+
+  let tone: 'teal' | 'gray' | 'red' | 'green' | 'purple' | 'amber';
+  if (adj?.estado === 'validado') tone = 'teal';
+  else if (adj?.estado === 'no_aplica') tone = 'gray';
+  else if (adj?.estado === 'observado') tone = 'red';
+  else if (adj?.estado === 'cargado') tone = 'green';
+  else if (hasSolicitudPend) tone = 'purple';
+  else tone = 'amber';
+
+  const badgeLabel = hasSolicitudPend ? 'Solicitado' : (adj?.estado ?? 'pendiente');
+
+  let klass: string;
+  if (adj?.estado === 'observado') klass = 'observed';
+  else if (adj?.estado === 'validado') klass = 'validated';
+  else if (adj?.estado === 'cargado') klass = 'uploaded';
+  else klass = '';
+
+  return (
+    <div key={dr.id} className={`doc-card ${klass}`}>
+      <div className="doc-top">
+        <div className="doc-title">{index}. {dr.nombre}</div>
+        <Badge tone={tone}>{badgeLabel}</Badge>
+      </div>
+      {adj ? (
+        <>
+          {adj.estado === 'no_aplica' ? (
+            <div className="client-status info">
+              <strong>No aplica</strong> — {adj.observacion ?? 'Declarado como no aplicable.'}
+            </div>
+          ) : (
+            <>
+              <div className="file-name">Archivo: {adj.nombre_archivo}</div>
+              <div className="small">Recibido: {formatPanama(adj.fecha_carga)}</div>
+              {adj.observacion && (
+                <div className="client-status warning">
+                  <strong>Observación:</strong> {adj.observacion}
+                </div>
+              )}
+            </>
+          )}
+          {adj.estado !== 'validado' && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              {adj.estado !== 'no_aplica' && (
+                <a href={`/api/documentos/${adj.id}/file`} target="_blank" className="btn ghost" rel="noreferrer">Ver</a>
+              )}
+              {hasPendingSubsOnAdj ? (
+                <span className="small" style={{ color: 'var(--amber)', fontStyle: 'italic' }}>
+                  Esperando corrección del sujeto obligado…
+                </span>
+              ) : (
+                <>
+                  <button className="btn green" onClick={() => onMarcar(adj.id, 'validado')} disabled={busy}>Validar</button>
+                  {adj.estado !== 'no_aplica' && (
+                    <>
+                      <button className="btn amber" onClick={() => onObservar(adj.id)} disabled={busy}>Observar</button>
+                      <button className="btn ghost" onClick={() => onNoAplica(adj.id)} disabled={busy}>No aplica</button>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className="helper">
+            {hasSolicitudPend
+              ? 'Solicitud enviada. Esperando que el sujeto obligado cargue el documento.'
+              : 'Pendiente. El sujeto obligado no ha cargado este documento.'}
+          </div>
+          {canClassify && !hasSolicitudPend && (
+            <div style={{ marginTop: 8 }}>
+              <button className="btn amber" onClick={() => onSolicitar(dr.id, dr.nombre)} disabled={busy}>Solicitar documento</button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function RosExpedienteTabs({
   rosId, numeroRos, canClassify, canClose, canAssign,
   summary, riesgoNode, docsReq, docsAdj, vinculos, auditEvents, subs,
@@ -377,92 +471,15 @@ export function RosExpedienteTabs({
           </div>
 
           <div className="doc-grid">
-            {docsReq.map((dr, i) => {
-              const adj = adjByReq.get(dr.id);
-              const hasPendingSubsOnAdj = adj ? pendingSubsByAdjId.has(adj.id) : false;
-              const hasSolicitudPend    = !adj && pendingSubsByDocReqId.has(dr.id);
-
-              const tone =
-                adj?.estado === 'validado'  ? 'teal' :
-                adj?.estado === 'no_aplica' ? 'gray' :
-                adj?.estado === 'observado' ? 'red' :
-                adj?.estado === 'cargado'   ? 'green' :
-                hasSolicitudPend            ? 'purple' : 'amber';
-              const badgeLabel =
-                hasSolicitudPend ? 'Solicitado' : (adj?.estado ?? 'pendiente');
-              const klass = adj?.estado === 'observado' ? 'observed' : adj?.estado === 'validado' ? 'validated' : adj?.estado === 'cargado' ? 'uploaded' : '';
-
-              return (
-                <div key={dr.id} className={`doc-card ${klass}`}>
-                  <div className="doc-top">
-                    <div className="doc-title">{i + 1}. {dr.nombre}</div>
-                    <Badge tone={tone as 'teal' | 'red' | 'green' | 'amber' | 'purple'}>{badgeLabel}</Badge>
-                  </div>
-                  {adj ? (
-                    <>
-                      {adj.estado === 'no_aplica' ? (
-                        <div className="client-status info">
-                          <strong>No aplica</strong> — {adj.observacion ?? 'Declarado como no aplicable.'}
-                        </div>
-                      ) : (
-                        <>
-                          <div className="file-name">Archivo: {adj.nombre_archivo}</div>
-                          <div className="small">Recibido: {formatPanama(adj.fecha_carga)}</div>
-                          {adj.observacion && (
-                            <div className="client-status warning">
-                              <strong>Observación:</strong> {adj.observacion}
-                            </div>
-                          )}
-                        </>
-                      )}
-                      {adj.estado !== 'validado' && (
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                          {adj.estado !== 'no_aplica' && (
-                            <a href={`/api/documentos/${adj.id}/file`} target="_blank" className="btn ghost" rel="noreferrer">Ver</a>
-                          )}
-                          {hasPendingSubsOnAdj ? (
-                            <span className="small" style={{ color: 'var(--amber)', fontStyle: 'italic' }}>
-                              Esperando corrección del sujeto obligado…
-                            </span>
-                          ) : (
-                            <>
-                              <button className="btn green"
-                                onClick={() => marcarDocumento(adj.id, 'validado')}
-                                disabled={busy}>Validar</button>
-                              {adj.estado !== 'no_aplica' && (
-                                <>
-                                  <button className="btn amber"
-                                    onClick={() => abrirObservar(adj.id)}
-                                    disabled={busy}>Observar</button>
-                                  <button className="btn ghost"
-                                    onClick={() => abrirNoAplica(adj.id)}
-                                    disabled={busy}>No aplica</button>
-                                </>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div className="helper">
-                        {hasSolicitudPend
-                          ? 'Solicitud enviada. Esperando que el sujeto obligado cargue el documento.'
-                          : 'Pendiente. El sujeto obligado no ha cargado este documento.'}
-                      </div>
-                      {canClassify && !hasSolicitudPend && (
-                        <div style={{ marginTop: 8 }}>
-                          <button className="btn amber"
-                            onClick={() => abrirSolicitarPendiente(dr.id, dr.nombre)}
-                            disabled={busy}>Solicitar documento</button>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              );
-            })}
+            {docsReq.map((dr, i) => (
+              <DocCardItem
+                key={dr.id} dr={dr} index={i + 1} adj={adjByReq.get(dr.id)}
+                pendingSubsByAdjId={pendingSubsByAdjId} pendingSubsByDocReqId={pendingSubsByDocReqId}
+                canClassify={canClassify} busy={busy}
+                onMarcar={marcarDocumento} onObservar={abrirObservar}
+                onNoAplica={abrirNoAplica} onSolicitar={abrirSolicitarPendiente}
+              />
+            ))}
           </div>
 
           {extras.length > 0 && (
@@ -486,11 +503,18 @@ export function RosExpedienteTabs({
           {subs.length > 0 && (
             <div className="card" style={{ marginTop: 14, padding: 14 }}>
               <h3 style={{ margin: 0, fontSize: 16 }}>Subsanaciones de este expediente</h3>
-              <Timeline events={subs.map((s) => ({
-                title: `Subsanación #${s.id.slice(0, 8)} · ${s.estado}`,
-                description: `${s.motivo} — Solicitada: ${formatPanama(s.fecha_solicitud)}${s.fecha_limite ? ` · Límite: ${formatPanama(s.fecha_limite)}` : ''}`,
-                tone: s.estado === 'vencida' ? 'red' : s.estado === 'pendiente' ? 'amber' : 'green',
-              }))} />
+              <Timeline events={subs.map((s) => {
+                const limiteStr = s.fecha_limite ? ` · Límite: ${formatPanama(s.fecha_limite)}` : '';
+                let subsTone: 'red' | 'amber' | 'green';
+                if (s.estado === 'vencida') subsTone = 'red';
+                else if (s.estado === 'pendiente') subsTone = 'amber';
+                else subsTone = 'green';
+                return {
+                  title: `Subsanación #${s.id.slice(0, 8)} · ${s.estado}`,
+                  description: `${s.motivo} — Solicitada: ${formatPanama(s.fecha_solicitud)}${limiteStr}`,
+                  tone: subsTone,
+                };
+              })} />
             </div>
           )}
         </>

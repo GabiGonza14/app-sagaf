@@ -127,19 +127,19 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
         </div>
       )}
 
-      {hasFile && (
+      {adjunto && !isNoAplica && (
         <div className="upload-zone has-file" style={{ marginBottom: 0 }}>
           <div className="upload-zone-content">
             <CheckCircle size={18} className="upload-zone-icon uploaded" />
             <div>
               <a
-                href={`/api/documentos/${adjunto!.id}/file`}
+                href={`/api/documentos/${adjunto.id}/file`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="upload-zone-filename"
                 style={{ color: 'var(--primary)', textDecoration: 'none' }}
               >
-                {adjunto!.nombre_archivo}
+                {adjunto.nombre_archivo}
               </a>
               <div className="upload-zone-size">{adjuntoSubtitle}</div>
             </div>

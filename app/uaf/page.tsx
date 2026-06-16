@@ -9,6 +9,49 @@ import { Landmark, Home, MapPin } from 'lucide-react';
 
 export const revalidate = 0;
 
+function buildInnerFilters(
+  params: { q?: string; tipo?: string; estado?: string; sector?: string },
+  isAnalista: boolean,
+  userId: string,
+) {
+  const filters: string[] = ["r.estado != 'borrador'"];
+  const vals: unknown[] = [];
+  if (params.q) {
+    filters.push(`(r.numero_ros LIKE ? OR so.nombre LIKE ? OR EXISTS (
+      SELECT 1 FROM parte_involucrada pi WHERE pi.ros_id = r.id AND pi.identificador_enmascarado LIKE ?
+    ) OR EXISTS (
+      SELECT 1 FROM documento_adjunto da WHERE da.ros_id = r.id AND da.nombre_archivo LIKE ?
+    ))`);
+    vals.push(`%${params.q}%`, `%${params.q}%`, `%${params.q}%`, `%${params.q}%`);
+  }
+  if (params.tipo)   { filters.push(`so.tipo = ?`);    vals.push(params.tipo); }
+  if (params.estado) { filters.push(`r.estado = ?`);   vals.push(params.estado); }
+  if (params.sector) { filters.push(`so.sector = ?`);  vals.push(params.sector); }
+  if (isAnalista) {
+    filters.push(`EXISTS (SELECT 1 FROM asignacion_ros ar WHERE ar.ros_id = r.id AND ar.analista_id = ? AND ar.activa = 1)`);
+    vals.push(userId);
+  }
+  return { filters, vals };
+}
+
+function buildOuterFilters(params: {
+  riesgo?: string; montoMin?: string; montoMax?: string; jurisdiccion?: string;
+  completitud?: string; fechaDesde?: string; fechaHasta?: string;
+}) {
+  const filters: string[] = [];
+  const vals: unknown[] = [];
+  if (params.riesgo)      { filters.push(`nivel_riesgo = ?`);            vals.push(params.riesgo); }
+  if (params.montoMin)    { filters.push(`monto >= ?`);                  vals.push(Number(params.montoMin)); }
+  if (params.montoMax)    { filters.push(`monto <= ?`);                  vals.push(Number(params.montoMax)); }
+  if (params.jurisdiccion){ filters.push(`jurisdiccion LIKE ?`);         vals.push(`%${params.jurisdiccion}%`); }
+  if (params.completitud === 'completo')      filters.push(`doc_total > 0 AND doc_cargados >= doc_total`);
+  if (params.completitud === 'incompleto')    filters.push(`doc_total > 0 AND doc_cargados < doc_total`);
+  if (params.completitud === 'con_observados') filters.push(`doc_observados > 0`);
+  if (params.fechaDesde)  { filters.push(`DATE(fecha_recepcion) >= ?`);  vals.push(params.fechaDesde); }
+  if (params.fechaHasta)  { filters.push(`DATE(fecha_recepcion) <= ?`);  vals.push(params.fechaHasta); }
+  return { filters, vals };
+}
+
 interface SearchParams {
   q?: string;
   tipo?: string;
@@ -54,44 +97,20 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
     `SELECT DISTINCT sector FROM sujeto_obligado WHERE sector IS NOT NULL ORDER BY sector`,
   ).all().map((r) => r.sector);
 
-  // Filtros de la CTE interna (sobre tablas base)
-  const innerFilters: string[] = ["r.estado != 'borrador'"];
-  const innerParams: unknown[] = [];
-
-  if (q) {
-    innerFilters.push(`(r.numero_ros LIKE ? OR so.nombre LIKE ? OR EXISTS (
-      SELECT 1 FROM parte_involucrada pi WHERE pi.ros_id = r.id AND pi.identificador_enmascarado LIKE ?
-    ) OR EXISTS (
-      SELECT 1 FROM documento_adjunto da WHERE da.ros_id = r.id AND da.nombre_archivo LIKE ?
-    ))`);
-    innerParams.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
-  }
-  if (tipo) { innerFilters.push(`so.tipo = ?`); innerParams.push(tipo); }
-  if (estado) { innerFilters.push(`r.estado = ?`); innerParams.push(estado); }
-  if (sector) { innerFilters.push(`so.sector = ?`); innerParams.push(sector); }
-
   // Analista solo ve los ROS que le fueron asignados formalmente por el supervisor
   const isAnalista = session?.user?.rol === 'analista';
-  if (isAnalista) {
-    innerFilters.push(
-      `EXISTS (SELECT 1 FROM asignacion_ros ar WHERE ar.ros_id = r.id AND ar.analista_id = ? AND ar.activa = 1)`,
-    );
-    innerParams.push(session!.user.id);
-  }
+
+  // Filtros de la CTE interna (sobre tablas base)
+  const { filters: innerFilters, vals: innerParams } = buildInnerFilters(
+    { q, tipo, estado, sector },
+    isAnalista,
+    session?.user?.id ?? '',
+  );
 
   // Filtros de la CTE externa (sobre columnas calculadas)
-  const outerFilters: string[] = [];
-  const outerParams: unknown[] = [];
-
-  if (riesgo) { outerFilters.push(`nivel_riesgo = ?`); outerParams.push(riesgo); }
-  if (montoMin) { outerFilters.push(`monto >= ?`); outerParams.push(Number(montoMin)); }
-  if (montoMax) { outerFilters.push(`monto <= ?`); outerParams.push(Number(montoMax)); }
-  if (jurisdiccion) { outerFilters.push(`jurisdiccion LIKE ?`); outerParams.push(`%${jurisdiccion}%`); }
-  if (completitud === 'completo') { outerFilters.push(`doc_total > 0 AND doc_cargados >= doc_total`); }
-  if (completitud === 'incompleto') { outerFilters.push(`doc_total > 0 AND doc_cargados < doc_total`); }
-  if (completitud === 'con_observados') { outerFilters.push(`doc_observados > 0`); }
-  if (fechaDesde) { outerFilters.push(`DATE(fecha_recepcion) >= ?`); outerParams.push(fechaDesde); }
-  if (fechaHasta) { outerFilters.push(`DATE(fecha_recepcion) <= ?`); outerParams.push(fechaHasta); }
+  const { filters: outerFilters, vals: outerParams } = buildOuterFilters(
+    { riesgo, montoMin, montoMax, jurisdiccion, completitud, fechaDesde, fechaHasta },
+  );
 
   // Ordenamiento seguro (whitelist)
   const orderMap: Record<string, string> = {
