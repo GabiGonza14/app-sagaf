@@ -1,6 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
+import { audit } from '@/lib/audit';
 import { TopBar } from '@/components/TopBar';
 import { Badge, riskTone, estadoTone, estadoLabel } from '@/components/Badge';
 import { formatPanama } from '@/lib/date';
@@ -82,6 +84,15 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
       WHERE r.id = ?`,
   ).get(id);
   if (!ros) notFound();
+
+  const h = await headers();
+  audit({
+    modulo: 'expediente', accion: 'consulta_expediente', resultado: 'exito',
+    usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
+    recurso_afectado: ros.numero_ros,
+    ip: h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip'),
+    user_agent: h.get('user-agent'),
+  });
 
   const partes = db.prepare<[string], ParteRow>(
     `SELECT id, rol_en_operacion, tipo_persona, identificador, identificador_enmascarado, nombre_visible
