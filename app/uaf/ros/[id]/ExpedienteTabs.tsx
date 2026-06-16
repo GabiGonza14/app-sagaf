@@ -44,7 +44,7 @@ export function RosExpedienteTabs({
 
   // Clasificación de riesgo
   const [riesgoNivel, setRiesgoNivel] = useState<'alto' | 'medio' | 'bajo'>('alto');
-  const [riesgoPuntaje, setRiesgoPuntaje] = useState(70);
+  const [riesgoPuntaje, setRiesgoPuntaje] = useState(0);
   const [riesgoJustif, setRiesgoJustif] = useState('');
 
   // Subsanación

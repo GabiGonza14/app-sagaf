@@ -201,10 +201,6 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
                 { label: 'Coincidencias con otros ROS', value: Math.min(vinculos.length * 25, 100), badge: `${vinculos.length} vínculo(s)`, tone: vinculos.length > 0 ? 'purple' : 'gray' },
               ]}
             />
-            <Notice style={{ marginTop: 14 }}>
-              El sistema solo <strong>sugiere</strong> prioridad. La clasificación final debe ser validada por un analista o supervisor autorizado.
-            </Notice>
-
             {riesgos.length > 0 && (
               <div className="card" style={{ marginTop: 14, padding: 14 }}>
                 <h3 style={{ margin: 0, fontSize: 16 }}>Historial de clasificación</h3>
