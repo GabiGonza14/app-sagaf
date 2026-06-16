@@ -107,7 +107,7 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
     productoServicio: op?.producto_servicio ?? '',
     bienInmueble: op?.bien_inmueble ?? '',
     formaPago: op?.forma_pago ?? '',
-    tipoCliente: (partePorRol['ordenante']?.tipo_persona ?? 'natural') as 'natural' | 'juridica',
+    tipoCliente: (partePorRol['ordenante']?.tipo_persona ?? partePorRol['cliente']?.tipo_persona ?? 'natural') as 'natural' | 'juridica',
     ordenante: partePorRol['ordenante']
       ? { id: partePorRol['ordenante'].identificador, status: partyStatus(partePorRol['ordenante']), nombre: partePorRol['ordenante'].nombre_visible ?? '' }
       : { id: '', status: 'idle' as const, nombre: '' },
@@ -116,6 +116,9 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
       : { id: '', status: 'idle' as const, nombre: '' },
     comprador: partePorRol['comprador']
       ? { id: partePorRol['comprador'].identificador, status: partyStatus(partePorRol['comprador']), nombre: partePorRol['comprador'].nombre_visible ?? '' }
+      : { id: '', status: 'idle' as const, nombre: '' },
+    cliente: partePorRol['cliente']
+      ? { id: partePorRol['cliente'].identificador, status: partyStatus(partePorRol['cliente']), nombre: partePorRol['cliente'].nombre_visible ?? '' }
       : { id: '', status: 'idle' as const, nombre: '' },
     uploadedDocs,
   };

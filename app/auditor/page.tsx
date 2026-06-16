@@ -10,7 +10,7 @@ import { audit } from '@/lib/audit';
 export const revalidate = 0;
 
 interface SP {
-  q?: string; modulo?: string; resultado?: string; criticidad?: string; desde?: string; hasta?: string;
+  q?: string; modulo?: string; rol?: string; resultado?: string; criticidad?: string; desde?: string; hasta?: string;
 }
 
 export default async function AuditorHome({ searchParams }: { searchParams: Promise<SP> }) {
@@ -19,6 +19,7 @@ export default async function AuditorHome({ searchParams }: { searchParams: Prom
   const filters = {
     q:          sp.q          ?? '',
     modulo:     sp.modulo     ?? '',
+    rol:        sp.rol        ?? '',
     resultado:  sp.resultado  ?? '',
     criticidad: sp.criticidad ?? '',
     desde:      sp.desde      ?? '',

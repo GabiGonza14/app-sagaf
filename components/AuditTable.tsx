@@ -12,6 +12,7 @@ interface Row {
   accion: string;
   resultado: string;
   ip: string | null;
+  user_agent: string | null;
   recurso_afectado: string | null;
   criticidad: string;
   detalle: string | null;
@@ -117,13 +118,14 @@ export function AuditTable({ filters, modulosDisponibles }: Readonly<Props>) {
     params.push(`%${filters.q}%`, `%${filters.q}%`, `%${filters.q}%`, `%${filters.q}%`);
   }
   if (filters.modulo)     { where.push('modulo = ?');      params.push(filters.modulo); }
+  if (filters.rol)        { where.push('rol = ?');         params.push(filters.rol); }
   if (filters.resultado)  { where.push('resultado = ?');   params.push(filters.resultado); }
   if (filters.criticidad) { where.push('criticidad = ?');  params.push(filters.criticidad); }
   if (filters.desde)      { where.push('fecha_hora_servidor >= ?'); params.push(filters.desde); }
   if (filters.hasta)      { where.push('fecha_hora_servidor <= ?'); params.push(filters.hasta + ' 23:59:59'); }
 
   const sql = `
-    SELECT id, fecha_hora_servidor, usuario_correo, rol, modulo, accion, resultado, ip, recurso_afectado, criticidad, detalle
+    SELECT id, fecha_hora_servidor, usuario_correo, rol, modulo, accion, resultado, ip, user_agent, recurso_afectado, criticidad, detalle
       FROM evento_auditoria
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
      ORDER BY fecha_hora_servidor DESC
@@ -152,12 +154,15 @@ export function AuditTable({ filters, modulosDisponibles }: Readonly<Props>) {
                 <th>Resultado</th>
                 <th>Criticidad</th>
                 <th>IP</th>
+                <th>Dispositivo</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => {
                 const cambios = parsearCambios(r.detalle);
                 const entidad = parsearEntidad(r.accion, r.recurso_afectado, r.detalle);
+                const uaSuffix = r.user_agent && r.user_agent.length > 40 ? '…' : '';
+                const uaLabel = r.user_agent ? r.user_agent.slice(0, 40) + uaSuffix : '—';
                 return (
                   <tr key={r.id}>
                     <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>
@@ -188,6 +193,10 @@ export function AuditTable({ filters, modulosDisponibles }: Readonly<Props>) {
                       <Badge tone={TONO_CRITICIDAD[r.criticidad] ?? 'gray'}>{r.criticidad}</Badge>
                     </td>
                     <td style={{ fontSize: 11, color: 'var(--muted)' }}>{r.ip ?? '—'}</td>
+                    <td style={{ fontSize: 11, color: 'var(--muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        title={r.user_agent ?? undefined}>
+                      {uaLabel}
+                    </td>
                   </tr>
                 );
               })}

@@ -13,6 +13,7 @@ interface UserRow {
   nombre: string;
   correo: string;
   rol: string;
+  rol_id: string;
   sujeto_nombre: string | null;
   estado: string;
   mfa_activo: number;
@@ -26,7 +27,7 @@ export default async function UsuariosAdmin() {
 
   const users = db.prepare<[], UserRow>(
     `
-    SELECT u.id, u.nombre, u.correo, r.nombre AS rol,
+    SELECT u.id, u.nombre, u.correo, r.nombre AS rol, u.rol_id,
            so.nombre AS sujeto_nombre, u.estado, u.mfa_activo, u.ultimo_acceso
       FROM usuario u
       JOIN rol r ON r.id = u.rol_id
@@ -78,7 +79,7 @@ export default async function UsuariosAdmin() {
                   </Badge>
                 </td>
                 <td className="small">{u.ultimo_acceso ? formatPanama(u.ultimo_acceso) : '—'}</td>
-                <td><UsuarioActions usuarioId={u.id} estadoActual={u.estado} /></td>
+                <td><UsuarioActions usuarioId={u.id} estadoActual={u.estado} rolActualId={u.rol_id} roles={roles} /></td>
               </tr>
             ))}
           </tbody>

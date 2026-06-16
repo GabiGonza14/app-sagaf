@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 export interface AuditFilterValues {
   q: string;
   modulo: string;
+  rol: string;
   resultado: string;
   criticidad: string;
   desde: string;
@@ -42,7 +43,7 @@ export function AuditFilters({ initial, modulosDisponibles }: Readonly<Props>) {
   }
 
   function clear() {
-    setV({ q: '', modulo: '', resultado: '', criticidad: '', desde: '', hasta: '' });
+    setV({ q: '', modulo: '', rol: '', resultado: '', criticidad: '', desde: '', hasta: '' });
     router.push(pathname);
   }
 
@@ -70,6 +71,17 @@ export function AuditFilters({ initial, modulosDisponibles }: Readonly<Props>) {
                 <option value="system">Sistema</option>
               </>
             )}
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor="af-rol">Rol</label>
+        <select id="af-rol" value={v.rol} onChange={(e) => setV({ ...v, rol: e.target.value })}>
+          <option value="">Todos</option>
+          <option value="sujeto_obligado">Sujeto obligado</option>
+          <option value="analista">Analista</option>
+          <option value="supervisor">Supervisor</option>
+          <option value="auditor">Auditor</option>
+          <option value="admin">Admin</option>
         </select>
       </div>
       <div className="field">

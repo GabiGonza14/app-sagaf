@@ -60,6 +60,13 @@ interface RiesgoRow {
   fecha_clasificacion: string;
   clasificado_por_nombre: string;
 }
+interface AsignacionRow {
+  analista_id: string;
+  analista_nombre: string;
+  fecha_asignacion: string;
+  asignado_por_nombre: string;
+}
+interface AnalistaRow { id: string; nombre: string }
 interface VinculoRow {
   id: string; ros_destino_id: string; numero_ros: string; tipo_vinculo: string;
   descripcion: string | null; confirmado: number;
@@ -70,7 +77,8 @@ interface AuditoriaRow {
 }
 interface SubsRow {
   id: string; motivo: string; estado: string; fecha_solicitud: string;
-  documento_adjunto_id: string | null;
+  fecha_limite: string | null; documento_adjunto_id: string | null;
+  documento_requerido_id: string | null;
 }
 
 export default async function ExpedienteUaf({ params }: { params: Promise<{ id: string }> }) {
@@ -84,6 +92,34 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
       WHERE r.id = ?`,
   ).get(id);
   if (!ros) notFound();
+
+  // Analistas solo pueden acceder a ROS que les fueron asignados formalmente
+  if (session.user.rol === 'analista') {
+    const asignado = db.prepare<[string, string], { id: string }>(
+      `SELECT id FROM asignacion_ros WHERE ros_id = ? AND analista_id = ? AND activa = 1`,
+    ).get(id, session.user.id);
+    if (!asignado) {
+      const h2 = await headers();
+      audit({
+        modulo: 'expediente', accion: 'consulta_expediente', resultado: 'bloqueado',
+        usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
+        recurso_afectado: ros.numero_ros,
+        ip: h2.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h2.get('x-real-ip'),
+        user_agent: h2.get('user-agent'),
+        criticidad: 'alta',
+      });
+      return (
+        <>
+          <TopBar eyebrow="Expediente del ROS" title={ros.numero_ros}
+            description="" right={<BackButton href="/uaf" label="Bandeja" />} />
+          <div className="notice" style={{ color: 'var(--red)', borderColor: 'var(--red)', marginTop: 16 }}>
+            <strong>Acceso restringido.</strong> Este ROS no le ha sido asignado.
+            Solo puede gestionar los expedientes que el Supervisor le asigne formalmente.
+          </div>
+        </>
+      );
+    }
+  }
 
   const h = await headers();
   audit({
@@ -130,7 +166,8 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
               LIMIT 1) AS alto_riesgo
         FROM vinculo_intersectorial v
         JOIN ros r2 ON r2.id = CASE WHEN v.ros_origen_id = ? THEN v.ros_destino_id ELSE v.ros_origen_id END
-       WHERE v.ros_origen_id = ? OR v.ros_destino_id = ?`,
+       WHERE (v.ros_origen_id = ? OR v.ros_destino_id = ?)
+         AND (v.confirmado = 1 OR v.decidido_por IS NULL)`,
   ).all(id, id, id);
 
   const auditoria = db.prepare<[string, string], AuditoriaRow>(
@@ -140,8 +177,14 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
       ORDER BY fecha_hora_servidor DESC LIMIT 30`,
   ).all(id, id);
 
+  // A4: marcar como vencidas las subsanaciones que superaron su fecha límite
+  db.prepare(
+    `UPDATE solicitud_subsanacion SET estado = 'vencida'
+      WHERE estado = 'pendiente' AND fecha_limite IS NOT NULL AND fecha_limite < date('now')`,
+  ).run();
+
   const subs = db.prepare<[string], SubsRow>(
-    `SELECT id, motivo, estado, fecha_solicitud, documento_adjunto_id
+    `SELECT id, motivo, estado, fecha_solicitud, fecha_limite, documento_adjunto_id, documento_requerido_id
        FROM solicitud_subsanacion WHERE ros_id = ? ORDER BY fecha_solicitud DESC`,
   ).all(id);
 
@@ -151,6 +194,24 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
 
   const canClassify = ['analista', 'supervisor'].includes(session.user.rol);
   const canClose = session.user.rol === 'supervisor';
+
+  const asignacion = db.prepare<[string], AsignacionRow>(
+    `SELECT ar.analista_id, u.nombre AS analista_nombre, ar.fecha_asignacion,
+            us.nombre AS asignado_por_nombre
+       FROM asignacion_ros ar
+       JOIN usuario u  ON u.id  = ar.analista_id
+       JOIN usuario us ON us.id = ar.asignado_por
+      WHERE ar.ros_id = ? AND ar.activa = 1`,
+  ).get(id) ?? null;
+
+  const analistas = canClose
+    ? db.prepare<[], AnalistaRow>(
+        `SELECT u.id, u.nombre FROM usuario u
+           JOIN rol r ON r.id = u.rol_id
+          WHERE r.nombre IN ('analista', 'supervisor') AND u.estado = 'activo'
+          ORDER BY u.nombre`,
+      ).all()
+    : [];
 
   return (
     <>
@@ -187,6 +248,21 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
               <span>Resumen narrativo</span>
               <strong>{ros.descripcion}</strong>
             </div>
+
+            {op && (
+              <div className="card" style={{ marginTop: 12, padding: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 16 }}>Operación sospechosa</h3>
+                <p className="small" style={{ marginBottom: 12 }}>Detalles reportados por el sujeto obligado.</p>
+                <div className="summary-grid">
+                  <InfoBox label="Monto" value={`${op.moneda} ${op.monto.toLocaleString('en-US')}`} />
+                  {op.jurisdiccion && <InfoBox label="Jurisdicción" value={op.jurisdiccion} />}
+                  {op.producto_servicio && <InfoBox label="Producto / servicio" value={op.producto_servicio} />}
+                  {op.bien_inmueble && <InfoBox label="Bien inmueble" value={op.bien_inmueble} />}
+                  {op.forma_pago && <InfoBox label="Forma de pago" value={op.forma_pago} />}
+                  <InfoBox label="Señal de alerta" value={op.senal_alerta} />
+                </div>
+              </div>
+            )}
 
             <div className="card" style={{ marginTop: 12, padding: 14 }}>
               <h3 style={{ margin: 0, fontSize: 16 }}>Partes involucradas</h3>
@@ -238,6 +314,9 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
           tone: a.criticidad === 'critica' ? 'red' : a.criticidad === 'alta' ? 'amber' : 'default',
         }))}
         subs={subs}
+        asignacion={asignacion}
+        analistas={analistas}
+        canAssign={canClose}
       />
     </>
   );

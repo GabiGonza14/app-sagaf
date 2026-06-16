@@ -90,9 +90,12 @@ export async function POST(req: Request) {
       'SELECT id, ruta_archivo FROM documento_adjunto WHERE ros_id = ? AND documento_requerido_id = ?',
     ).get(rosId, docReqId);
     if (prev) {
-      // Cerrar subsanaciones pendientes que apuntaban al adjunto reemplazado
+      // Cerrar subsanaciones pendientes que apuntaban al adjunto reemplazado y
+      // liberar la FK (sin SET NULL en schema) para que el DELETE no falle.
       db.prepare(
-        `UPDATE solicitud_subsanacion SET estado = 'atendida' WHERE documento_adjunto_id = ? AND estado = 'pendiente'`,
+        `UPDATE solicitud_subsanacion
+            SET estado = 'atendida', documento_adjunto_id = NULL, fecha_respuesta = CURRENT_TIMESTAMP
+          WHERE documento_adjunto_id = ? AND estado = 'pendiente'`,
       ).run(prev.id);
       try { if (existsSync(prev.ruta_archivo)) await unlink(prev.ruta_archivo); } catch {}
       db.prepare('DELETE FROM documento_adjunto WHERE id = ?').run(prev.id);
@@ -107,6 +110,15 @@ export async function POST(req: Request) {
     docId, rosId, docReqId || null, original, finalPath,
     mime || null, hash, buffer.byteLength, session.user.id,
   );
+
+  // Resolver solicitudes pendientes por documento_requerido_id (docs solicitados sin adjunto previo)
+  if (docReqId) {
+    db.prepare(`
+      UPDATE solicitud_subsanacion
+         SET estado = 'atendida', fecha_respuesta = CURRENT_TIMESTAMP
+       WHERE ros_id = ? AND documento_requerido_id = ? AND documento_adjunto_id IS NULL AND estado = 'pendiente'
+    `).run(rosId, docReqId);
+  }
 
   const ctx = extractRequestContext(req);
   audit({

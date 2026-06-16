@@ -17,6 +17,7 @@ interface Row {
   tipo_vinculo: string;
   descripcion: string | null;
   confirmado: number;
+  decidido_por: string | null;
   fecha_deteccion: string;
   alto_riesgo: number | null;
 }
@@ -25,7 +26,7 @@ export default async function VinculosPage() {
   const session = await auth();
   const filas = db.prepare<[], Row>(
     `
-    SELECT v.id, v.ros_origen_id, v.ros_destino_id, v.tipo_vinculo, v.descripcion, v.confirmado, v.fecha_deteccion,
+    SELECT v.id, v.ros_origen_id, v.ros_destino_id, v.tipo_vinculo, v.descripcion, v.confirmado, v.decidido_por, v.fecha_deteccion,
            r1.numero_ros AS numero_origen, r2.numero_ros AS numero_destino,
            (SELECT 1 FROM riesgo_caso rc
              WHERE rc.ros_id IN (v.ros_origen_id, v.ros_destino_id)
@@ -52,23 +53,28 @@ export default async function VinculosPage() {
           <div className="notice">Sin vínculos detectados por el momento.</div>
         ) : (
           <div className="report-list">
-            {filas.map((v) => (
-              <div key={v.id} className="report-item" style={{ cursor: 'default' }}>
-                <div className="report-top">
-                  <strong>{v.numero_origen} ↔ {v.numero_destino}</strong>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {v.alto_riesgo === 1 && <Badge tone="red">Alto riesgo</Badge>}
-                    <Badge tone={v.confirmado ? 'green' : 'amber'}>{v.confirmado ? 'Confirmado' : 'Por validar'}</Badge>
+            {filas.map((v) => {
+              const descartado = !v.confirmado && v.decidido_por !== null;
+              const badgeTone  = v.confirmado ? 'green' : descartado ? 'gray' : 'amber';
+              const badgeLabel = v.confirmado ? 'Confirmado' : descartado ? 'Descartado' : 'Por validar';
+              return (
+                <div key={v.id} className="report-item" style={{ cursor: 'default' }}>
+                  <div className="report-top">
+                    <strong>{v.numero_origen} ↔ {v.numero_destino}</strong>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {v.alto_riesgo === 1 && <Badge tone="red">Alto riesgo</Badge>}
+                      <Badge tone={badgeTone as 'green' | 'gray' | 'amber'}>{badgeLabel}</Badge>
+                    </div>
                   </div>
+                  <div className="report-meta">
+                    <span><strong>Tipo:</strong> {v.tipo_vinculo}</span>
+                    {v.descripcion && <span>{maskDescriptionText(v.descripcion)}</span>}
+                    <span>Detectado: {formatPanama(v.fecha_deteccion)}</span>
+                  </div>
+                  {!v.confirmado && !descartado && <VinculoActions vincId={v.id} />}
                 </div>
-                <div className="report-meta">
-                  <span><strong>Tipo:</strong> {v.tipo_vinculo}</span>
-                  {v.descripcion && <span>{maskDescriptionText(v.descripcion)}</span>}
-                  <span>Detectado: {formatPanama(v.fecha_deteccion)}</span>
-                </div>
-                {!v.confirmado && <VinculoActions vincId={v.id} />}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

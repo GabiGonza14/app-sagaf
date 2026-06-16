@@ -1,11 +1,21 @@
+import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
-import { NuevoSujetoForm } from './NuevoSujetoForm';
-import { SujetoActions } from './SujetoActions';
 import { formatPanama } from '@/lib/date';
+import { NuevoSujetoForm } from '@/app/admin/sujetos-obligados/NuevoSujetoForm';
+import { SujetoActions } from '@/app/admin/sujetos-obligados/SujetoActions';
+
+export const revalidate = 0;
+
+const TIPO_LABEL: Record<string, string> = {
+  bank:       'Banco',
+  realestate: 'Inmobiliaria',
+  casino:     'Casino',
+  notarios:   'Notaría',
+};
 
 interface AuditRow {
   id: string;
@@ -34,13 +44,6 @@ function parsearEntidad(detalle: string | null): string {
   try { return JSON.parse(detalle).nombre ?? '—'; } catch { return '—'; }
 }
 
-const TIPO_LABEL: Record<string, string> = {
-  bank:       'Banco',
-  realestate: 'Inmobiliaria',
-  casino:     'Casino',
-  notarios:   'Notaría',
-};
-
 function parsearCambios(detalle: string | null): string {
   if (!detalle) return '';
   try {
@@ -49,8 +52,6 @@ function parsearCambios(detalle: string | null): string {
     return Object.entries(d.cambios).map(([k, v]) => `${k}: ${v}`).join(', ');
   } catch { return ''; }
 }
-
-export const revalidate = 0;
 
 interface Row {
   id: string;
@@ -69,29 +70,27 @@ interface PlantillaAsig {
   plantilla_id: string;
 }
 
-export default async function SujetosAdmin() {
+export default async function SujetosObligadosSupervisor() {
   const session = await auth();
+  if (!session?.user) redirect('/login');
+  if (session.user.rol !== 'supervisor') redirect('/uaf');
 
   const rows = db.prepare<[], Row>(
-    `
-    SELECT so.id, so.nombre, so.ruc, so.tipo, so.sector, so.organismo_supervisor,
-           so.estado, so.responsable_cumpl,
-           (SELECT COUNT(*) FROM sujeto_obligado_plantilla sop WHERE sop.sujeto_obligado_id = so.id) AS plantillas
-      FROM sujeto_obligado so
-     ORDER BY so.nombre
-    `,
+    `SELECT so.id, so.nombre, so.ruc, so.tipo, so.sector, so.organismo_supervisor,
+            so.estado, so.responsable_cumpl,
+            (SELECT COUNT(*) FROM sujeto_obligado_plantilla sop WHERE sop.sujeto_obligado_id = so.id) AS plantillas
+       FROM sujeto_obligado so
+      ORDER BY so.nombre`,
   ).all();
 
   const plantillas = db.prepare<[], { id: string; nombre: string; tipo_sujeto_obligado: string }>(
     `SELECT id, nombre, tipo_sujeto_obligado FROM plantilla_ros WHERE activa = 1 ORDER BY nombre`,
   ).all();
 
-  // RE-02: tipos disponibles cargados dinámicamente desde la DB (no hardcodeados)
   const tiposDisponibles = db.prepare<[], { tipo: string }>(
     `SELECT DISTINCT tipo_sujeto_obligado AS tipo FROM plantilla_ros WHERE activa = 1 ORDER BY tipo`,
   ).all().map((r) => r.tipo);
 
-  // Cargar todas las asociaciones para pasarlas al componente de edición
   const asignaciones = db.prepare<[], PlantillaAsig>(
     `SELECT sujeto_obligado_id, plantilla_id FROM sujeto_obligado_plantilla`,
   ).all();
@@ -102,7 +101,6 @@ export default async function SujetosAdmin() {
     plantillasPorSujeto[a.sujeto_obligado_id].push(a.plantilla_id);
   }
 
-  // RE-03: últimas acciones sobre sujetos obligados para vista rápida
   const ultimasAcciones = db.prepare<[], AuditRow>(`
     SELECT id, fecha_hora_servidor, usuario_correo, accion, detalle, resultado
       FROM evento_auditoria
@@ -114,9 +112,9 @@ export default async function SujetosAdmin() {
   return (
     <>
       <TopBar
-        eyebrow="Gestión de sujetos obligados"
+        eyebrow="Supervisión"
         title="Sujetos obligados"
-        description="Registra, clasifica y administra sujetos obligados. Cada uno debe tener tipo, sector, estado y plantilla ROS asociada (RE-01). Todo cambio queda auditado (RE-03)."
+        description="Registra, clasifica y administra sujetos obligados. Cada uno debe tener tipo, sector, estado y plantilla ROS asociada. Todo cambio queda auditado."
       />
 
       <div className="card">
@@ -168,14 +166,13 @@ export default async function SujetosAdmin() {
         </table>
       </div>
 
-      {/* RE-03 — Historial de cambios en sujetos obligados */}
       <div className="card" style={{ marginTop: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
-            <h3 style={{ margin: 0 }}>Últimas acciones (RE-03)</h3>
+            <h3 style={{ margin: 0 }}>Últimas acciones</h3>
             <p className="small" style={{ margin: '2px 0 0' }}>Registro de creaciones, modificaciones y desactivaciones</p>
           </div>
-          <Link href="/admin/auditoria" className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }}>
+          <Link href="/uaf/auditoria" className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }}>
             Ver historial completo →
           </Link>
         </div>
@@ -212,7 +209,7 @@ export default async function SujetosAdmin() {
       <div className="card" style={{ marginTop: 18 }}>
         <h3 style={{ margin: 0 }}>Registrar nuevo sujeto obligado</h3>
         <p className="small" style={{ marginBottom: 14 }}>
-          Campos obligatorios: nombre, tipo, sector, estado y al menos una plantilla ROS (RE-01).
+          Campos obligatorios: nombre, tipo, sector, estado y al menos una plantilla ROS.
         </p>
         <NuevoSujetoForm plantillas={plantillas} tiposDisponibles={tiposDisponibles} />
       </div>

@@ -22,6 +22,7 @@ interface RosRow {
   fecha_recepcion: string;
   estado: string;
   descripcion: string;
+  observaciones: string | null;
 }
 
 interface ParteRow {
@@ -61,6 +62,7 @@ interface SubsanRow {
   estado: string;
   fecha_solicitud: string;
   documento_adjunto_id: string | null;
+  documento_requerido_id: string | null;
 }
 
 interface RiesgoRow { nivel: string; justificacion: string }
@@ -100,7 +102,7 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
   ).all(id);
 
   const subs = db.prepare<[string], SubsanRow>(
-    'SELECT id, motivo, estado, fecha_solicitud, documento_adjunto_id FROM solicitud_subsanacion WHERE ros_id = ? ORDER BY fecha_solicitud DESC',
+    'SELECT id, motivo, estado, fecha_solicitud, documento_adjunto_id, documento_requerido_id FROM solicitud_subsanacion WHERE ros_id = ? ORDER BY fecha_solicitud DESC',
   ).all(id);
 
   const riesgo = db.prepare<[string], RiesgoRow>(
@@ -108,6 +110,14 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
   ).get(id);
 
   const adjByReq = new Map(docsAdj.filter((d) => d.documento_requerido_id).map((d) => [d.documento_requerido_id!, d]));
+  const extras   = docsAdj.filter((d) => !d.documento_requerido_id);
+
+  // Solicitudes pendientes de la UAF para documentos faltantes (sin adjunto previo)
+  const pendingSolicitudesByDocReq = new Map(
+    subs
+      .filter((s) => s.estado === 'pendiente' && s.documento_requerido_id && !s.documento_adjunto_id)
+      .map((s) => [s.documento_requerido_id!, s.motivo]),
+  );
 
   return (
     <>
@@ -152,6 +162,13 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
             <span>Resumen narrativo</span>
             <strong>{ros.descripcion}</strong>
           </div>
+
+          {ros.observaciones && (
+            <div className="info-box" style={{ marginTop: 8, borderColor: '#fedf89', background: 'var(--amber-soft)' }}>
+              <span style={{ color: 'var(--amber)' }}>Observaciones adicionales</span>
+              <strong>{ros.observaciones}</strong>
+            </div>
+          )}
         </div>
 
         <div className="card">
@@ -219,6 +236,7 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
         <div className="doc-grid">
           {docsReq.map((dr, i) => {
             const adj = adjByReq.get(dr.id);
+            const solicitudMotivo = pendingSolicitudesByDocReq.get(dr.id) ?? null;
             return (
               <ResubmitDocCard
                 key={dr.id}
@@ -226,7 +244,8 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
                 docReqId={dr.id}
                 index={i + 1}
                 nombre={dr.nombre}
-                readOnly={ros.estado !== 'borrador' && adj?.estado !== 'observado'}
+                readOnly={ros.estado !== 'borrador' && adj?.estado !== 'observado' && !solicitudMotivo}
+                solicitudMotivo={solicitudMotivo}
                 adjunto={adj ? {
                   id: adj.id,
                   nombre_archivo: adj.nombre_archivo,
@@ -238,6 +257,25 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
             );
           })}
         </div>
+
+        {extras.length > 0 && (
+          <div style={{ marginTop: 18 }}>
+            <h4 style={{ margin: '0 0 10px', fontSize: 14 }}>Evidencia adicional no catalogada</h4>
+            <div className="doc-grid">
+              {extras.map((e) => (
+                <div key={e.id} className="doc-card">
+                  <div className="doc-top">
+                    <div className="doc-title">{e.nombre_archivo}</div>
+                    <span className="badge gray">extra</span>
+                  </div>
+                  <div className="small" style={{ color: 'var(--muted)' }}>
+                    Cargado: {formatPanama(e.fecha_carga)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

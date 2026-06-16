@@ -124,6 +124,7 @@ CREATE TABLE IF NOT EXISTS ros (
   estado               TEXT NOT NULL DEFAULT 'recibido',
   -- borrador | recibido | en_analisis | revision_documental | subsanacion | escalado | cerrado | vinculado
   descripcion          TEXT NOT NULL,
+  observaciones        TEXT,                        -- A3: justificación de documentos pendientes (CU-01)
   canal_recepcion      TEXT NOT NULL DEFAULT 'portal_publico',
   creado_por           TEXT NOT NULL,
   FOREIGN KEY (sujeto_obligado_id) REFERENCES sujeto_obligado(id),
@@ -134,6 +135,22 @@ CREATE TABLE IF NOT EXISTS ros (
 CREATE INDEX IF NOT EXISTS idx_ros_estado     ON ros(estado);
 CREATE INDEX IF NOT EXISTS idx_ros_sujeto     ON ros(sujeto_obligado_id);
 CREATE INDEX IF NOT EXISTS idx_ros_recepcion  ON ros(fecha_recepcion);
+
+-- Asignación formal de ROS a analistas (supervisor asigna, analista solo ve los suyos)
+CREATE TABLE IF NOT EXISTS asignacion_ros (
+  id               TEXT PRIMARY KEY,
+  ros_id           TEXT NOT NULL,
+  analista_id      TEXT NOT NULL,
+  asignado_por     TEXT NOT NULL,
+  fecha_asignacion TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  activa           INTEGER NOT NULL DEFAULT 1,
+  FOREIGN KEY (ros_id)       REFERENCES ros(id) ON DELETE CASCADE,
+  FOREIGN KEY (analista_id)  REFERENCES usuario(id),
+  FOREIGN KEY (asignado_por) REFERENCES usuario(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_asig_ros      ON asignacion_ros(ros_id, activa);
+CREATE INDEX IF NOT EXISTS idx_asig_analista ON asignacion_ros(analista_id, activa);
 
 -- Partes involucradas: ordenante / beneficiario / comprador / vendedor / etc. (RF-06)
 CREATE TABLE IF NOT EXISTS parte_involucrada (
@@ -235,15 +252,18 @@ CREATE TABLE IF NOT EXISTS vinculo_intersectorial (
 CREATE TABLE IF NOT EXISTS solicitud_subsanacion (
   id              TEXT PRIMARY KEY,
   ros_id          TEXT NOT NULL,
-  documento_adjunto_id TEXT,                      -- documento observado, si aplica
+  documento_adjunto_id  TEXT,                     -- documento observado (ya cargado), si aplica
+  documento_requerido_id TEXT,                    -- slot de plantilla solicitado (doc pendiente)
   motivo          TEXT NOT NULL,
   estado          TEXT NOT NULL DEFAULT 'pendiente', -- pendiente | atendida | vencida
   solicitada_por  TEXT NOT NULL,
   fecha_solicitud TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fecha_limite    TEXT,                                -- vence N días después de la solicitud
   fecha_respuesta TEXT,
   respuesta       TEXT,
   FOREIGN KEY (ros_id)               REFERENCES ros(id) ON DELETE CASCADE,
   FOREIGN KEY (documento_adjunto_id) REFERENCES documento_adjunto(id),
+  FOREIGN KEY (documento_requerido_id) REFERENCES documento_requerido(id),
   FOREIGN KEY (solicitada_por)       REFERENCES usuario(id)
 );
 
