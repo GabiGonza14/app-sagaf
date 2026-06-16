@@ -90,6 +90,10 @@ export async function POST(req: Request) {
       'SELECT id, ruta_archivo FROM documento_adjunto WHERE ros_id = ? AND documento_requerido_id = ?',
     ).get(rosId, docReqId);
     if (prev) {
+      // Cerrar subsanaciones pendientes que apuntaban al adjunto reemplazado
+      db.prepare(
+        `UPDATE solicitud_subsanacion SET estado = 'atendida' WHERE documento_adjunto_id = ? AND estado = 'pendiente'`,
+      ).run(prev.id);
       try { if (existsSync(prev.ruta_archivo)) await unlink(prev.ruta_archivo); } catch {}
       db.prepare('DELETE FROM documento_adjunto WHERE id = ?').run(prev.id);
     }
