@@ -70,6 +70,15 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
   if (estado) { innerFilters.push(`r.estado = ?`); innerParams.push(estado); }
   if (sector) { innerFilters.push(`so.sector = ?`); innerParams.push(sector); }
 
+  // Analista solo ve los ROS que le fueron asignados formalmente por el supervisor
+  const isAnalista = session?.user?.rol === 'analista';
+  if (isAnalista) {
+    innerFilters.push(
+      `EXISTS (SELECT 1 FROM asignacion_ros ar WHERE ar.ros_id = r.id AND ar.analista_id = ? AND ar.activa = 1)`,
+    );
+    innerParams.push(session!.user.id);
+  }
+
   // Filtros de la CTE externa (sobre columnas calculadas)
   const outerFilters: string[] = [];
   const outerParams: unknown[] = [];
@@ -171,8 +180,18 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
           sectores={sectores}
         />
 
+        {isAnalista && (
+          <div className="notice" style={{ marginBottom: 12 }}>
+            Solo se muestran los ROS que le han sido asignados formalmente por un Supervisor.
+          </div>
+        )}
+
         {ros.length === 0 ? (
-          <div className="notice">Sin resultados para los filtros seleccionados.</div>
+          <div className="notice">
+            {isAnalista && !q && !tipo && !riesgo && !estado && !sector
+              ? 'No tiene ROS asignados aún. Un Supervisor debe asignarle casos desde el expediente de cada ROS.'
+              : 'Sin resultados para los filtros seleccionados.'}
+          </div>
         ) : (
           <div className="report-list">
             {ros.map((r) => (

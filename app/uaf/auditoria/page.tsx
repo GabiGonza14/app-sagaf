@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { TopBar } from '@/components/TopBar';
 import { AuditTable } from '@/components/AuditTable';
@@ -7,15 +8,18 @@ import { headers } from 'next/headers';
 export const revalidate = 0;
 
 interface SP {
-  q?: string; modulo?: string; resultado?: string; criticidad?: string; desde?: string; hasta?: string;
+  q?: string; modulo?: string; rol?: string; resultado?: string; criticidad?: string; desde?: string; hasta?: string;
 }
 
 export default async function UafAuditoriaPage({ searchParams }: { searchParams: Promise<SP> }) {
   const session = await auth();
+  // Solo supervisor puede acceder a la auditoría desde /uaf; analista no tiene permiso
+  if (session?.user?.rol === 'analista') redirect('/uaf');
   const sp = await searchParams;
   const filters = {
     q: sp.q ?? '',
     modulo: sp.modulo ?? '',
+    rol: sp.rol ?? '',
     resultado: sp.resultado ?? '',
     criticidad: sp.criticidad ?? '',
     desde: sp.desde ?? '',

@@ -31,6 +31,7 @@ interface InitialData {
   ordenante: PartyState;
   beneficiario: PartyState;
   comprador: PartyState;
+  cliente: PartyState;
   uploadedDocs: Record<string, string>;
 }
 
@@ -68,6 +69,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const router = useRouter();
   const isBank = sujeto.tipo === 'bank';
   const isRealEstate = sujeto.tipo === 'realestate';
+  const isGeneric = !isBank && !isRealEstate;
 
   const defaultPlantilla = initialData?.plantillaId ?? plantillas[0]?.id ?? '';
   const [plantillaId, setPlantillaId] = useState(defaultPlantilla);
@@ -81,6 +83,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   );
   const [comprador, setComprador] = useState<PartyState>(
     initialData?.comprador ?? { id: '', status: 'idle', nombre: '' }
+  );
+  const [cliente, setCliente] = useState<PartyState>(
+    initialData?.cliente ?? { id: '', status: 'idle', nombre: '' }
   );
 
   const [monto, setMonto] = useState(initialData?.monto ? String(initialData.monto) : '');
@@ -123,18 +128,21 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     return want?.id ?? plantillaId ?? defaultPlantilla;
   }, [isBank, tipoCliente, plantillaId, plantillas, defaultPlantilla]);
 
-  const docList = docsByPlantilla[effectivePlantillaId] ?? [];
-  const cargados = docList.filter((d) => files[d.id] || fileLabels[d.id]).length;
-  const pct = docList.length > 0 ? Math.round((cargados / docList.length) * 100) : 0;
-  const todosDocumentosCargados = docList.length === 0 || cargados >= docList.length;
+  const docList    = docsByPlantilla[effectivePlantillaId] ?? [];
+  const docListReq = docList.filter((d) => d.tipo_requerimiento === 'requerido');
+  const cargados    = docList.filter((d) => files[d.id] || fileLabels[d.id]).length;
+  const cargadosReq = docListReq.filter((d) => files[d.id] || fileLabels[d.id]).length;
+  const pct = docListReq.length > 0 ? Math.round((cargadosReq / docListReq.length) * 100) : 100;
+  const todosDocumentosCargados = cargadosReq >= docListReq.length;
 
+  const docsOk = todosDocumentosCargados || observaciones.trim().length >= 10;
   const camposBaseOk = Boolean(
     oficial.trim() &&
     isValidEmail(correoOficial) &&
     fechaDeteccion &&
     Number(monto) > 0 &&
     descripcion.trim().length >= 30 &&
-    todosDocumentosCargados,
+    docsOk,
   );
   const camposBancoOk = !isBank || Boolean(
     ordenante.id.trim().length >= 3 &&
@@ -148,14 +156,15 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     bienInmueble.trim() &&
     formaPago.trim(),
   );
-  const formListo = camposBaseOk && camposBancoOk && camposInmobiliariaOk;
+  const camposGenericOk = !isGeneric || cliente.id.trim().length >= 3;
+  const formListo = camposBaseOk && camposBancoOk && camposInmobiliariaOk && camposGenericOk;
   const hayAlgunDato = [
-    ordenante.id, beneficiario.id, comprador.id,
+    ordenante.id, beneficiario.id, comprador.id, cliente.id,
     monto, descripcion, productoServicio, bienInmueble, formaPago, jurisdiccion,
   ].some((v) => v.trim() !== '') || cargados > 0;
 
   async function verifyParty(
-    field: 'ordenante' | 'beneficiario' | 'comprador',
+    field: 'ordenante' | 'beneficiario' | 'comprador' | 'cliente',
     state: PartyState,
     setState: (s: PartyState) => void,
   ) {
@@ -195,6 +204,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     if (isRealEstate && comprador.id.trim()) {
       partes.push({ rol: 'comprador', tipo: 'natural', identificador: comprador.id.trim(), nombre_visible: comprador.nombre });
     }
+    if (isGeneric && cliente.id.trim()) {
+      partes.push({ rol: 'cliente', tipo: tipoCliente, identificador: cliente.id.trim(), nombre_visible: cliente.nombre });
+    }
     return partes;
   }
 
@@ -204,7 +216,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       oficial_cumplimiento: oficial,
       correo_oficial: correoOficial,
       fecha_deteccion: fechaDeteccion,
-      descripcion: esEdicion ? descripcion : descripcion,
+      descripcion,
+      observaciones,
       operacion: {
         monto: monto ? Number(monto) : 0,
         jurisdiccion,
@@ -317,10 +330,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     if (bankError) return bankError;
     const realEstateError = validateRealEstate();
     if (realEstateError) return realEstateError;
+    const genericError = validateGeneric();
+    if (genericError) return genericError;
     if (!descripcion.trim() || descripcion.length < 30)
       return 'La descripción narrativa debe tener al menos 30 caracteres.';
-    if (!todosDocumentosCargados)
-      return `Debe cargar todos los documentos requeridos antes de enviar. Faltan ${docList.length - cargados} documento(s).`;
+    if (!todosDocumentosCargados && observaciones.trim().length < 10)
+      return `Faltan ${docListReq.length - cargadosReq} documento(s) obligatorio(s). Cárguelos o justifique su ausencia en el campo Observaciones (mín. 10 caracteres).`;
     return null;
   }
 
@@ -339,6 +354,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     if (!jurisdiccion.trim()) return 'La ubicación del bien inmueble es obligatoria.';
     if (!bienInmueble.trim()) return 'El bien inmueble involucrado es obligatorio.';
     if (!formaPago.trim()) return 'La forma de pago es obligatoria.';
+    return null;
+  }
+
+  function validateGeneric(): string | null {
+    if (!isGeneric) return null;
+    if (cliente.id.trim().length < 3) return 'La cédula/RUC del cliente o parte involucrada debe tener al menos 3 caracteres.';
     return null;
   }
 
@@ -487,6 +508,27 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           </div>
         )}
 
+        {isGeneric && (
+          <div className="field full">
+            <div className="helper" style={{ marginBottom: 8 }}>
+              Verifique al cliente o parte involucrada. El sistema solo mostrará el nombre si la cédula/RUC existe en el directorio.
+            </div>
+            <div className="field" style={{ marginBottom: 12 }}>
+              <label htmlFor="tipo-cliente-generic">Tipo de persona</label>
+              <select id="tipo-cliente-generic" value={tipoCliente} onChange={(e) => setTipoCliente(e.target.value as 'natural' | 'juridica')}>
+                <option value="natural">Persona Natural</option>
+                <option value="juridica">Persona Jurídica</option>
+              </select>
+            </div>
+            <div className="lookup-grid single">
+              <PartyCard label="Cliente / Parte involucrada" role="Cliente" icon={<User size={14} />} required
+                esJuridica={tipoCliente === 'juridica'}
+                state={cliente} setState={setCliente}
+                onVerify={() => verifyParty('cliente', cliente, setCliente)} />
+            </div>
+          </div>
+        )}
+
         {/* ── Sección 3: Operación sospechosa ── */}
         <div className="section-title">
           <span className="section-num">3</span>
@@ -548,16 +590,22 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           {/* KPI summary */}
           <div className="doc-summary">
             <div className="info-box" style={{ borderColor: '#dbe8f6', background: 'var(--primary-soft)' }}>
-              <span style={{ color: 'var(--primary)' }}>Requeridos</span>
-              <strong style={{ color: 'var(--primary)' }}>{docList.length}</strong>
+              <span style={{ color: 'var(--primary)' }}>Obligatorios</span>
+              <strong style={{ color: 'var(--primary)' }}>{docListReq.length}</strong>
             </div>
+            {docList.length > docListReq.length && (
+              <div className="info-box">
+                <span>Opcionales</span>
+                <strong>{docList.length - docListReq.length}</strong>
+              </div>
+            )}
             <div className="info-box" style={{ borderColor: cargados > 0 ? 'rgba(21,128,61,.3)' : undefined, background: cargados > 0 ? 'var(--green-soft)' : undefined }}>
               <span style={{ color: cargados > 0 ? 'var(--green)' : undefined }}>Cargados</span>
               <strong style={{ color: cargados > 0 ? 'var(--green)' : 'var(--primary)' }}>{cargados}</strong>
             </div>
-            <div className="info-box" style={{ borderColor: docList.length - cargados > 0 ? '#fedf89' : 'rgba(21,128,61,.3)', background: docList.length - cargados > 0 ? 'var(--amber-soft)' : 'var(--green-soft)' }}>
-              <span style={{ color: docList.length - cargados > 0 ? 'var(--amber)' : 'var(--green)' }}>Pendientes</span>
-              <strong style={{ color: docList.length - cargados > 0 ? 'var(--amber)' : 'var(--green)' }}>{docList.length - cargados}</strong>
+            <div className="info-box" style={{ borderColor: docListReq.length - cargadosReq > 0 ? '#fedf89' : 'rgba(21,128,61,.3)', background: docListReq.length - cargadosReq > 0 ? 'var(--amber-soft)' : 'var(--green-soft)' }}>
+              <span style={{ color: docListReq.length - cargadosReq > 0 ? 'var(--amber)' : 'var(--green)' }}>Pendientes obligatorios</span>
+              <strong style={{ color: docListReq.length - cargadosReq > 0 ? 'var(--amber)' : 'var(--green)' }}>{docListReq.length - cargadosReq}</strong>
             </div>
           </div>
 
@@ -589,7 +637,10 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
                       {i + 1}. {d.nombre}
                     </div>
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
-                      <span className={`badge ${uploaded ? 'green' : 'amber'}`}>
+                      {d.tipo_requerimiento !== 'requerido' && (
+                        <span className="badge gray" style={{ fontSize: 10 }}>Opcional</span>
+                      )}
+                      <span className={`badge ${uploaded ? 'green' : d.tipo_requerimiento === 'requerido' ? 'amber' : 'gray'}`}>
                         {file ? 'Listo para subir' : fileLabels[d.id] ? 'Adjunto guardado' : 'Pendiente'}
                       </span>
                     </div>
@@ -623,15 +674,25 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           </div>
         </div>
 
-        {/* Observaciones adicionales */}
+        {/* Observaciones adicionales — A3: permite enviar con docs faltantes si se justifica */}
         <div className="field full">
-          <label htmlFor="observaciones-adicionales">Observaciones adicionales</label>
+          <label htmlFor="observaciones-adicionales">
+            Observaciones adicionales
+            {!todosDocumentosCargados && <span className="req"> *</span>}
+          </label>
           <textarea
             id="observaciones-adicionales"
             value={observaciones}
             onChange={(e) => setObservaciones(e.target.value)}
             placeholder="Explique cualquier documento faltante, aclaración o información adicional relevante."
           />
+          {!todosDocumentosCargados && (
+            <div className="helper" style={{ color: observaciones.trim().length >= 10 ? 'var(--green)' : 'var(--amber)' }}>
+              {observaciones.trim().length >= 10
+                ? `Justificación registrada (${observaciones.trim().length} caracteres). Puede enviar el ROS con documentos pendientes.`
+                : `Faltan documentos. Puede enviar el ROS si justifica la ausencia aquí (mín. 10 caracteres · ${observaciones.trim().length}/10).`}
+            </div>
+          )}
         </div>
 
         {/* Extra evidence */}

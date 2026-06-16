@@ -20,6 +20,7 @@ const putSchema = z.object({
   correo_oficial: z.string().optional().default(''),
   fecha_deteccion: z.string().optional().default(''),
   descripcion: z.string().optional().default(''),
+  observaciones: z.string().optional().default(''),
   operacion: z.object({
     monto: z.number().min(0).optional().default(0),
     jurisdiccion: z.string().optional().nullable(),
@@ -173,13 +174,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const tx = db.transaction(() => {
     db.prepare(`
       UPDATE ros SET plantilla_id = ?, oficial_cumplimiento = ?, correo_oficial = ?,
-                      fecha_deteccion = ?, descripcion = ?,
+                      fecha_deteccion = ?, descripcion = ?, observaciones = ?,
                       estado = CASE WHEN ? THEN 'recibido' ELSE 'borrador' END
       WHERE id = ?
     `).run(
       parsed.data.plantilla_id, parsed.data.oficial_cumplimiento,
       parsed.data.correo_oficial ?? null, parsed.data.fecha_deteccion,
-      parsed.data.descripcion, esSubmit ? 1 : 0, id,
+      parsed.data.descripcion, parsed.data.observaciones || null,
+      esSubmit ? 1 : 0, id,
     );
 
     // Reemplazar operacion_sospechosa

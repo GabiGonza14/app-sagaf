@@ -8,8 +8,16 @@ import { audit, extractRequestContext } from '@/lib/audit';
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
-  if (!['auditor', 'analista', 'supervisor', 'admin'].includes(session.user.rol))
+  if (!['auditor', 'supervisor', 'admin'].includes(session.user.rol)) {
+    const ctx403 = extractRequestContext(req);
+    audit({
+      modulo: 'auditoria', accion: 'consulta_log', resultado: 'bloqueado',
+      usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
+      ip: ctx403.ip, user_agent: ctx403.user_agent,
+      criticidad: 'alta',
+    });
     return NextResponse.json({ error: 'Permiso insuficiente' }, { status: 403 });
+  }
 
   const url = new URL(req.url);
   const modulo = url.searchParams.get('modulo');

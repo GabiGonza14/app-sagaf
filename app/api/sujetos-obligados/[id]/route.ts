@@ -10,8 +10,8 @@ const schema = z.object({
   ruc: z.string().optional().nullable(),
   tipo: z.string().min(1).optional(),
   sector: z.string().min(1).optional(),
-  organismo_supervisor: z.string().optional().nullable(),
-  responsable_cumpl: z.string().optional().nullable(),
+  organismo_supervisor: z.string().min(1).optional(),
+  responsable_cumpl: z.string().min(1).optional(),
   estado: z.enum(['activo', 'inactivo']).optional(),
   plantillas: z.array(z.string()).min(1).optional(),
 });
@@ -25,8 +25,8 @@ function buildUpdateFields(d: Data): { fields: string[]; vals: unknown[] } {
   if (d.ruc !== undefined)                  { fields.push('ruc = ?');                  vals.push(d.ruc ?? null); }
   if (d.tipo !== undefined)                 { fields.push('tipo = ?');                 vals.push(d.tipo); }
   if (d.sector !== undefined)               { fields.push('sector = ?');               vals.push(d.sector); }
-  if (d.organismo_supervisor !== undefined) { fields.push('organismo_supervisor = ?'); vals.push(d.organismo_supervisor ?? null); }
-  if (d.responsable_cumpl !== undefined)    { fields.push('responsable_cumpl = ?');    vals.push(d.responsable_cumpl ?? null); }
+  if (d.organismo_supervisor !== undefined) { fields.push('organismo_supervisor = ?'); vals.push(d.organismo_supervisor); }
+  if (d.responsable_cumpl !== undefined)    { fields.push('responsable_cumpl = ?');    vals.push(d.responsable_cumpl); }
   if (d.estado !== undefined)               { fields.push('estado = ?');               vals.push(d.estado); }
   return { fields, vals };
 }

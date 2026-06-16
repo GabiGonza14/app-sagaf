@@ -3,45 +3,93 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
-export function UsuarioActions({ usuarioId, estadoActual }: { usuarioId: string; estadoActual: string }) {
+interface Rol { id: string; nombre: string }
+
+interface Props {
+  usuarioId: string;
+  estadoActual: string;
+  rolActualId: string;
+  roles: Rol[];
+}
+
+export function UsuarioActions({ usuarioId, estadoActual, rolActualId, roles }: Readonly<Props>) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [openEstado, setOpenEstado] = useState(false);
+  const [openRol, setOpenRol] = useState(false);
+  const [rolId, setRolId] = useState(rolActualId);
 
   const desactivar = estadoActual === 'activo';
-  const nuevo = desactivar ? 'inactivo' : 'activo';
+  const nuevoEstado = desactivar ? 'inactivo' : 'activo';
+  const rolNuevoNombre = roles.find((r) => r.id === rolId)?.nombre ?? rolId;
+  const rolCambio = rolId !== rolActualId;
 
-  async function toggle() {
+  async function toggleEstado() {
     setBusy(true);
-    setOpen(false);
+    setOpenEstado(false);
     try {
       const res = await fetch(`/api/usuarios/${usuarioId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado: nuevo }),
+        body: JSON.stringify({ estado: nuevoEstado }),
       });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        alert(d.error ?? 'Error.');
-        return;
-      }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'Error.'); return; }
+      router.refresh();
+    } finally { setBusy(false); }
+  }
+
+  async function guardarRol() {
+    setBusy(true);
+    setOpenRol(false);
+    try {
+      const res = await fetch(`/api/usuarios/${usuarioId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rol_id: rolId }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'Error.'); return; }
       router.refresh();
     } finally { setBusy(false); }
   }
 
   return (
     <>
-      <button
-        className={`btn ${desactivar ? 'amber' : 'green'}`}
-        onClick={() => setOpen(true)}
-        disabled={busy}
-        style={{ padding: '8px 12px', fontSize: 12 }}
-      >
-        {desactivar ? 'Desactivar' : 'Activar'}
-      </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* Toggle estado */}
+        <button
+          className={`btn ${desactivar ? 'amber' : 'green'}`}
+          onClick={() => setOpenEstado(true)}
+          disabled={busy}
+          style={{ padding: '6px 10px', fontSize: 12 }}
+        >
+          {desactivar ? 'Desactivar' : 'Activar'}
+        </button>
+
+        {/* Cambio de rol (A4) */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          <select
+            value={rolId}
+            onChange={(e) => setRolId(e.target.value)}
+            disabled={busy}
+            style={{ fontSize: 12, padding: '4px 6px', flex: 1 }}
+          >
+            {roles.map((r) => (
+              <option key={r.id} value={r.id}>{r.nombre}</option>
+            ))}
+          </select>
+          <button
+            className="btn secondary"
+            onClick={() => setOpenRol(true)}
+            disabled={busy || !rolCambio}
+            style={{ padding: '4px 8px', fontSize: 12, whiteSpace: 'nowrap' }}
+          >
+            Cambiar rol
+          </button>
+        </div>
+      </div>
 
       <ConfirmModal
-        isOpen={open}
+        isOpen={openEstado}
         variant={desactivar ? 'warning' : 'success'}
         title={desactivar ? '¿Desactivar usuario?' : '¿Activar usuario?'}
         message={
@@ -52,8 +100,20 @@ export function UsuarioActions({ usuarioId, estadoActual }: { usuarioId: string;
         confirmLabel={desactivar ? 'Sí, desactivar' : 'Sí, activar'}
         cancelLabel="Cancelar"
         busy={busy}
-        onConfirm={toggle}
-        onCancel={() => setOpen(false)}
+        onConfirm={toggleEstado}
+        onCancel={() => setOpenEstado(false)}
+      />
+
+      <ConfirmModal
+        isOpen={openRol}
+        variant="warning"
+        title="¿Cambiar rol del usuario?"
+        message={`El usuario recibirá el rol "${rolNuevoNombre}". Sus permisos cambiarán de inmediato y la acción quedará registrada en auditoría (RE-04).`}
+        confirmLabel="Sí, cambiar rol"
+        cancelLabel="Cancelar"
+        busy={busy}
+        onConfirm={guardarRol}
+        onCancel={() => { setOpenRol(false); setRolId(rolActualId); }}
       />
     </>
   );

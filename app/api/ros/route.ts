@@ -15,6 +15,7 @@ const schema = z.object({
   correo_oficial: z.union([z.string().email(), z.literal('')]).optional().default(''),
   fecha_deteccion: z.string().min(8),
   descripcion: z.string().min(30, 'La descripción debe tener al menos 30 caracteres'),
+  observaciones: z.string().optional().default(''),
   operacion: z.object({
     monto: z.number().positive(),
     jurisdiccion: z.string().optional().nullable(),
@@ -89,6 +90,7 @@ export async function POST(req: Request) {
           nombre_visible: z.string().optional().nullable(),
         })).optional().default([]),
         descripcion: z.string().optional().default(''),
+        observaciones: z.string().optional().default(''),
         operacion: z.object({
           monto: z.number().min(0).optional().default(0),
           jurisdiccion: z.string().optional().nullable(),
@@ -124,13 +126,13 @@ export async function POST(req: Request) {
     db.prepare(`
       INSERT INTO ros (id, numero_ros, sujeto_obligado_id, plantilla_id,
                        oficial_cumplimiento, correo_oficial, fecha_deteccion,
-                       estado, descripcion, canal_recepcion, creado_por)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'portal_publico', ?)
+                       estado, descripcion, observaciones, canal_recepcion, creado_por)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'portal_publico', ?)
     `).run(
       rosId, numeroRos, subject.sujeto_obligado_id, parsed.data.plantilla_id,
       parsed.data.oficial_cumplimiento, parsed.data.correo_oficial ?? null,
       parsed.data.fecha_deteccion, esBorrador ? 'borrador' : 'recibido',
-      parsed.data.descripcion, subject.id,
+      parsed.data.descripcion, parsed.data.observaciones || null, subject.id,
     );
 
     db.prepare(`

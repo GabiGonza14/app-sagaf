@@ -1,13 +1,12 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { AppShell, type NavItem } from '@/components/AppShell';
-import { LayoutDashboard, Users, Building2, FileText, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Users, Building2, ClipboardList } from 'lucide-react';
 
 const navItems: NavItem[] = [
   { href: '/admin',                    label: 'Resumen',             icon: <LayoutDashboard size={16} /> },
   { href: '/admin/usuarios',           label: 'Usuarios y roles',    icon: <Users size={16} /> },
   { href: '/admin/sujetos-obligados',  label: 'Sujetos obligados',   icon: <Building2 size={16} /> },
-  { href: '/admin/plantillas',         label: 'Plantillas ROS',      icon: <FileText size={16} /> },
   { href: '/admin/auditoria',          label: 'Auditoría',           icon: <ClipboardList size={16} /> },
 ];
 

@@ -4,6 +4,13 @@ import { useRouter } from 'next/navigation';
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 
+const TIPO_LABEL: Record<string, string> = {
+  bank:       'Banco',
+  realestate: 'Inmobiliaria',
+  casino:     'Casino',
+  notarios:   'Notaría',
+};
+
 export function NuevoSujetoForm({
   plantillas,
   tiposDisponibles,
@@ -80,7 +87,7 @@ export function NuevoSujetoForm({
           <select id="so-tipo" value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }} required>
             <option value="">— Seleccione —</option>
             {tiposDisponibles.map((t) => (
-              <option key={t} value={t}>{t}</option>
+              <option key={t} value={t}>{TIPO_LABEL[t] ?? t}</option>
             ))}
           </select>
         </div>

@@ -4,6 +4,13 @@ import { useRouter } from 'next/navigation';
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 
+const TIPO_LABEL: Record<string, string> = {
+  bank:       'Banco',
+  realestate: 'Inmobiliaria',
+  casino:     'Casino',
+  notarios:   'Notaría',
+};
+
 interface Sujeto {
   id: string;
   nombre: string;
@@ -154,7 +161,7 @@ export function SujetoActions({
               <label htmlFor={`edit-tipo-${sujeto.id}`}>Tipo</label>
               <select id={`edit-tipo-${sujeto.id}`} value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }} required>
                 {tiposDisponibles.map((t) => (
-                  <option key={t} value={t}>{t}</option>
+                  <option key={t} value={t}>{TIPO_LABEL[t] ?? t}</option>
                 ))}
               </select>
             </div>

@@ -146,6 +146,8 @@ const insertPlantilla = db.prepare(`
 insertPlantilla.run('pl_bank_natural', 'ROS Banco · Persona Natural',   'bank',       'financiero');
 insertPlantilla.run('pl_bank_legal',   'ROS Banco · Persona Jurídica',  'bank',       'financiero');
 insertPlantilla.run('pl_realestate',   'ROS Inmobiliaria / Promotora',  'realestate', 'no_financiero');
+insertPlantilla.run('pl_casino',       'ROS Sector Casino',             'casino',     'no_financiero');
+insertPlantilla.run('pl_notarios',     'ROS Sector Notarios',           'notarios',   'actividad_profesional');
 
 const linkSOPL = db.prepare(
   'INSERT INTO sujeto_obligado_plantilla (sujeto_obligado_id, plantilla_id) VALUES (?, ?)',
@@ -212,6 +214,30 @@ const bankLegal: DocEntry[] = [
   { nombre: 'Referencias Comerciales y/o Profesionales',                                                                     tipo: 'opcional' },
 ];
 
+const casino: DocEntry[] = [
+  // SUSTENTO DOCUMENTAL
+  { nombre: 'Identificación personal y/o pasaporte de los clientes',                                                                           tipo: 'requerido' },
+  { nombre: 'Debida Diligencia realizada al cliente',                                                                                          tipo: 'requerido' },
+  { nombre: 'Información obtenida en cuanto a la procedencia y origen de los fondos que permiten un alto nivel de juego en monto y frecuencia', tipo: 'requerido' },
+  // SUSTENTO OPERACIONAL
+  { nombre: 'Detalle de las fichas canjeadas y premios cobrados',                                                                              tipo: 'requerido' },
+  { nombre: 'Montos invertidos en los juegos, fecha del juego, frecuencia y locación',                                                         tipo: 'requerido' },
+];
+
+const notarios: DocEntry[] = [
+  // SUSTENTOS DOCUMENTALES
+  { nombre: 'Identidad personal — Cédula y/o Pasaporte de los actores',                                                                        tipo: 'requerido' },
+  { nombre: 'Debida Diligencia realizada al cliente',                                                                                          tipo: 'requerido' },
+  { nombre: 'Contratos suscritos o firmados entre las partes objeto del reporte',                                                              tipo: 'requerido' },
+  { nombre: 'Copias de las Escrituras públicas protocolizadas',                                                                                tipo: 'requerido' },
+  { nombre: 'Documentación y comunicaciones tendientes a verificar el trámite que se pretende realizar (Compra Venta)',                         tipo: 'requerido' },
+  { nombre: 'Forma de pago de los gastos notariales (Efectivo, Cheque, Tarjeta de Crédito o Débito, ACH, Transferencia Bancaria)',             tipo: 'requerido' },
+  // SUSTENTOS OPERACIONALES
+  { nombre: 'Sustento de los pagos realizados',                                                                                                tipo: 'requerido' },
+  { nombre: 'Cheque (anverso y reverso)',                                                                                                      tipo: 'condicional' },
+  { nombre: 'Recibo de pagos realizados por los servicios recibidos',                                                                         tipo: 'requerido' },
+];
+
 const realEstate: DocEntry[] = [
   // REQUERIDOS — bloquean el envío si no se adjuntan
   { nombre: 'Contrato de Promesa de Compra Venta',                        tipo: 'requerido' },
@@ -245,6 +271,8 @@ function seedDocs(plantillaId: string, lista: DocEntry[], prefix: string) {
 seedDocs('pl_bank_natural', bankNatural, 'dr_bn');
 seedDocs('pl_bank_legal',   bankLegal,   'dr_bl');
 seedDocs('pl_realestate',   realEstate,  'dr_re');
+seedDocs('pl_casino',       casino,      'dr_ca');
+seedDocs('pl_notarios',     notarios,    'dr_no');
 
 // =====================================================================
 // 4. Usuarios del sistema — todos con password "password123" (bcrypt)
@@ -337,8 +365,8 @@ insertAudit.run(uid(), null, 'system', 'system', 'system', 'seed_inicial', 'exit
 
 console.log(`[SAGAF] Seed completo:`);
 console.log(`  • ${roles.length} roles, ${permisos.length} permisos`);
-console.log(`  • 2 sujetos obligados, 3 plantillas ROS`);
-console.log(`  • ${bankNatural.length + bankLegal.length + realEstate.length} documentos requeridos`);
+console.log(`  • 2 sujetos obligados, 5 plantillas ROS (banco x2, inmobiliaria, casino, notarios)`);
+console.log(`  • ${bankNatural.length + bankLegal.length + realEstate.length + casino.length + notarios.length} documentos requeridos`);
 console.log(`  • ${usuariosDemo.length} usuarios`);
 console.log(`  • 2 ROS demo + 1 vínculo intersectorial (CU-07)`);
 console.log(`[SAGAF] Credenciales: password123 (todos los usuarios)`);
