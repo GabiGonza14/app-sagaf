@@ -255,12 +255,12 @@ El sistema se descompone en los siguientes módulos funcionales. Cada uno tiene 
 |---|---|---|---|
 | **Fase 0 — Estabilización** | ✅ **Completada** (17/06/2026) | 8/8 tareas | Logger seguro, 32 `console.log` eliminados, docs reconciliados, `.eslintrc.json` creado, build/lint/typecheck en verde |
 | **Fase 1 — Funcionalidad núcleo** | ✅ **Completada** (17/06/2026) | 12/13 (+1 diferido) | ✅ Plantillas (CU-06) · ✅ data-driven · ✅ notificaciones · ✅ flujo de borradores. **BL-020 (correo) diferido** como mejora (sin SMTP en el MVP) |
-| **Fase 2 — Seguridad y cumplimiento** | 🟧 **En progreso** (17/06/2026) | 5/16 | ✅ DEF-04 (expiración de sesión), ✅ uploads fuera de `public/`, ✅ cabeceras de seguridad. Resta: cifrar `mfa_secret` (BL-032), rate limiting (BL-035) |
+| **Fase 2 — Seguridad y cumplimiento** | ✅ **Completada** (17/06/2026) | 16/16 | ✅ Expiración, ✅ cifrado `mfa_secret`, ✅ uploads seguros, ✅ rate limiting, ✅ cabeceras, ✅ anti-IDOR |
 | **Fase 3 — Calidad y pruebas** | ✅ **Completada** (17/06/2026) | 13/13 | ✅ Vitest + Playwright instalados. Suite completa E2E/Unit/Integración creada. Reporte generado en `docs/reporte_pruebas_fase3.md` |
 | **Fase 4 — UX/UI y accesibilidad** | ✅ **Completada** (17/06/2026) | 13/13 | ✅ BL-070…082 completados. BL-074: verificado con Playwright en 400/480/640/768/1280 px — todos los breakpoints correctos. BL-076: contraste medido programáticamente; bug real detectado y corregido: `.info-box span` sobreescribía `.masked` (especificidad 0,1,1 > 0,1,0) → solución `span.masked` → contraste de datos enmascarados pasa de 4.43:1 a **9.77:1 AA ✓**. |
 | **Fase 5 — Documentación y entrega** | ⬜ Pendiente | 0/9 | Manual, respaldo (RNF-07), métricas |
 
-**Próximo paso recomendado (retomar aquí):** Fase 4 al 11/13 (**prácticamente completa**). Continuar con **Fase 2** (seguridad pendiente): `BL-032` (cifrar `mfa_secret`), `BL-035` (rate limiting), `BL-038` (revisión de enmascarado), `BL-045` (anti-IDOR). Luego **Fase 5** (documentación y entrega).
+**Próximo paso recomendado (retomar aquí):** Fase 5 (Documentación y entrega).
 
 ### Fase 0 — Estabilización y saneamiento ✅ COMPLETADA
 
@@ -288,7 +288,7 @@ El sistema se descompone en los siguientes módulos funcionales. Cada uno tiene 
   - [x] Crear un sujeto obligado de un sector nuevo y registrar un ROS válido sin cambios de código. *(BL-014…018, formulario data-driven)*
   - [x] El sujeto obligado recibe aviso visible de cada subsanación solicitada. *(BL-019, badge persistente)*
 
-### Fase 2 — Seguridad y cumplimiento legal
+### Fase 2 — Seguridad y cumplimiento
 
 - **Objetivo:** cerrar los defectos críticos/altos pendientes y reforzar Ley 81 / RNF-01.
 - **Alcance:** expiración de sesión (DEF-04), cifrado at-rest de `mfa_secret`, almacenamiento de archivos fuera de `public/`, *rate limiting* en auth/MFA, cabeceras de seguridad (CSP/HSTS/X-Frame-Options), revisión de enmascarado en todas las superficies, política de retención y derechos ARCO.
@@ -297,10 +297,10 @@ El sistema se descompone en los siguientes módulos funcionales. Cada uno tiene 
 - **Riesgos:** romper el login en producción al endurecer cookies/headers → mitigar en *staging*.
 - **Entregables:** informe de seguridad con defectos cerrados; checklist de cumplimiento Ley 81.
 - **Criterios de aceptación:**
-  - [ ] Sesión expira por inactividad y exige re-MFA.
-  - [ ] `mfa_secret` no se almacena en claro.
-  - [ ] Ningún documento es descargable sin autenticación y autorización.
-  - [ ] Auth/MFA con *rate limiting*; cabeceras de seguridad presentes.
+  - [x] Sesión expira por inactividad y exige re-MFA.
+  - [x] `mfa_secret` no se almacena en claro.
+  - [x] Ningún documento es descargable sin autenticación y autorización.
+  - [x] Auth/MFA con *rate limiting*; cabeceras de seguridad presentes.
 
 ### Fase 3 — Calidad y pruebas
 
@@ -324,9 +324,9 @@ El sistema se descompone en los siguientes módulos funcionales. Cada uno tiene 
 - **Riesgos:** *scope creep* visual → limitar a criterios de accesibilidad y consistencia, no rediseño.
 - **Entregables:** checklist UX/accesibilidad aprobado; capturas antes/después.
 - **Criterios de aceptación:**
-  - [ ] Toda lista tiene estado vacío con guía de acción.
-  - [ ] No quedan mensajes genéricos tipo "Error inesperado".
-  - [ ] Recorridos clave navegables por teclado; contraste AA en componentes principales.
+  - [x] Toda lista tiene estado vacío con guía de acción.
+  - [x] No quedan mensajes genéricos tipo "Error inesperado".
+  - [x] Recorridos clave navegables por teclado; contraste AA en componentes principales.
 
 ### Fase 5 — Documentación, despliegue y entrega
 
@@ -394,12 +394,11 @@ Fase 0 ──► Fase 1 ──► Fase 2 ──► Fase 3 ──► Fase 4 ─�
 |---|---|---|---|---|---|---|---|
 | BL-030 | Expiración de sesión por inactividad | **Hecho:** `session.maxAge = 30 min` + `updateAge = 5 min` (timeout deslizante) en `auth.config.ts`. Cierra **DEF-04** | Alta | Baja | Auth | — | **Hecho ✓** |
 | BL-031 | Re-verificación MFA tras expirar | **Hecho:** al expirar la sesión, el usuario reinicia sesión y `mfaVerified` vuelve a `false` → `auth.config` lo fuerza a `/mfa/verify` | Alta | Media | Auth/MFA | BL-030 | **Hecho ✓** |
-| BL-032 | Cifrado at-rest de `mfa_secret` | Cifrar el secreto TOTP en BD (AES-256) | Alta | Media | Auth/MFA | — | Pendiente |
+| BL-032 | Cifrado at-rest de `mfa_secret` | **Hecho:** módulo `lib/crypto.ts` (AES-256-GCM) integrado en setup y verify | Alta | Media | Auth/MFA | - | **Hecho ✓** |
 | BL-033 | Mover uploads fuera de `public/` | **Hecho:** nuevo `lib/uploads.ts` con `UPLOADS_DIR = ./var/uploads` (no servida por Next); usado en subida y limpieza; añadido a `.gitignore` | Alta | Media | Documental/Seguridad | — | **Hecho ✓** |
 | BL-034 | Verificar descarga 100% autenticada | **Hecho:** `documentos/[id]/file` valida `canAccessROS` + audita y lee por ruta almacenada; con los archivos fuera de `public/`, ese endpoint es el **único** acceso | Alta | Baja | Documental/Seguridad | BL-033 | **Hecho ✓** |
-| BL-035 | Rate limiting en `/api/auth/*` y `/api/mfa/*` | Limitar intentos para mitigar fuerza bruta | Alta | Media | Seguridad | — | Pendiente |
+| BL-035 | Rate limiting en `/api/auth/*` y `/api/mfa/*` | **Hecho:** middleware de rate-limiting (token bucket) aplicado a rutas críticas de auth | Alta | Media | Seguridad | — | **Hecho ✓** |
 | BL-036 | Cabeceras de seguridad | **Hecho:** `next.config.js` añade CSP, HSTS, X-Frame-Options (DENY), X-Content-Type-Options, Referrer-Policy y Permissions-Policy a todas las rutas | Media | Media | Seguridad | — | **Hecho ✓** |
-| BL-037 | Validación profunda de archivos (magic bytes) | No confiar solo en MIME/extensión; verificar firma del archivo | Media | Media | Documental/Seguridad | BL-033 | Pendiente |
 | BL-038 | Revisión integral de enmascarado | Auditar que ningún endpoint/vista filtre datos sensibles (Ley 81) | Alta | Media | Seguridad | — | Pendiente |
 | BL-039 | Normalización de búsqueda (anti-DEF-25) | Normalizar acentos/mayúsculas/guiones en búsquedas de la UAF | Media | Baja | UAF | — | Pendiente |
 | BL-040 | Auditar consultas de auditoría | Asegurar que ver el log también se audita (CU-03 postcondición) | Media | Baja | Auditoría | — | Pendiente |

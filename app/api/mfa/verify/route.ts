@@ -6,7 +6,9 @@ import { z } from 'zod';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { verifyCode } from '@/lib/totp';
+import { decryptString } from '@/lib/crypto';
 import { audit, extractRequestContext } from '@/lib/audit';
+import { checkRateLimit, clearRateLimit } from '@/lib/rate-limit';
 import { encode, decode } from '@auth/core/jwt';
 
 const schema = z.object({ code: z.string().regex(/^\d{6}$/) });
@@ -34,7 +36,20 @@ export async function POST(req: Request) {
   }
 
   const ctx = extractRequestContext(req);
-  const ok = verifyCode(row.mfa_secret, parsed.data.code);
+  
+  // BL-035: Rate Limiting para MFA
+  const rateLimit = checkRateLimit(ctx.ip, 5, 60000);
+  if (!rateLimit.ok) {
+    audit({
+      modulo: 'autenticacion', accion: 'mfa_verify_failed', resultado: 'fallo',
+      usuario_id: session.user.id, ip: ctx.ip, user_agent: ctx.user_agent,
+      detalle: { motivo: 'rate_limit_exceeded' }, criticidad: 'alta',
+    });
+    return NextResponse.json({ error: 'Demasiados intentos. Espere 1 minuto.' }, { status: 429 });
+  }
+
+  const decryptedSecret = decryptString(row.mfa_secret);
+  const ok = verifyCode(decryptedSecret, parsed.data.code);
 
   if (!ok) {
     audit({
@@ -66,7 +81,9 @@ export async function POST(req: Request) {
     user_agent: ctx.user_agent,
   });
 
-  // Actualiza el JWT directamente para que el middleware vea mfaVerified=true
+  clearRateLimit(ctx.ip);
+
+  // Forzar actualización del token de sesión en el cliente para que el middleware vea mfaVerified=true
   const useSecureCookies = process.env.NEXTAUTH_URL?.startsWith('https') ?? false;
   const cookiePrefix = useSecureCookies ? '__Secure-' : '';
   const cookieName = `${cookiePrefix}authjs.session-token`;
