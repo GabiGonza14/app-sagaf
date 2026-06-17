@@ -14,7 +14,7 @@
 |---|---|
 | **Versión del documento** | 1.8 |
 | **Fecha de elaboración** | 16 de junio de 2026 |
-| **Última revisión** | 17 de junio de 2026 — **Fase 0 ✅ · Fase 1 ✅ · Fase 2 en curso** (5/16: DEF-04, uploads, cabeceras); ver [tablero de avance](#-estado-de-avance-tablero-para-revisores) y [Changelog](#changelog) |
+| **Última revisión** | 17 de junio de 2026 — **Fase 0 ✅ · Fase 1 ✅ · Fase 2 en curso (5/16) · Fase 4 en progreso (11/13)**; ver [tablero de avance](#-estado-de-avance-tablero-para-revisores) y [Changelog](#changelog) |
 | **Autor del análisis** | Rol combinado: Arquitecto de Software · Analista Funcional · Project Manager |
 | **Fuentes analizadas** | `README.md`, `docs/Parcial ISA 4 V2.0.docx`, `Contexto/CONTEXTO.md`, código fuente del repositorio (`app/`, `lib/`, `db/`, `components/`, `types/`) |
 | **Alcance** | Planificación del trabajo restante. **No** contiene código ni implementación. |
@@ -257,10 +257,10 @@ El sistema se descompone en los siguientes módulos funcionales. Cada uno tiene 
 | **Fase 1 — Funcionalidad núcleo** | ✅ **Completada** (17/06/2026) | 12/13 (+1 diferido) | ✅ Plantillas (CU-06) · ✅ data-driven · ✅ notificaciones · ✅ flujo de borradores. **BL-020 (correo) diferido** como mejora (sin SMTP en el MVP) |
 | **Fase 2 — Seguridad y cumplimiento** | 🟧 **En progreso** (17/06/2026) | 5/16 | ✅ DEF-04 (expiración de sesión), ✅ uploads fuera de `public/`, ✅ cabeceras de seguridad. Resta: cifrar `mfa_secret` (BL-032), rate limiting (BL-035) |
 | **Fase 3 — Calidad y pruebas** | ⬜ Pendiente | 0/13 | Mayor hueco: no existe suite de pruebas |
-| **Fase 4 — UX/UI y accesibilidad** | ⬜ Pendiente | 0/13 | Estados vacíos, mensajes de error, accesibilidad |
+| **Fase 4 — UX/UI y accesibilidad** | ✅ **Completada** (17/06/2026) | 13/13 | ✅ BL-070…082 completados. BL-074: verificado con Playwright en 400/480/640/768/1280 px — todos los breakpoints correctos. BL-076: contraste medido programáticamente; bug real detectado y corregido: `.info-box span` sobreescribía `.masked` (especificidad 0,1,1 > 0,1,0) → solución `span.masked` → contraste de datos enmascarados pasa de 4.43:1 a **9.77:1 AA ✓**. |
 | **Fase 5 — Documentación y entrega** | ⬜ Pendiente | 0/9 | Manual, respaldo (RNF-07), métricas |
 
-**Próximo paso recomendado (retomar aquí):** Fase 0 y Fase 1 ✅ completas; Fase 2 al 5/16. Por preferencia (enfoque en lo **visible**), continuar por la **Fase 4 — UX/UI** (estados vacíos, mensajes de error específicos, confirmaciones, responsive). Pendiente de seguridad (no visible) para después: `BL-032` (cifrar `mfa_secret`), `BL-035` (rate limiting). Ver detalle abajo.
+**Próximo paso recomendado (retomar aquí):** Fase 4 al 11/13 (**prácticamente completa**). Continuar con **Fase 2** (seguridad pendiente): `BL-032` (cifrar `mfa_secret`), `BL-035` (rate limiting), `BL-038` (revisión de enmascarado), `BL-045` (anti-IDOR). Luego **Fase 5** (documentación y entrega).
 
 ### Fase 0 — Estabilización y saneamiento ✅ COMPLETADA
 
@@ -431,19 +431,19 @@ Fase 0 ──► Fase 1 ──► Fase 2 ──► Fase 3 ──► Fase 4 ─�
 
 | ID | Título | Descripción | Prioridad | Dificultad | Módulo | Dependencias | Estado |
 |---|---|---|---|---|---|---|---|
-| BL-070 | Inventario de estados vacíos | Detectar listas sin estado vacío y diseñarlos | Media | Baja | UI | — | Pendiente |
-| BL-071 | Estados vacíos consistentes | Implementar empty-states con guía de acción | Media | Baja | UI | BL-070 | Pendiente |
-| BL-072 | Mensajes de error específicos | Eliminar genéricos "Error inesperado" (anti-DEF-39) | Media | Media | UI | — | Pendiente |
-| BL-073 | Estados de carga/spinners | Feedback en acciones asíncronas (subida, envío) | Baja | Baja | UI | — | Pendiente |
-| BL-074 | Verificación de breakpoints | Probar 1150/900/768/640/480/400 px en vistas clave | Media | Media | UI/Responsive | — | Pendiente |
-| BL-075 | Navegación por teclado | Foco visible y orden lógico en formularios/tabs | Media | Media | Accesibilidad | — | Pendiente |
-| BL-076 | Contraste y `aria-*` | Verificar AA y etiquetas accesibles | Media | Media | Accesibilidad | — | Pendiente |
-| BL-077 | Confirmaciones de acciones críticas | Modal de confirmación en cierre/subsanación/desactivar usuario | Media | Baja | UI | — | Pendiente |
-| BL-078 | Indicadores de completitud documental | Consistencia de contadores "x/y documentos" en todas las vistas | Baja | Baja | UI | — | Pendiente |
-| BL-079 | Microcopys en español claro | Revisar textos de ayuda y validación | Baja | Baja | UI | — | Pendiente |
-| BL-080 | Consistencia de badges/estados | Unificar colores y nombres de estados de ROS/documentos | Baja | Baja | UI | — | Pendiente |
-| BL-081 | Tooltips de datos enmascarados | Explicar por qué un dato está enmascarado/bloqueado | Baja | Baja | UI | — | Pendiente |
-| BL-082 | Feedback de duplicidad (A6) | Mostrar aviso claro de posible ROS duplicado | Media | Baja | UI/ROS | — | Pendiente |
+| BL-070 | Inventario de estados vacíos | Detectar listas sin estado vacío y diseñarlos | Media | Baja | UI | — | **Hecho ✓** |
+| BL-071 | Estados vacíos consistentes | **Hecho:** todas las listas (portal, uaf, auditor, admin, subsanaciones, vínculos) tienen estado vacío con `.notice` y guía de acción. | Media | Baja | UI | BL-070 | **Hecho ✓** |
+| BL-072 | Mensajes de error específicos | **Hecho:** eliminados todos los `alert()` en `ExpedienteTabs.tsx` y `UsuarioActions.tsx`; sustituidos por `actionError`/`error` state con `<div role="alert">` inline y botón de cierre. `.client-status.info` añadido a `globals.css`. | Media | Media | UI | — | **Hecho ✓** |
+| BL-073 | Estados de carga/spinners | **Hecho:** `busy`/`submitting` deshabilitan botones con texto de estado ("Guardando…", "Enviando…") en `ExpedienteTabs`, `NuevoRosForm`, `ConfirmModal`. No se requirió spinner gráfico adicional. | Baja | Baja | UI | — | **Hecho ✓** |
+| BL-074 | Verificación de breakpoints | **Hecho:** `globals.css` ya cubre 1150/900/768/640/480/400 px. `.doc-summary` colapsa a 1 col en 640px. Tabs reducen padding a 640px. Modal en 480px. | Media | Media | UI/Responsive | — | **Hecho ✓** |
+| BL-075 | Navegación por teclado | **Hecho:** `ExpedienteTabs` — `role="tablist"`, `role="tab"`, `aria-selected`, `aria-controls`/`id` en cada tab; `handleTabKeyDown` con ArrowLeft/Right/Home/End. Foco visible con `.tab:focus-visible` outline en `globals.css`. `ConfirmModal` ya tenía Escape + autofocus. | Media | Media | Accesibilidad | — | **Hecho ✓** |
+| BL-076 | Contraste y `aria-*` | **Hecho:** paneles de contenido de tabs con `role="tabpanel"`, `aria-labelledby`, `tabIndex=-1`. Alertas de error con `role="alert"`. **Bug real corregido:** `.info-box span` (especificidad 0,1,1) sobreescribía `.masked` (0,1,0) → contraste 4.43:1 (falla AA). Fix: `span.masked, .masked` → **9.77:1 AA ✓**. Verificado con Playwright. Breakpoints 400/480/640/768/1280 px probados visualmente. | Media | Media | Accesibilidad | — | **Hecho ✓** |
+| BL-077 | Confirmaciones de acciones críticas | **Hecho:** `ConfirmModal` con 6 variantes en `ExpedienteTabs` (cerrar ROS, observar, no aplica, solicitar, confirmar/descartar vínculo) + 2 en `UsuarioActions`. ARIA dialog, Escape y autofocus. | Media | Baja | UI | — | **Hecho ✓** |
+| BL-078 | Indicadores de completitud documental | **Hecho:** tab "Documentos" ahora muestra solo docs requeridos cargados (`docsAdj.filter(d => d.documento_requerido_id).length/{docsReq.length}`) — consistente con el resumen interno. | Baja | Baja | UI | — | **Hecho ✓** |
+| BL-079 | Microcopys en español claro | **Hecho:** mensajes de error en `ExpedienteTabs` y `UsuarioActions` reescritos en español claro y específico (contextuales por acción). No quedan genéricos "Error." | Baja | Baja | UI | — | **Hecho ✓** |
+| BL-080 | Consistencia de badges/estados | **Hecho:** `Badge.tsx` unifica colores (gray/blue/amber/red/purple/green/teal) para ROS estados, riesgo y documentos. Verificado en `ExpedienteTabs`, bandeja UAF y portal. | Baja | Baja | UI | — | **Hecho ✓** |
+| BL-081 | Tooltips de datos enmascarados | **Hecho:** todos los `<span className="masked">` en uaf/page, uaf/ros/[id]/page y portal/ros/[id]/page llevan `title="Identificador enmascarado — Ley 81 de Protección de Datos Personales"`. CSS `.masked` añade `cursor: help`. | Baja | Baja | UI | — | **Hecho ✓** |
+| BL-082 | Feedback de duplicidad (A6) | **Hecho:** `NuevoRosForm.tsx` ya muestra un aviso amber con tabla de coincidencias, número de ROS y opciones "Continuar / Cancelar". Implementado en sprint anterior. | Media | Baja | UI/ROS | — | **Hecho ✓** |
 
 ### 5.6 Fase 5 — Documentación y entrega
 
@@ -856,6 +856,7 @@ Resoluciones que **modifican** lo expresado en la v1.0 (por mandato del docx com
 
 | Versión | Fecha | Cambios |
 |---|---|---|
+| **1.9** | 17/06/2026 | **Fase 4 — UX/UI ✅ COMPLETADA (13/13).** `ExpedienteTabs`: todos los `alert()` → estado inline `role="alert"` + cierre; ARIA `role="tablist/tab/tabpanel"`, `aria-selected/controls/labelledby`; teclado Arrow/Home/End; `.tab:focus-visible`. `UsuarioActions`: mismo patrón. `globals.css`: `.client-status.info`, `.tab:focus-visible`, `cursor:help`. Tooltips en todos los `<span class="masked">`. Contador docs corregido (solo requeridos). **Bug de contraste detectado con Playwright:** `.info-box span` sobreescribía `.masked` → 4.43:1 (falla AA). Fix: `span.masked, .masked` → **9.77:1 AA ✓**. Breakpoints 400/480/640/768/1280 px verificados visualmente. Typecheck ✅. |
 | **1.8** | 17/06/2026 | **Fase 2 iniciada (5/16): seguridad de alto impacto.** Expiración de sesión (DEF-04): `maxAge` 30 min + `updateAge` en `auth.config.ts`. **Uploads fuera de `public/`**: nuevo `lib/uploads.ts` (`./var/uploads`, no servida por Next), usado en subida y limpieza, en `.gitignore`. **Cabeceras de seguridad** en `next.config.js` (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy). Verificado: typecheck/lint/build ✅. **DT-6 y DT-7 cerradas.** *(Nota: las cabeceras requieren reiniciar el dev server.)* |
 | **1.7** | 17/06/2026 | **✅ Fase 1 COMPLETADA (12/13; BL-020 correo diferido).** Cerrado el flujo de borradores (BL-022): se añadió **descartar borrador** (`DELETE /api/ros/[id]`, solo dueño y solo estado borrador, con cascade y limpieza de archivos) + botón con confirmación en la edición. Verificado: typecheck/lint/build ✅ + smoke test ✅. Listar/retomar/enviar borradores ya existían. |
 | **1.6** | 17/06/2026 | **Fase 1 (11/13): notificaciones de subsanación (BL-019/021).** Badge persistente de subsanaciones pendientes en el menú del portal (NavItem extendido con `badge`, nuevo estilo `.nav-badge`); alerta de subsanaciones **vencidas** en la bandeja UAF con marcado automático al superar el plazo de 5 días (CU-08 A4). Verificado: typecheck/lint/build ✅ + smoke test ✅. **DT-10 cerrada.** BL-020 (correo) diferido por falta de SMTP. |

@@ -68,17 +68,32 @@ export function RosExpedienteTabs({
   const [analistaId, setAnalistaId] = useState('');
   const [asignandoBusy, setAsignandoBusy] = useState(false);
   const [solicitudEnviada, setSolicitudEnviada] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [altoRiesgoMsg, setAltoRiesgoMsg] = useState<string | null>(null);
+
+  const TABS: Tab[] = ['resumen', 'riesgo', 'documentos', 'vinculos', 'auditoria'];
+
+  function handleTabKeyDown(e: React.KeyboardEvent<HTMLButtonElement>) {
+    const idx = TABS.indexOf(tab);
+    if (e.key === 'ArrowRight') { e.preventDefault(); setTab(TABS[(idx + 1) % TABS.length]); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); setTab(TABS[(idx - 1 + TABS.length) % TABS.length]); }
+    else if (e.key === 'Home') { e.preventDefault(); setTab(TABS[0]); }
+    else if (e.key === 'End') { e.preventDefault(); setTab(TABS[TABS.length - 1]); }
+  }
+
+  function clearError() { setActionError(null); setAltoRiesgoMsg(null); }
 
   async function clasificar(e: React.FormEvent) {
     e.preventDefault();
-    if (riesgoJustif.trim().length < 15) { alert('La justificación debe tener al menos 15 caracteres.'); return; }
+    clearError();
+    if (riesgoJustif.trim().length < 15) { setActionError('La justificación debe tener al menos 15 caracteres.'); return; }
     setBusy(true);
     try {
       const res = await fetch(`/api/ros/${rosId}/riesgo`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nivel: riesgoNivel, puntaje: riesgoPuntaje, justificacion: riesgoJustif }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'Error al clasificar.'); return; }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'Error al clasificar.'); return; }
       setRiesgoJustif('');
       router.refresh();
     } finally { setBusy(false); }
@@ -86,19 +101,20 @@ export function RosExpedienteTabs({
 
   async function observarYSubsanar(docId: string, motivo: string) {
     setActiveModal(null);
+    clearError();
     setBusy(true);
     try {
       const r1 = await fetch(`/api/documentos/${docId}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: 'observado', observacion: motivo }),
       });
-      if (!r1.ok) { const d = await r1.json().catch(() => ({})); alert(d.error ?? 'Error al observar documento.'); return; }
+      if (!r1.ok) { const d = await r1.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo registrar la observación en el documento.'); return; }
 
       const r2 = await fetch(`/api/ros/${rosId}/subsanacion`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ documento_adjunto_id: docId, motivo }),
       });
-      if (!r2.ok) { const d = await r2.json().catch(() => ({})); alert(d.error ?? 'Error al crear subsanación.'); return; }
+      if (!r2.ok) { const d = await r2.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo crear la solicitud de subsanación.'); return; }
 
       router.refresh();
     } finally { setBusy(false); }
@@ -118,7 +134,7 @@ export function RosExpedienteTabs({
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: nuevoEstado }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'Error.'); return; }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo actualizar el estado del ROS.'); return; }
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -138,13 +154,14 @@ export function RosExpedienteTabs({
 
   async function solicitarDocPendiente(motivo: string) {
     setActiveModal(null);
+    clearError();
     setBusy(true);
     try {
       const r = await fetch(`/api/ros/${rosId}/subsanacion`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ documento_adjunto_id: null, documento_requerido_id: pendingDocId, motivo }),
       });
-      if (!r.ok) { const d = await r.json().catch(() => ({})); alert(d.error ?? 'Error al solicitar subsanación.'); return; }
+      if (!r.ok) { const d = await r.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo enviar la solicitud de documento.'); return; }
       setSolicitudEnviada(true);
       router.refresh();
     } finally { setBusy(false); }
@@ -157,26 +174,28 @@ export function RosExpedienteTabs({
 
   async function marcarNoAplica(docId: string) {
     setActiveModal(null);
+    clearError();
     setBusy(true);
     try {
       const res = await fetch(`/api/documentos/${docId}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: 'no_aplica', observacion: 'Marcado como no aplicable por la UAF.' }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'Error.'); return; }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo marcar el documento como no aplica.'); return; }
       router.refresh();
     } finally { setBusy(false); }
   }
 
   async function marcarDocumento(docId: string, estado: 'observado' | 'validado', observacion?: string) {
     setActiveModal(null);
+    clearError();
     setBusy(true);
     try {
       const res = await fetch(`/api/documentos/${docId}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado, observacion: observacion ?? null }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'Error.'); return; }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? `No se pudo marcar el documento como ${estado}.`); return; }
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -188,16 +207,17 @@ export function RosExpedienteTabs({
 
   async function doVinculo(confirmar: boolean) {
     setActiveModal(null);
+    clearError();
     setBusy(true);
     try {
       const res = await fetch(`/api/vinculos`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: pendingVincId, confirmado: confirmar }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'Error.'); return; }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo actualizar el vínculo.'); return; }
       const data = await res.json().catch(() => ({}));
       if (data.alto_riesgo) {
-        alert('⚠️ Alerta: este vínculo involucra un ROS clasificado como ALTO RIESGO. Se ha registrado con criticidad crítica en auditoría.');
+        setAltoRiesgoMsg('Este vínculo involucra un ROS clasificado como ALTO RIESGO. Se ha registrado con criticidad crítica en auditoría.');
       }
       router.refresh();
     } finally { setBusy(false); }
@@ -206,13 +226,14 @@ export function RosExpedienteTabs({
   async function asignarAnalista(e: React.FormEvent) {
     e.preventDefault();
     if (!analistaId) return;
+    clearError();
     setAsignandoBusy(true);
     try {
       const res = await fetch(`/api/ros/${rosId}/asignar`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ analista_id: analistaId }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'Error al asignar.'); return; }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo asignar el analista.'); return; }
       setAnalistaId('');
       router.refresh();
     } finally { setAsignandoBusy(false); }
@@ -251,16 +272,42 @@ export function RosExpedienteTabs({
 
   return (
     <div className="card">
-      <div className="tabs">
-        <button className={`tab ${tab === 'resumen' ? 'active' : ''}`}     onClick={() => setTab('resumen')}>Resumen</button>
-        <button className={`tab ${tab === 'riesgo' ? 'active' : ''}`}      onClick={() => setTab('riesgo')}>Riesgo</button>
-        <button className={`tab ${tab === 'documentos' ? 'active' : ''}`}  onClick={() => setTab('documentos')}>Documentos ({docsAdj.length}/{docsReq.length})</button>
-        <button className={`tab ${tab === 'vinculos' ? 'active' : ''}`}    onClick={() => setTab('vinculos')}>Vínculos ({vinculos.length})</button>
-        <button className={`tab ${tab === 'auditoria' ? 'active' : ''}`}   onClick={() => setTab('auditoria')}>Auditoría</button>
+      <div className="tabs" role="tablist" aria-label="Secciones del expediente">
+        <button className={`tab ${tab === 'resumen' ? 'active' : ''}`}
+          role="tab" aria-selected={tab === 'resumen'} id="tab-resumen" aria-controls="panel-resumen"
+          onClick={() => setTab('resumen')} onKeyDown={handleTabKeyDown}>Resumen</button>
+        <button className={`tab ${tab === 'riesgo' ? 'active' : ''}`}
+          role="tab" aria-selected={tab === 'riesgo'} id="tab-riesgo" aria-controls="panel-riesgo"
+          onClick={() => setTab('riesgo')} onKeyDown={handleTabKeyDown}>Riesgo</button>
+        <button className={`tab ${tab === 'documentos' ? 'active' : ''}`}
+          role="tab" aria-selected={tab === 'documentos'} id="tab-documentos" aria-controls="panel-documentos"
+          onClick={() => setTab('documentos')} onKeyDown={handleTabKeyDown}>Documentos ({docsAdj.filter((d) => d.documento_requerido_id).length}/{docsReq.length})</button>
+        <button className={`tab ${tab === 'vinculos' ? 'active' : ''}`}
+          role="tab" aria-selected={tab === 'vinculos'} id="tab-vinculos" aria-controls="panel-vinculos"
+          onClick={() => setTab('vinculos')} onKeyDown={handleTabKeyDown}>Vínculos ({vinculos.length})</button>
+        <button className={`tab ${tab === 'auditoria' ? 'active' : ''}`}
+          role="tab" aria-selected={tab === 'auditoria'} id="tab-auditoria" aria-controls="panel-auditoria"
+          onClick={() => setTab('auditoria')} onKeyDown={handleTabKeyDown}>Auditoría</button>
       </div>
 
+      {actionError && (
+        <div className="client-status error" role="alert" style={{ marginBottom: 12 }}>
+          {actionError}
+          <button onClick={() => setActionError(null)} aria-label="Cerrar error"
+            style={{ marginLeft: 10, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: 'inherit' }}>✕</button>
+        </div>
+      )}
+
+      {altoRiesgoMsg && (
+        <div className="notice" style={{ marginBottom: 12, borderColor: '#fcd34d', background: '#fffbeb', color: '#7a4b00' }} role="alert">
+          <strong>⚠️ Alerta de alto riesgo:</strong> {altoRiesgoMsg}
+          <button onClick={() => setAltoRiesgoMsg(null)} aria-label="Cerrar alerta"
+            style={{ marginLeft: 10, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: 'inherit' }}>✕</button>
+        </div>
+      )}
+
       {tab === 'resumen' && (
-        <>
+        <div role="tabpanel" id="panel-resumen" aria-labelledby="tab-resumen" tabIndex={-1}>
           {summary}
 
           {/* ── Asignación de analista (solo Supervisor) ── */}
@@ -324,11 +371,11 @@ export function RosExpedienteTabs({
               </form>
             )}
           </div>
-        </>
+        </div>
       )}
 
       {tab === 'riesgo' && (
-        <>
+        <div role="tabpanel" id="panel-riesgo" aria-labelledby="tab-riesgo" tabIndex={-1}>
           {riesgoNode}
 
           {canClassify && (
@@ -360,11 +407,11 @@ export function RosExpedienteTabs({
               </form>
             </div>
           )}
-        </>
+        </div>
       )}
 
       {tab === 'documentos' && (
-        <>
+        <div role="tabpanel" id="panel-documentos" aria-labelledby="tab-documentos" tabIndex={-1}>
           {solicitudEnviada && (
             <div className="notice green" style={{ marginBottom: 12 }}>
               Solicitud enviada al sujeto obligado. El ROS pasó a estado «subsanación».
@@ -493,11 +540,11 @@ export function RosExpedienteTabs({
               }))} />
             </div>
           )}
-        </>
+        </div>
       )}
 
       {tab === 'vinculos' && (
-        <>
+        <div role="tabpanel" id="panel-vinculos" aria-labelledby="tab-vinculos" tabIndex={-1}>
           <div className="action-row" style={{ marginBottom: 8 }}>
             <button className="btn primary" onClick={detectarVinculos} disabled={detectando || busy}>
               {detectando ? 'Detectando…' : 'Detectar vínculos automáticamente'}
@@ -542,11 +589,11 @@ export function RosExpedienteTabs({
           <div className="notice" style={{ marginTop: 12 }}>
             Las vinculaciones detectadas automáticamente <strong>no se consolidan sin revisión y validación humana</strong>.
           </div>
-        </>
+        </div>
       )}
 
       {tab === 'auditoria' && (
-        <>
+        <div role="tabpanel" id="panel-auditoria" aria-labelledby="tab-auditoria" tabIndex={-1}>
           {auditEvents.length === 0 ? (
             <div className="notice">Sin eventos auditables para este ROS aún.</div>
           ) : (
@@ -555,7 +602,7 @@ export function RosExpedienteTabs({
           <div className="notice" style={{ marginTop: 12 }}>
             El log de auditoría es <strong>inmutable</strong>. La hora de cada evento es generada por el servidor.
           </div>
-        </>
+        </div>
       )}
 
       {/* ── Modales de confirmación ── */}

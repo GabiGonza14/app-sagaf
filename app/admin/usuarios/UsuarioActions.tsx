@@ -18,6 +18,7 @@ export function UsuarioActions({ usuarioId, estadoActual, rolActualId, roles }: 
   const [openEstado, setOpenEstado] = useState(false);
   const [openRol, setOpenRol] = useState(false);
   const [rolId, setRolId] = useState(rolActualId);
+  const [error, setError] = useState<string | null>(null);
 
   const desactivar = estadoActual === 'activo';
   const nuevoEstado = desactivar ? 'inactivo' : 'activo';
@@ -27,13 +28,14 @@ export function UsuarioActions({ usuarioId, estadoActual, rolActualId, roles }: 
   async function toggleEstado() {
     setBusy(true);
     setOpenEstado(false);
+    setError(null);
     try {
       const res = await fetch(`/api/usuarios/${usuarioId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ estado: nuevoEstado }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'Error.'); return; }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'No se pudo actualizar el estado del usuario.'); return; }
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -41,19 +43,27 @@ export function UsuarioActions({ usuarioId, estadoActual, rolActualId, roles }: 
   async function guardarRol() {
     setBusy(true);
     setOpenRol(false);
+    setError(null);
     try {
       const res = await fetch(`/api/usuarios/${usuarioId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rol_id: rolId }),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error ?? 'Error.'); return; }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'No se pudo cambiar el rol del usuario.'); return; }
       router.refresh();
     } finally { setBusy(false); }
   }
 
   return (
     <>
+      {error && (
+        <div className="client-status error" role="alert" style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>
+          {error}
+          <button onClick={() => setError(null)} aria-label="Cerrar"
+            style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: 'inherit' }}>✕</button>
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {/* Toggle estado */}
         <button

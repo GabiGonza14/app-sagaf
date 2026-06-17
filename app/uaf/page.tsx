@@ -231,7 +231,7 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
                     {r.sujeto_nombre}
                   </span>
                   <span>Sector: {r.sujeto_sector}</span>
-                  <span>Cliente: <span className="masked">{r.cliente_enmascarado}</span></span>
+                  <span>Cliente: <span className="masked" title="Identificador enmascarado — Ley 81 de Protección de Datos Personales">{r.cliente_enmascarado}</span></span>
                   <span>Sustento: {r.doc_cargados}/{r.doc_total} documentos · USD {r.monto.toLocaleString('en-US')}</span>
                   {r.jurisdiccion && <span>Jurisdicción: {r.jurisdiccion}</span>}
                 </div>

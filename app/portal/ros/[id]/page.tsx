@@ -192,7 +192,7 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
                 label={p.rol_en_operacion.replace(/_/g, ' ')}
                 value={
                   <>
-                    <div><span className="masked">{p.identificador_enmascarado}</span></div>
+                    <div><span className="masked" title="Identificador enmascarado — Ley 81 de Protección de Datos Personales">{p.identificador_enmascarado}</span></div>
                     {p.nombre_visible && <div style={{ marginTop: 6 }}>{p.nombre_visible}</div>}
                   </>
                 }
