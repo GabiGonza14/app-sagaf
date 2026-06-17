@@ -11,6 +11,7 @@ RUN groupadd -r sagaf && useradd -r -g sagaf -m -d /app -s /bin/bash sagaf \
   g++ \
   sqlite3 \
   curl \
+  gosu \
   && rm -rf /var/lib/apt/lists/* \
   && npm install -g pnpm
 
@@ -39,9 +40,11 @@ COPY postcss.config.js ./
 COPY tailwind.config.ts ./
 COPY tsconfig.json ./
 COPY pnpm-workspace.yaml ./
+COPY docker-entrypoint.sh ./
 
 # Cambiar propiedad de /app al usuario sagaf
-RUN chown -R sagaf:sagaf /app
+RUN chown -R sagaf:sagaf /app \
+  && chmod +x /app/docker-entrypoint.sh
 
 # Variables de entorno por defecto (sobrescribibles en docker-compose)
 # NOTA: AUTH_SECRET se pasa via docker-compose, NUNCA hardcodeado aquí.
@@ -54,11 +57,9 @@ RUN mkdir -p /app/db-data \
   && pnpm tsx db/init.ts \
   && pnpm run build
 
-# Cambiar al usuario no-root para el runtime
-USER sagaf
-
 # Exponer el puerto de Next.js
 EXPOSE 3000
 
-# Script de inicio: inicializa la BD si no existe y luego arranca
+# Entrypoint: fixes volume permissions, then drops to sagaf user for the CMD
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["sh", "-c", "node_modules/.bin/tsx db/init.ts && node_modules/.bin/tsx db/seed.ts && pnpm run start"]
