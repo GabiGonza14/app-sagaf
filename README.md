@@ -154,7 +154,7 @@ sagaf-app/
 │   ├── admin/                  ADMINISTRADOR (CU-05, CU-06)
 │   │   ├── usuarios/
 │   │   ├── sujetos-obligados/
-│   │   └── plantillas/
+│   │   └── plantillas/          (CU-06 — API lista en `api/plantillas/`; UI pendiente)
 │   └── api/                    Route Handlers REST
 │       ├── auth/[...nextauth]/
 │       ├── mfa/{setup,verify}/
@@ -182,7 +182,7 @@ sagaf-app/
 │   ├── AuditTable.tsx · AuditFilters.tsx
 ├── db/
 │   ├── schema.sql              16+ tablas (diagrama de clases UML)
-│   ├── seed.ts                 6 usuarios, 2 SO, 3 plantillas, 56 docs — sin ROS precargados
+│   ├── seed.ts                 6 usuarios, 2 SO, 5 plantillas (banco×2, inmobiliaria, casino, notarios), 70 docs req. — sin ROS precargados (registro manual)
 │   └── init.ts · reset.ts
 ├── types/                      Tipos del dominio + ext NextAuth
 ├── auth.ts · auth.config.ts    NextAuth v5 (con flujo MFA)
@@ -256,7 +256,7 @@ sagaf-app/
 
 1. **Login como Banco**: `cumplimiento@banconacional.com.pa` / `password123`
    - Enrola MFA con tu app autenticadora (escanea QR o pega la clave manual).
-   - Verás `/portal` (sin ROS precargados; la BD arranca limpia).
+   - Verás `/portal` sin ROS precargados; registra el primero con *Registrar nuevo ROS*.
    - Click en *”Registrar nuevo ROS”*. Verifica con cédula `8-888-888` → debería mostrar “María Elena González” y nada más (los datos sensibles como dirección y actividad económica están en el JSON pero nunca se exponen al portal).
    - Sube archivos a cada requisito documental (mín. 5 para probar). Envía.
 
@@ -272,7 +272,7 @@ sagaf-app/
 
 5. **Login como Auditor**: `auditor@uaf.gob.pa` → `/auditor` muestra el log completo de TODAS las acciones, **sin** acceso al contenido de los ROS.
 
-6. **Login como Admin**: `/admin` → crear usuarios, sujetos obligados, ver plantillas.
+6. **Login como Admin**: `/admin` → crear usuarios y sujetos obligados. (Gestión de plantillas: API disponible, UI pendiente — CU-06.)
 
 ---
 

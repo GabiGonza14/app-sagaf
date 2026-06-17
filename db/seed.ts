@@ -306,49 +306,12 @@ if (mfaBackup.length > 0) {
 
 
 // =====================================================================
-// 5. ROS demo y vínculo intersectorial (CU-07)
+// 5. ROS — SIN PRECARGA (la BD arranca sin ningún ROS)
 // =====================================================================
-const insertRos = db.prepare(`
-  INSERT INTO ros (id, numero_ros, sujeto_obligado_id, plantilla_id, oficial_cumplimiento, correo_oficial, fecha_deteccion, estado, descripcion, canal_recepcion, creado_por)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
-const insertOp = db.prepare(`
-  INSERT INTO operacion_sospechosa (id, ros_id, monto, moneda, jurisdiccion, producto_servicio, tipo_operacion, senal_alerta, bien_inmueble, forma_pago)
-  VALUES (?, ?, ?, 'USD', ?, ?, ?, ?, ?, ?)
-`);
-const insertParte = db.prepare(`
-  INSERT INTO parte_involucrada (id, ros_id, rol_en_operacion, tipo_persona, identificador, identificador_enmascarado, nombre_visible, datos_sensibles_bloqueados)
-  VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-`);
-const insertCaso = db.prepare(`
-  INSERT INTO caso_analisis (id, codigo_caso, ros_id, estado)
-  VALUES (?, ?, ?, 'abierto')
-`);
-const insertVinculo = db.prepare(`
-  INSERT INTO vinculo_intersectorial (id, ros_origen_id, ros_destino_id, tipo_vinculo, descripcion, confirmado, fecha_deteccion)
-  VALUES (?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
-`);
-
-const rosId1 = uid();
-const rosId2 = uid();
-const num1 = 'ROS-2026-000001';
-const num2 = 'ROS-2026-000002';
-
-insertRos.run(rosId1, num1, 'so_banco_nacional', 'pl_bank_natural', 'Oficial de Cumplimiento BNP', 'cumplimiento@banconacional.com.pa', '2026-06-01', 'recibido', 'Transferencia inusual desde cuenta corriente de persona jurídica hacia cuenta offshore no declarada. Monto elevado incompatible con perfil transaccional declarado.', 'portal_publico', 'u_so_banco');
-insertRos.run(rosId2, num2, 'so_inmob_istmo', 'pl_realestate', 'Oficial de Cumplimiento Istmo', 'cumplimiento@inmobiliariaistmo.com.pa', '2026-06-02', 'recibido', 'Compra de bien inmueble con fondos provenientes de transferencia desde cuenta bancaria de origen no justificado. Cliente coincide con ROS bancario previo.', 'portal_publico', 'u_so_inmob');
-
-insertOp.run(uid(), rosId1, 250000, 'Panamá', 'Transferencia internacional', 'transferencia', 'Monto incompatible con perfil', null, 'Transferencia SWIFT');
-insertOp.run(uid(), rosId2, 350000, 'Panamá', 'Compra venta inmueble', 'compra_inmueble', 'Origen de fondos no sustentado', 'Casa en Costa del Este', 'Transferencia bancaria');
-
-insertParte.run(uid(), rosId1, 'ordenante', 'natural', '1-234-567', '***-***-567', 'Juan Carlos Pérez');
-insertParte.run(uid(), rosId1, 'beneficiario', 'juridica', 'RUC-123456-1-2020', 'RUC ***-020', 'Offshore Corp S.A.');
-insertParte.run(uid(), rosId2, 'comprador', 'natural', '1-234-567', '***-***-567', 'Juan Carlos Pérez');
-insertParte.run(uid(), rosId2, 'vendedor', 'juridica', 'RUC-999888-2-2019', 'RUC ***-019', 'Inmobiliaria Delta S.A.');
-
-insertCaso.run(uid(), 'CASO-000001', rosId1);
-insertCaso.run(uid(), 'CASO-000002', rosId2);
-
-insertVinculo.run(uid(), rosId1, rosId2, 'persona', 'Coincidencia por identificador 1-234-567 (Juan Carlos Pérez) como ordenante en ROS bancario y comprador en ROS inmobiliario.');
+// Por diseño, el seed NO inserta ROS demo: los reportes se registran
+// manualmente desde el portal autenticado (CU-01). Solo se cargan los
+// datos fundamentales (roles, permisos, sujetos obligados, plantillas,
+// documentos requeridos y usuarios) necesarios para operar el sistema.
 
 // =====================================================================
 // 6. Eventos de auditoría — semilla del log
@@ -368,7 +331,7 @@ console.log(`  • ${roles.length} roles, ${permisos.length} permisos`);
 console.log(`  • 2 sujetos obligados, 5 plantillas ROS (banco x2, inmobiliaria, casino, notarios)`);
 console.log(`  • ${bankNatural.length + bankLegal.length + realEstate.length + casino.length + notarios.length} documentos requeridos`);
 console.log(`  • ${usuariosDemo.length} usuarios`);
-console.log(`  • 2 ROS demo + 1 vínculo intersectorial (CU-07)`);
+console.log(`  • 0 ROS — la BD arranca sin ROS; se registran manualmente (CU-01)`);
 console.log(`[SAGAF] Credenciales: password123 (todos los usuarios)`);
 
 db.close();

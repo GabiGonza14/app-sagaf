@@ -55,7 +55,7 @@ sagaf-app/
 ├── components/           # Componentes UI reutilizables
 ├── db/
 │   ├── schema.sql        # Esquema relacional (16+ tablas)
-│   ├── seed.ts           # Datos demo (6 usuarios, 2 orgs, 3 plantillas, 3 ROS)
+│   ├── seed.ts           # Datos base (6 usuarios, 2 orgs, 5 plantillas, 70 docs, 0 ROS — sin precarga)
 │   ├── init.ts           # Inicialización
 │   └── reset.ts          # Reset completo
 ├── auth.ts               # Configuración NextAuth v5
