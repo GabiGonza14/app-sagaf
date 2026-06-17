@@ -182,6 +182,19 @@ CREATE TABLE IF NOT EXISTS operacion_sospechosa (
   FOREIGN KEY (ros_id) REFERENCES ros(id) ON DELETE CASCADE
 );
 
+-- Valores de los campos dinámicos de la plantilla para un ROS (RF-01, formulario data-driven)
+CREATE TABLE IF NOT EXISTS valor_campo_ros (
+  id                  TEXT PRIMARY KEY,
+  ros_id              TEXT NOT NULL,
+  campo_plantilla_id  TEXT NOT NULL,
+  valor               TEXT,
+  FOREIGN KEY (ros_id)             REFERENCES ros(id) ON DELETE CASCADE,
+  FOREIGN KEY (campo_plantilla_id) REFERENCES campo_plantilla(id) ON DELETE CASCADE,
+  UNIQUE (ros_id, campo_plantilla_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_valor_campo_ros ON valor_campo_ros(ros_id);
+
 -- Documento adjunto: cada archivo asociado a UN documento_requerido (RF-07, CU-08)
 CREATE TABLE IF NOT EXISTS documento_adjunto (
   id                       TEXT PRIMARY KEY,

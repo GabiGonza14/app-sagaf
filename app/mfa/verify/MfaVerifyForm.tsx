@@ -10,9 +10,7 @@ export function MfaVerifyForm({ qr }: Props) {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    console.log('[CLIENT] MFA Verify — Submit iniciado, código:', code);
     const ok = await verify(code);
-    console.log(ok ? '[CLIENT] MFA Verify — OK, redirigiendo a /' : '[CLIENT] MFA Verify — Error');
     if (ok) globalThis.location.href = '/';
   }
 

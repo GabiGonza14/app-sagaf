@@ -11,6 +11,7 @@ import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { audit, extractRequestContext } from '@/lib/audit';
 import { canAccessROS } from '@/lib/permissions';
+import { UPLOADS_DIR } from '@/lib/uploads';
 
 const ALLOWED_MIME = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 const ALLOWED_EXT = /\.(pdf|jpg|jpeg|png)$/i;
@@ -70,8 +71,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Solo se permiten archivos PDF, JPG o PNG.' }, { status: 400 });
   }
 
-  const dir = process.env.UPLOADS_DIR ?? './public/uploads';
-  const subdir = join(dir, ros.id);
+  const subdir = join(UPLOADS_DIR, ros.id);
   if (!existsSync(subdir)) await mkdir(subdir, { recursive: true });
 
   const original = (file as File).name || 'documento.bin';

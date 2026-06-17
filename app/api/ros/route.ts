@@ -31,8 +31,28 @@ const schema = z.object({
     identificador: z.string().min(3, 'La cédula/RUC debe tener al menos 3 caracteres.'),
     nombre_visible: z.string().optional().nullable(),
   })).min(1, 'Debe registrar al menos una parte involucrada.'),
+  // Valores de los campos dinámicos definidos en la plantilla (RF-01, data-driven)
+  campos: z.array(z.object({
+    campo_plantilla_id: z.string().min(1),
+    valor: z.string().optional().default(''),
+  })).optional().default([]),
   modo: z.enum(['completo', 'borrador']).optional().default('completo'),
 });
+
+// BL-016 — Valida que los campos `obligatorio = 1` de la plantilla tengan valor
+function validateCamposObligatorios(
+  plantillaId: string,
+  campos: ReadonlyArray<{ campo_plantilla_id: string; valor: string }>,
+): string | null {
+  const obligatorios = db.prepare<[string], { id: string; nombre: string }>(
+    'SELECT id, nombre FROM campo_plantilla WHERE plantilla_id = ? AND obligatorio = 1',
+  ).all(plantillaId);
+  const valorById = new Map(campos.map((c) => [c.campo_plantilla_id, c.valor ?? '']));
+  for (const o of obligatorios) {
+    if (!(valorById.get(o.id) ?? '').trim()) return `El campo "${o.nombre}" es obligatorio.`;
+  }
+  return null;
+}
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -117,6 +137,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Plantilla no autorizada para este sujeto obligado' }, { status: 403 });
   }
 
+  // BL-016 — En envío formal, los campos dinámicos obligatorios deben venir con valor
+  if (!esBorrador) {
+    const camposErr = validateCamposObligatorios(parsed.data.plantilla_id, parsed.data.campos);
+    if (camposErr) return NextResponse.json({ error: camposErr }, { status: 400 });
+  }
+
   const ctx = extractRequestContext(req);
 
   const tx = db.transaction(() => {
@@ -159,6 +185,16 @@ export async function POST(req: Request) {
         randomUUID(), rosId, p.rol, p.tipo, p.identificador,
         maskIdentifier(p.identificador), p.nombre_visible ?? null,
       );
+    }
+
+    // Valores de campos dinámicos (solo los que pertenecen a la plantilla y traen valor)
+    for (const c of parsed.data.campos) {
+      const pertenece = db.prepare('SELECT 1 FROM campo_plantilla WHERE id = ? AND plantilla_id = ?')
+        .get(c.campo_plantilla_id, parsed.data.plantilla_id);
+      if (pertenece && (c.valor ?? '').trim() !== '') {
+        db.prepare('INSERT INTO valor_campo_ros (id, ros_id, campo_plantilla_id, valor) VALUES (?, ?, ?, ?)')
+          .run(randomUUID(), rosId, c.campo_plantilla_id, c.valor.trim());
+      }
     }
 
     if (!esBorrador) {

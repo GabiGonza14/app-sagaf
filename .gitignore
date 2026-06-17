@@ -37,6 +37,8 @@ db/sagaf.db-journal
 db/sagaf.db-shm
 db/sagaf.db-wal
 db-data/
+# Archivos cargados — fuera de public/ para que no se sirvan sin autenticación (BL-033)
+var/uploads/
 public/uploads/*
 !public/uploads/.gitkeep
 

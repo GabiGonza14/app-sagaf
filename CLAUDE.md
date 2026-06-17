@@ -77,6 +77,8 @@ sagaf-app/
 | `auditor` | `/auditor` | Solo lee el log de auditoría |
 | `admin` | `/admin` | Gestiona usuarios, organizaciones y plantillas |
 
+> **Decisión sobre roles (5 en total):** el documento académico enumera 4 roles operativos en RF-05, pero **CU-03 nombra explícitamente al "Auditor Interno"** como actor de solo lectura. Por eso el sistema implementa **5 roles**: realiza un actor que el propio docx reconoce, sin contradecirlo. (Ver `docs/planificacion_sagaf.md`, Anexo A-4.)
+
 ---
 
 ## Flujo de Autenticación

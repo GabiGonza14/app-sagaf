@@ -12,9 +12,9 @@
 
 | Atributo | Valor |
 |---|---|
-| **Versión del documento** | 1.1 |
+| **Versión del documento** | 1.8 |
 | **Fecha de elaboración** | 16 de junio de 2026 |
-| **Última revisión** | 16 de junio de 2026 — resolución de discrepancias contra la fuente de la verdad (ver [Anexo A](#anexo-a--fuente-de-la-verdad-y-decisiones-tomadas) y [Changelog](#changelog)) |
+| **Última revisión** | 17 de junio de 2026 — **Fase 0 ✅ · Fase 1 ✅ · Fase 2 en curso** (5/16: DEF-04, uploads, cabeceras); ver [tablero de avance](#-estado-de-avance-tablero-para-revisores) y [Changelog](#changelog) |
 | **Autor del análisis** | Rol combinado: Arquitecto de Software · Analista Funcional · Project Manager |
 | **Fuentes analizadas** | `README.md`, `docs/Parcial ISA 4 V2.0.docx`, `Contexto/CONTEXTO.md`, código fuente del repositorio (`app/`, `lib/`, `db/`, `components/`, `types/`) |
 | **Alcance** | Planificación del trabajo restante. **No** contiene código ni implementación. |
@@ -154,13 +154,13 @@ Atender subsanaciones ◄───── solicita ──────────
 | Auditor — Vista solo lectura | ✅ | `app/auditor` |
 | Admin — Gestión de usuarios | ✅ | `app/admin/usuarios` + API |
 | Admin — Gestión de sujetos obligados | ✅ | `app/admin/sujetos-obligados` + API |
-| **Admin — Gestión de plantillas (UI)** | 🔴 | **No existe `app/admin/plantillas`**; solo hay `api/plantillas/route.ts`. README/CLAUDE.md la dan por hecha, pero la página falta. **Obligatoria** según **CU-06** (ver Anexo A-3) |
-| **Formulario verdaderamente data-driven** (`campo_plantilla`) | 🟡 | La tabla `campo_plantilla` existe pero **no se usa**: los campos están **hardcoded** por sector en `NuevoRosForm.tsx`. Solo cubre `bank`/`realestate`/`generic`. **RF-01 + CU-06 RE-02 exigen dinamismo** (ver Anexo A-6) |
-| **Notificaciones de subsanación** | 🟡 | Solo página in-app de subsanaciones; sin aviso persistente ni alerta de vencimiento. **`CA-CU08-03` y `CU-08 A4` la exigen → es requisito, no opcional** (ver Anexo A-7) |
-| **Expiración de sesión por inactividad (DEF-04)** | 🔴 | `session: { strategy: 'jwt' }` **sin `maxAge`** ni *idle timeout* |
+| **Admin — Gestión de plantillas (UI)** | ✅ | **Hecho (Fase 1):** `/admin/plantillas` (listado) + `/admin/plantillas/[id]` (editor de campos y documentos) + 3 endpoints con auditoría. Cierra CU-06 |
+| **Formulario verdaderamente data-driven** (`campo_plantilla`) | ✅ | **Hecho (Fase 1):** el formulario lee `campo_plantilla` y renderiza campos dinámicos por plantilla; valores en `valor_campo_ros`; validados en cliente y servidor (POST/PUT). Cumple RF-01 + CU-06 RE-02. Base banco/inmobiliaria se conserva (enfoque híbrido) |
+| **Notificaciones de subsanación** | ✅ | **Hecho (Fase 1):** badge persistente en el menú del portal (CA-CU08-03) + alerta de vencidas en la bandeja UAF (CU-08 A4). Correo (BL-020) diferido como refuerzo |
+| **Expiración de sesión por inactividad (DEF-04)** | ✅ | **Hecho (Fase 2):** `maxAge` 30 min + `updateAge` 5 min en `auth.config.ts` (timeout deslizante); al expirar exige re-login + MFA |
 | **Suite de pruebas automatizadas** | 🔴 | **Cero** archivos de prueba; sin framework de test en `package.json` |
 | **Cifrado at-rest del `mfa_secret`** | 🔴 | Almacenado en claro (reconocido como pendiente de producción) |
-| **Almacenamiento de archivos fuera de `public/`** | 🔴 | Por defecto `./public/uploads` (riesgo de acceso directo sin auth) |
+| **Almacenamiento de archivos fuera de `public/`** | ✅ | **Hecho (Fase 2):** `lib/uploads.ts` → `./var/uploads` (no servida por Next); único acceso vía endpoint autenticado y auditado |
 
 ### 2.3 Funcionalidad implementada **más allá** de lo documentado
 
@@ -247,7 +247,22 @@ El sistema se descompone en los siguientes módulos funcionales. Cada uno tiene 
 
 > El orden prioriza primero **estabilizar y sanear** lo existente, luego **cerrar funcionalidad faltante**, después **endurecer seguridad**, **probar**, **pulir UX** y finalmente **documentar y entregar**. Las fases son incrementales; cada una deja el sistema en estado entregable.
 
-### Fase 0 — Estabilización y saneamiento
+### 📊 Estado de avance (tablero para revisores)
+
+> Meta del proyecto: **entrega terminada y completa**. Se trabaja por fases; cada bloque cerrado se marca aquí y en el backlog (sección 5).
+
+| Fase | Estado | Avance | Notas |
+|---|---|---|---|
+| **Fase 0 — Estabilización** | ✅ **Completada** (17/06/2026) | 8/8 tareas | Logger seguro, 32 `console.log` eliminados, docs reconciliados, `.eslintrc.json` creado, build/lint/typecheck en verde |
+| **Fase 1 — Funcionalidad núcleo** | ✅ **Completada** (17/06/2026) | 12/13 (+1 diferido) | ✅ Plantillas (CU-06) · ✅ data-driven · ✅ notificaciones · ✅ flujo de borradores. **BL-020 (correo) diferido** como mejora (sin SMTP en el MVP) |
+| **Fase 2 — Seguridad y cumplimiento** | 🟧 **En progreso** (17/06/2026) | 5/16 | ✅ DEF-04 (expiración de sesión), ✅ uploads fuera de `public/`, ✅ cabeceras de seguridad. Resta: cifrar `mfa_secret` (BL-032), rate limiting (BL-035) |
+| **Fase 3 — Calidad y pruebas** | ⬜ Pendiente | 0/13 | Mayor hueco: no existe suite de pruebas |
+| **Fase 4 — UX/UI y accesibilidad** | ⬜ Pendiente | 0/13 | Estados vacíos, mensajes de error, accesibilidad |
+| **Fase 5 — Documentación y entrega** | ⬜ Pendiente | 0/9 | Manual, respaldo (RNF-07), métricas |
+
+**Próximo paso recomendado (retomar aquí):** Fase 0 y Fase 1 ✅ completas; Fase 2 al 5/16. Por preferencia (enfoque en lo **visible**), continuar por la **Fase 4 — UX/UI** (estados vacíos, mensajes de error específicos, confirmaciones, responsive). Pendiente de seguridad (no visible) para después: `BL-032` (cifrar `mfa_secret`), `BL-035` (rate limiting). Ver detalle abajo.
+
+### Fase 0 — Estabilización y saneamiento ✅ COMPLETADA
 
 - **Objetivo:** eliminar deuda evidente y reconciliar documentación antes de construir encima.
 - **Alcance:** limpieza de logs de depuración, reconciliación de README/CLAUDE.md con la realidad del código, corrección de inconsistencias del seed, verificación de build/typecheck/lint en limpio.
@@ -256,11 +271,11 @@ El sistema se descompone en los siguientes módulos funcionales. Cada uno tiene 
 - **Riesgos:** que la limpieza de logs oculte trazas útiles para depurar MFA → mitigar con logger condicionado por entorno.
 - **Entregables:** repositorio sin `console.log` de depuración; documentación alineada; build verde.
 - **Criterios de aceptación:**
-  - [ ] `pnpm typecheck`, `pnpm lint`, `pnpm build` pasan sin errores.
-  - [ ] No quedan `console.log` de depuración en `app/`, `lib/`, `auth.config.ts`.
-  - [ ] README y CLAUDE.md describen el estado real (rutas, conteo de ROS/usuarios/docs).
+  - [x] `pnpm typecheck`, `pnpm lint`, `pnpm build` pasan sin errores. *(verificado 17/06/2026; se añadió `.eslintrc.json`)*
+  - [x] No quedan `console.log` de depuración en `app/`, `lib/`, `auth.config.ts`. *(0 en runtime; logger en `lib/logger.ts`)*
+  - [x] README y CLAUDE.md describen el estado real (rutas, conteo de ROS/usuarios/docs).
 
-### Fase 1 — Cierre de funcionalidad núcleo
+### Fase 1 — Cierre de funcionalidad núcleo ✅ COMPLETADA (BL-020 correo diferido)
 
 - **Objetivo:** completar lo que el alcance académico exige y hoy está parcial o ausente.
 - **Alcance:** UI de gestión de plantillas (CU-06), formulario **data-driven** desde `campo_plantilla`, notificación de subsanación, completar flujos de borrador y "no aplica" en UI.
@@ -269,9 +284,9 @@ El sistema se descompone en los siguientes módulos funcionales. Cada uno tiene 
 - **Riesgos:** migrar el formulario hardcoded a data-driven puede romper validaciones de sector (DEF-07/DEF-08) → mitigar con pruebas por plantilla.
 - **Entregables:** CU-06 completo; alta de un sector nuevo **sin tocar código**; subsanación notificada.
 - **Criterios de aceptación:**
-  - [ ] Un admin puede crear/editar/activar una plantilla con sus campos y documentos desde la UI.
-  - [ ] Crear un sujeto obligado de un sector nuevo y registrar un ROS válido sin cambios de código.
-  - [ ] El sujeto obligado recibe aviso visible de cada subsanación solicitada.
+  - [x] Un admin puede crear/editar/activar una plantilla con sus campos y documentos desde la UI. *(BL-010…013)*
+  - [x] Crear un sujeto obligado de un sector nuevo y registrar un ROS válido sin cambios de código. *(BL-014…018, formulario data-driven)*
+  - [x] El sujeto obligado recibe aviso visible de cada subsanación solicitada. *(BL-019, badge persistente)*
 
 ### Fase 2 — Seguridad y cumplimiento legal
 
@@ -346,44 +361,44 @@ Fase 0 ──► Fase 1 ──► Fase 2 ──► Fase 3 ──► Fase 4 ─�
 
 | ID | Título | Descripción | Prioridad | Dificultad | Módulo | Dependencias | Estado |
 |---|---|---|---|---|---|---|---|
-| BL-001 | Sustituir `console.log` por logger | Reemplazar los ~45 `console.log` (incl. `auth.config.ts`) por un logger condicionado por entorno; no registrar roles/IDs en claro | Alta | Baja | Transversal | — | Pendiente |
+| BL-001 | Sustituir `console.log` por logger | **Hecho:** creado `lib/logger.ts` (gateado por entorno, edge-safe, "sin datos sensibles"). Eliminados los **32** `console.log` de runtime en `auth.ts`, `auth.config.ts` y 3 componentes cliente (incluían IDs, correos, IP y **códigos TOTP**). `auth.ts` ya audita todo; en `auth.config.ts` las negaciones usan `log.debug` solo con `path` | Alta | Baja | Transversal | — | **Hecho ✓** |
 | BL-002 | Quitar ROS precargados + reconciliar docs | **Hecho:** se eliminó el bloque de ROS demo de `db/seed.ts` (registro manual); README/CLAUDE.md dicen "sin ROS precargados" | Media | Baja | Documentación/DB | — | **Hecho ✓** |
 | BL-003 | Reconciliar conteos del seed | **Hecho:** conteos verificados y documentados — 6 usuarios, 2 SO, **5 plantillas**, **70 docs req.**, 0 ROS (ver A-10) | Baja | Baja | Documentación | BL-002 | **Hecho ✓** |
-| BL-004 | Corregir referencia a `/admin/plantillas` | README/CLAUDE.md la citan como existente; marcarla como pendiente hasta implementarla (BL-010) | Media | Baja | Documentación | — | Pendiente |
-| BL-005 | Verificar build/lint/typecheck limpios | Dejar evidencia de `pnpm typecheck && pnpm lint && pnpm build` en verde | Alta | Baja | Transversal | BL-001 | Pendiente |
-| BL-006 | Resolver TODO/FIXME pendiente | Atender el marcador de deuda detectado en el código | Baja | Baja | Transversal | — | Pendiente |
-| BL-007 | Documentar decisión de roles (5) | **Decisión tomada (Anexo A-4):** se mantienen **5 roles**; el Auditor está respaldado por **CU-03**. Solo falta dejarlo asentado en README/CLAUDE.md | Baja | Baja | Documentación | — | Pendiente |
-| BL-008 | Saneo de comentarios de "Prototipo.html" | Comentarios en `globals.css` referencian el prototipo; actualizar para reflejar que el diseño ya es del proyecto | Baja | Baja | UI | — | Pendiente |
+| BL-004 | Corregir referencia a `/admin/plantillas` | **Hecho:** README anotado como "API lista; UI pendiente (CU-06)" en árbol y pasos de prueba | Media | Baja | Documentación | — | **Hecho ✓** |
+| BL-005 | Verificar build/lint/typecheck limpios | **Hecho:** `tsc --noEmit` ✅, `next lint` ✅ (se creó el faltante `.eslintrc.json` → `next/core-web-vitals`), `next build` ✅ (todas las rutas compilan) | Alta | Baja | Transversal | BL-001 | **Hecho ✓** |
+| BL-006 | Resolver TODO/FIXME pendiente | **Hecho (N/A):** no había TODO/FIXME reales; el único match era el falso positivo `RUC-XXXXXX` en un comentario de `lib/masking.ts` | Baja | Baja | Transversal | — | **Hecho ✓** |
+| BL-007 | Documentar decisión de roles (5) | **Hecho:** nota añadida en `CLAUDE.md` (tabla de roles) explicando que el 5º rol Auditor está respaldado por CU-03 (Anexo A-4) | Baja | Baja | Documentación | — | **Hecho ✓** |
+| BL-008 | Saneo de comentarios de "Prototipo.html" | **Hecho:** actualizados los comentarios en `app/globals.css` y `app/uaf/page.tsx`; el diseño ya es del proyecto | Baja | Baja | UI | — | **Hecho ✓** |
 
 ### 5.2 Fase 1 — Funcionalidad núcleo
 
 | ID | Título | Descripción | Prioridad | Dificultad | Módulo | Dependencias | Estado |
 |---|---|---|---|---|---|---|---|
-| BL-010 | UI de gestión de plantillas (listado) | Página admin para listar plantillas ROS con estado activa/inactiva | Alta | Media | Admin/Plantillas | BL-005 | Pendiente |
-| BL-011 | UI alta/edición de plantilla | Crear/editar plantilla: nombre, versión, tipo/sector, activa | Alta | Media | Admin/Plantillas | BL-010 | Pendiente |
-| BL-012 | UI gestión de campos de plantilla | CRUD de `campo_plantilla` (nombre, tipo_dato, obligatorio, orden, regla) | Alta | Alta | Admin/Plantillas | BL-011 | Pendiente |
-| BL-013 | UI gestión de documentos requeridos | CRUD de `documento_requerido` por plantilla | Alta | Media | Admin/Plantillas | BL-011 | Pendiente |
-| BL-014 | Asociar plantilla ↔ sujeto obligado | UI para vincular plantillas a un SO (tabla `sujeto_obligado_plantilla`) | Alta | Media | Admin | BL-011 | Pendiente |
-| BL-015 | Renderizado data-driven de campos | Que `NuevoRosForm` lea `campo_plantilla` y genere campos dinámicamente | Alta | Alta | Portal/ROS | BL-012 | Pendiente |
-| BL-016 | Validación server-side por `campo_plantilla` | Validar el ROS contra la definición de la plantilla (no hardcoded) | Alta | Alta | Gestión ROS | BL-015 | Pendiente |
-| BL-017 | Limpieza de estado al cambiar plantilla | Garantizar que no queden campos previos al cambiar de tipo (anti-DEF-08) | Alta | Media | Portal/ROS | BL-015 | Pendiente |
-| BL-018 | Mapeo correcto tipo→plantilla | Asegurar que el tipo de SO mapee a la plantilla correcta (anti-DEF-07) | Alta | Media | Portal/ROS | BL-015 | Pendiente |
-| BL-019 | Notificación in-app de subsanación **(requerido)** | Indicador/badge persistente al SO cuando hay subsanación pendiente. **Mínimo para cumplir CA-CU08-03** (el docx exige notificar) | **Alta** | Media | Documental | — | Pendiente |
-| BL-020 | Notificación por correo *(refuerzo)* | Aviso de subsanación al oficial de cumplimiento; complementa BL-019 | Media | Media | Documental | BL-019 | Pendiente |
-| BL-021 | Alerta de subsanación vencida (CU-08 A4) **(requerido)** | Marcar/alertar subsanaciones que superan `fecha_limite`. **Exigido por CU-08 A4** | **Alta** | Media | Documental | — | Pendiente |
-| BL-022 | Completar flujo de borrador en UI | Listar, retomar y enviar borradores desde el portal | Media | Baja | Portal/ROS | — | Pendiente |
+| BL-010 | UI de gestión de plantillas (listado) | **Hecho:** `app/admin/plantillas/page.tsx` — listado con KPIs, conteos de campos/docs/sujetos, estado activa/inactiva, actividad reciente auditada; ítem "Plantillas ROS" en el menú admin | Alta | Media | Admin/Plantillas | BL-005 | **Hecho ✓** |
+| BL-011 | UI alta/edición de plantilla | **Hecho:** crear (`NuevaPlantillaForm`, con `datalist` para sectores nuevos RE-02) y editar/activar/eliminar (`PlantillaEditor` + `PATCH`/`DELETE /api/plantillas/[id]`, con guarda anti-borrado si está en uso) | Alta | Media | Admin/Plantillas | BL-010 | **Hecho ✓** |
+| BL-012 | UI gestión de campos de plantilla | **Hecho:** alta/baja de `campo_plantilla` (nombre, tipo_dato, obligatorio, orden auto) vía `POST/DELETE /api/plantillas/[id]/campos` | Alta | Alta | Admin/Plantillas | BL-011 | **Hecho ✓** |
+| BL-013 | UI gestión de documentos requeridos | **Hecho:** alta/baja de `documento_requerido` (tipo req/cond/opc, formatos, tamaño) vía `POST/DELETE /api/plantillas/[id]/documentos`; guarda anti-borrado si ya hay adjuntos | Alta | Media | Admin/Plantillas | BL-011 | **Hecho ✓** |
+| BL-014 | Asociar plantilla ↔ sujeto obligado | **Hecho:** la asociación ya se gestiona desde `/admin/sujetos-obligados` (alta y edición); el detalle de plantilla **muestra** qué sujetos la usan y enlaza a esa pantalla | Alta | Media | Admin | BL-011 | **Hecho ✓** |
+| BL-015 | Renderizado data-driven de campos | **Hecho:** `NuevoRosForm` lee `campo_plantilla` y genera inputs según `tipo_dato` (text/number/date/textarea); nueva sección "Información adicional de la plantilla". Nueva tabla `valor_campo_ros` (con FK CASCADE) | Alta | Alta | Portal/ROS | BL-012 | **Hecho ✓** |
+| BL-016 | Validación server-side por `campo_plantilla` | **Hecho:** POST `/api/ros` y PUT `/api/ros/[id]` validan los campos `obligatorio=1` y solo guardan valores que pertenecen a la plantilla; validación también en cliente | Alta | Alta | Gestión ROS | BL-015 | **Hecho ✓** |
+| BL-017 | Limpieza de estado al cambiar plantilla | **Hecho:** `buildBody` solo envía los campos de la plantilla efectiva → no se filtran valores de otra plantilla (anti-DEF-08) | Alta | Media | Portal/ROS | BL-015 | **Hecho ✓** |
+| BL-018 | Mapeo correcto tipo→plantilla | **Hecho:** los campos dinámicos usan `effectivePlantillaId` de forma consistente (mapeo natural/jurídica en banco); previene plantilla incorrecta (anti-DEF-07) | Alta | Media | Portal/ROS | BL-015 | **Hecho ✓** |
+| BL-019 | Notificación in-app de subsanación **(requerido)** | **Hecho:** badge persistente en el ítem "Subsanaciones" del menú del portal (visible en toda página) + alerta en el dashboard. Cumple CA-CU08-03 | **Alta** | Media | Documental | — | **Hecho ✓** |
+| BL-020 | Notificación por correo *(refuerzo)* | *Diferido:* requiere infraestructura SMTP no disponible en el MVP. El aviso in-app (BL-019) ya satisface el requisito del docx; el correo queda como mejora | Media | Media | Documental | BL-019 | Pendiente |
+| BL-021 | Alerta de subsanación vencida (CU-08 A4) **(requerido)** | **Hecho:** la bandeja UAF marca como `vencida` toda subsanación que superó su plazo de 5 días y muestra una alerta con el conteo. Exigido por CU-08 A4 | **Alta** | Media | Documental | — | **Hecho ✓** |
+| BL-022 | Completar flujo de borrador en UI | **Hecho:** ciclo completo — guardar borrador, listar (filtro "Borradores" en Mis ROS), retomar ("Continuar"), enviar a la UAF y **descartar** (nuevo `DELETE /api/ros/[id]` con cascade + limpieza de archivos y confirmación) | Media | Baja | Portal/ROS | — | **Hecho ✓** |
 
 ### 5.3 Fase 2 — Seguridad y cumplimiento
 
 | ID | Título | Descripción | Prioridad | Dificultad | Módulo | Dependencias | Estado |
 |---|---|---|---|---|---|---|---|
-| BL-030 | Expiración de sesión por inactividad | Configurar `maxAge`/idle timeout en JWT (cierra DEF-04) | Alta | Baja | Auth | — | Pendiente |
-| BL-031 | Re-verificación MFA tras expirar | Forzar `/mfa/verify` al reanudar sesión vencida | Alta | Media | Auth/MFA | BL-030 | Pendiente |
+| BL-030 | Expiración de sesión por inactividad | **Hecho:** `session.maxAge = 30 min` + `updateAge = 5 min` (timeout deslizante) en `auth.config.ts`. Cierra **DEF-04** | Alta | Baja | Auth | — | **Hecho ✓** |
+| BL-031 | Re-verificación MFA tras expirar | **Hecho:** al expirar la sesión, el usuario reinicia sesión y `mfaVerified` vuelve a `false` → `auth.config` lo fuerza a `/mfa/verify` | Alta | Media | Auth/MFA | BL-030 | **Hecho ✓** |
 | BL-032 | Cifrado at-rest de `mfa_secret` | Cifrar el secreto TOTP en BD (AES-256) | Alta | Media | Auth/MFA | — | Pendiente |
-| BL-033 | Mover uploads fuera de `public/` | Almacenar archivos en ruta no servida estáticamente; servir solo vía endpoint autenticado | Alta | Media | Documental/Seguridad | — | Pendiente |
-| BL-034 | Verificar descarga 100% autenticada | Confirmar que `documentos/[id]/file` valida pertenencia y audita | Alta | Baja | Documental/Seguridad | BL-033 | Pendiente |
+| BL-033 | Mover uploads fuera de `public/` | **Hecho:** nuevo `lib/uploads.ts` con `UPLOADS_DIR = ./var/uploads` (no servida por Next); usado en subida y limpieza; añadido a `.gitignore` | Alta | Media | Documental/Seguridad | — | **Hecho ✓** |
+| BL-034 | Verificar descarga 100% autenticada | **Hecho:** `documentos/[id]/file` valida `canAccessROS` + audita y lee por ruta almacenada; con los archivos fuera de `public/`, ese endpoint es el **único** acceso | Alta | Baja | Documental/Seguridad | BL-033 | **Hecho ✓** |
 | BL-035 | Rate limiting en `/api/auth/*` y `/api/mfa/*` | Limitar intentos para mitigar fuerza bruta | Alta | Media | Seguridad | — | Pendiente |
-| BL-036 | Cabeceras de seguridad | CSP, HSTS, X-Frame-Options, X-Content-Type-Options | Media | Media | Seguridad | — | Pendiente |
+| BL-036 | Cabeceras de seguridad | **Hecho:** `next.config.js` añade CSP, HSTS, X-Frame-Options (DENY), X-Content-Type-Options, Referrer-Policy y Permissions-Policy a todas las rutas | Media | Media | Seguridad | — | **Hecho ✓** |
 | BL-037 | Validación profunda de archivos (magic bytes) | No confiar solo en MIME/extensión; verificar firma del archivo | Media | Media | Documental/Seguridad | BL-033 | Pendiente |
 | BL-038 | Revisión integral de enmascarado | Auditar que ningún endpoint/vista filtre datos sensibles (Ley 81) | Alta | Media | Seguridad | — | Pendiente |
 | BL-039 | Normalización de búsqueda (anti-DEF-25) | Normalizar acentos/mayúsculas/guiones en búsquedas de la UAF | Media | Baja | UAF | — | Pendiente |
@@ -543,7 +558,7 @@ Fase 0 ──► Fase 1 ──► Fase 2 ──► Fase 3 ──► Fase 4 ─�
 | **CU-03** | Trazabilidad y Auditoría del Sistema | Auditor / Supervisor / Admin | ✅ |
 | **CU-04** | Generación de Reportes e Inteligencia | Supervisor / Analista UAF | ✅ |
 | **CU-05** | Control de Acceso y Gestión de Roles | Administrador | ✅ |
-| **CU-06** | Gestión de Sujetos Obligados | Admin / Supervisor | 🟡 (falta UI de plantillas) |
+| **CU-06** | Gestión de Sujetos Obligados | Admin / Supervisor | ✅ (UI de plantillas completada en Fase 1) |
 | **CU-07** | Vinculación Intersectorial | Analista / Supervisor UAF | ✅ |
 | **CU-08** | Gestión Documental y Subsanación | Sujeto Obligado / Analista / Supervisor | ✅ (notificación parcial) |
 
@@ -557,12 +572,12 @@ Flujos alternos: A1 fallo de auth · A2 campos incompletos · A3 documento falta
 **CU-06 — Gestión de Sujetos Obligados**
 Flujo: registrar SO con tipo/sector/organismo/estado/responsable → asociar plantilla(s) → habilitar para portal.
 Reglas: cada SO debe tener plantilla asignada; admitir nuevos sectores sin rediseñar (RE-02).
-*Pendiente:* la **UI de plantillas** no existe; la asociación SO↔plantilla y el alta de campos/documentos por plantilla deben construirse (BL-010…BL-014).
+*Hecho (Fase 1):* UI de plantillas completa (`/admin/plantillas` + editor de campos/documentos); la asociación SO↔plantilla se gestiona desde `/admin/sujetos-obligados`. BL-010…BL-014 ✓.
 
 **CU-08 — Gestión Documental y Subsanación**
 Flujo: mostrar documentos requeridos → cargar por contenedor → UAF revisa (validar/observar) → solicita subsanación → SO corrige → auditoría.
 Reglas: estados pendiente/cargado/observado/validado/no_aplica; subsanar **sin** crear ROS nuevo; alertar vencimiento.
-*Pendiente (requerido por el docx, no opcional):* notificación efectiva al SO (CA-CU08-03) y alerta de subsanación vencida (CU-08 A4) — BL-019/021 requeridos, BL-020 refuerzo.
+*Hecho (Fase 1):* notificación al SO con badge persistente (CA-CU08-03) y alerta de subsanación vencida en la bandeja UAF (CU-08 A4) — BL-019/021 ✓. Correo (BL-020) diferido como refuerzo.
 
 ---
 
@@ -642,19 +657,19 @@ Recorrido de un ROS de principio a fin.
 | Montos como `REAL` | columna + Zod `number().positive()` | DEF-35 |
 | Validación de archivos | MIME + extensión + tamaño + hash SHA-256 | RNF-05 |
 
-### 10.2 Controles pendientes (gaps de seguridad)
+### 10.2 Controles de seguridad — estado
 
-| Control faltante | Riesgo | Tarea |
-|---|---|---|
-| **Expiración de sesión por inactividad** | Sesión abandonada explotable (DEF-04) | BL-030/031 |
-| **Cifrado at-rest del `mfa_secret`** | Robo de secretos TOTP desde BD | BL-032 |
-| **Archivos fuera de `public/`** | Descarga directa sin auth (fuga Ley 81) | BL-033/034 |
-| **Rate limiting auth/MFA** | Fuerza bruta de credenciales/códigos | BL-035 |
-| **Cabeceras de seguridad** | Clickjacking, XSS, downgrade | BL-036 |
-| **Validación por *magic bytes*** | Archivo malicioso con extensión falsa | BL-037 |
-| **Bloqueo por intentos fallidos** | Fuerza bruta sostenida | BL-044 |
-| **Política de retención / ARCO** | Incumplimiento Ley 81 | BL-041/042 |
-| **Logs de depuración con datos** | Fuga de roles/IDs en consola | BL-001 |
+| Control | Riesgo | Tarea | Estado |
+|---|---|---|---|
+| Expiración de sesión por inactividad | Sesión abandonada explotable (DEF-04) | BL-030/031 | ✅ Hecho |
+| Archivos fuera de `public/` | Descarga directa sin auth (fuga Ley 81) | BL-033/034 | ✅ Hecho |
+| Cabeceras de seguridad | Clickjacking, sniffing, downgrade | BL-036 | ✅ Hecho |
+| Logs de depuración con datos | Fuga de roles/IDs en consola | BL-001 | ✅ Hecho (Fase 0) |
+| **Cifrado at-rest del `mfa_secret`** | Robo de secretos TOTP desde BD | BL-032 | ⬜ Pendiente |
+| **Rate limiting auth/MFA** | Fuerza bruta de credenciales/códigos | BL-035 | ⬜ Pendiente |
+| **Validación por *magic bytes*** | Archivo malicioso con extensión falsa | BL-037 | ⬜ Pendiente |
+| **Bloqueo por intentos fallidos** | Fuerza bruta sostenida | BL-044 | ⬜ Pendiente |
+| **Política de retención / ARCO** | Incumplimiento Ley 81 | BL-041/042 | ⬜ Pendiente |
 
 ### 10.3 Dimensiones de control
 
@@ -710,16 +725,16 @@ Recorrido de un ROS de principio a fin.
 
 | # | Deuda | Evidencia | Impacto |
 |---|---|---|---|
-| DT-1 | Formulario ROS hardcoded por sector | `campo_plantilla` sin uso; `NuevoRosForm.tsx` con `isBank`/`isRealEstate`/`isGeneric` | Extensibilidad limitada; contradice RE-02 de CU-06 |
-| DT-2 | UI de plantillas ausente | No existe `app/admin/plantillas` | CU-06 incompleto |
+| DT-1 | ~~Formulario ROS hardcoded por sector~~ | **✅ Resuelto (Fase 1):** ahora data-driven vía `campo_plantilla` + `valor_campo_ros` (enfoque híbrido con la base banco/inmobiliaria) | Cerrado |
+| DT-2 | ~~UI de plantillas ausente~~ | **✅ Resuelto (Fase 1):** `/admin/plantillas` + editor | Cerrado |
 | DT-3 | ~45 `console.log` de depuración | `auth.config.ts` y otros | Ruido, posible fuga de roles/IDs |
 | DT-4 | Sin pruebas automatizadas | Cero archivos de test; sin runner | Riesgo de regresión; no cubre plan Alfa/Beta |
 | DT-5 | `mfa_secret` en claro | `schema.sql` (comentario lo admite) | Riesgo si se compromete la BD |
-| DT-6 | Uploads bajo `public/` | default `./public/uploads` | Posible descarga sin auth |
-| DT-7 | Sin expiración de sesión | `auth.config.ts` sin `maxAge` | DEF-04 abierto |
+| DT-6 | ~~Uploads bajo `public/`~~ | **✅ Resuelto (Fase 2):** movidos a `./var/uploads` (no servida); solo acceso autenticado | Cerrado |
+| DT-7 | ~~Sin expiración de sesión~~ | **✅ Resuelto (Fase 2):** `maxAge`/`updateAge` en JWT (DEF-04 cerrado) | Cerrado |
 | DT-8 | Inconsistencias de documentación | README vs. seed vs. CLAUDE.md | Confusión de alcance/métricas → **resueltas en Anexo A** (gana docx/código) |
 | DT-9 | Matriz de defectos incompleta | DEF-16…DEF-40 citados pero no definidos **en la propia fuente** | Trazabilidad parcial; **no se inventan** (Anexo A-5) → acotar alcance |
-| DT-10 | Notificación de subsanación faltante | Sin aviso persistente ni alerta de vencimiento | **Incumple CA-CU08-03 y CU-08 A4** (es requisito, no opcional) |
+| DT-10 | ~~Notificación de subsanación faltante~~ | **✅ Resuelto (Fase 1):** badge persistente (SO) + alerta de vencidas (UAF). Correo diferido | Cerrado (correo = mejora) |
 | DT-11 | Acoplamiento a SQLite | `better-sqlite3` síncrono | Limita escalado/concurrencia (aceptable para MVP) |
 
 ### 12.2 Riesgos del proyecto
@@ -819,7 +834,7 @@ Observaciones y decisiones sugeridas (no explícitas en el documento original) p
 | A-3 | `/admin/plantillas` ausente | **CU-06** exige gestión de sujetos obligados **y asociación de plantillas ROS**; **RE-02**: admitir nuevas plantillas sin rediseñar | 🟦 La gestión de plantillas **es obligatoria**. README/CLAUDE.md que la dan por hecha **están equivocados**; la página **debe construirse** | Implementar **BL-010…BL-014**; corregir docs — **BL-004** |
 | A-4 | Roles: 4 (RF-05) vs. 5 (código) | **RF-05** enumera 4 roles operativos; **CU-03** nombra a **"Auditor Interno"** como actor de solo lectura | 🟦 **Se mantienen 5 roles.** No contradice el docx: el auditor está **respaldado por CU-03**; RF-05 lista los 4 roles operativos y el auditor es observador de solo lectura del log | Documentar la decisión — **BL-007** |
 | A-5 | Matriz de defectos incompleta | El docx **solo define DEF-01…DEF-15** en tabla; cita DEF-16…DEF-40 en el análisis de impacto **sin especificarlos** (nombra explícitamente DEF-25/30/35/36/38/39) | 🟦 **No se inventan defectos.** Alcance accionable = **DEF-01…DEF-15 + los nombrados** en el impacto. BL-096 pasa a **"acotar formalmente"** el alcance (no a inventar la matriz) | Acotar alcance — **BL-096** |
-| A-6 | Formulario "dinámico" parcial | **RF-01** exige formulario dinámico por plantilla; **CU-06 RE-02** exige nuevos sectores **sin rediseñar** | 🟦 El formulario **debe ser data-driven** (`campo_plantilla`). El hardcoded actual es **deuda a eliminar**, no el diseño objetivo | Migrar — **BL-015/BL-016/BL-017/BL-018** |
+| A-6 | Formulario "dinámico" parcial | **RF-01** exige formulario dinámico por plantilla; **CU-06 RE-02** exige nuevos sectores **sin rediseñar** | 🟦 **✅ Resuelto (Fase 1):** formulario data-driven implementado (`campo_plantilla` → `valor_campo_ros`), validado en cliente y servidor; la base banco/inmobiliaria se conserva (híbrido) | **Hecho** — BL-015…018 ✓ |
 | A-7 | Notificación de subsanación | **CA-CU08-03**: "el sistema **notifica** al sujeto obligado"; **CU-08 A4**: "el sistema **alerta** a la UAF si la subsanación no se atiende en plazo" | 🟦 La notificación **es REQUISITO, no opcional**. El aviso **in-app es el mínimo** para cumplir; el correo es refuerzo. Se elimina la etiqueta "(Opcional)" de BL-020 | In-app **BL-019** (requerido), vencimiento **BL-021** (requerido), correo **BL-020** (refuerzo) |
 | A-8 | Comentarios "Prototipo.html" en código | El docx **no** obliga a seguir el prototipo; la indicación recibida es **ignorarlo** | ⬜ Actualizar comentarios; el diseño ya es del proyecto | **BL-008** |
 | A-9 | RNF-07 (respaldo/recuperación) | **RNF-07** exige "respaldo de información, recuperación ante fallos y disponibilidad" | 🟦 **Es requisito.** Debe implementarse procedimiento de respaldo/restauración | **BL-092** |
@@ -841,6 +856,12 @@ Resoluciones que **modifican** lo expresado en la v1.0 (por mandato del docx com
 
 | Versión | Fecha | Cambios |
 |---|---|---|
+| **1.8** | 17/06/2026 | **Fase 2 iniciada (5/16): seguridad de alto impacto.** Expiración de sesión (DEF-04): `maxAge` 30 min + `updateAge` en `auth.config.ts`. **Uploads fuera de `public/`**: nuevo `lib/uploads.ts` (`./var/uploads`, no servida por Next), usado en subida y limpieza, en `.gitignore`. **Cabeceras de seguridad** en `next.config.js` (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy). Verificado: typecheck/lint/build ✅. **DT-6 y DT-7 cerradas.** *(Nota: las cabeceras requieren reiniciar el dev server.)* |
+| **1.7** | 17/06/2026 | **✅ Fase 1 COMPLETADA (12/13; BL-020 correo diferido).** Cerrado el flujo de borradores (BL-022): se añadió **descartar borrador** (`DELETE /api/ros/[id]`, solo dueño y solo estado borrador, con cascade y limpieza de archivos) + botón con confirmación en la edición. Verificado: typecheck/lint/build ✅ + smoke test ✅. Listar/retomar/enviar borradores ya existían. |
+| **1.6** | 17/06/2026 | **Fase 1 (11/13): notificaciones de subsanación (BL-019/021).** Badge persistente de subsanaciones pendientes en el menú del portal (NavItem extendido con `badge`, nuevo estilo `.nav-badge`); alerta de subsanaciones **vencidas** en la bandeja UAF con marcado automático al superar el plazo de 5 días (CU-08 A4). Verificado: typecheck/lint/build ✅ + smoke test ✅. **DT-10 cerrada.** BL-020 (correo) diferido por falta de SMTP. |
+| **1.5** | 17/06/2026 | **Fase 1 (9/13): formulario data-driven completo (BL-015…018).** `NuevoRosForm` ahora renderiza campos dinámicos desde `campo_plantilla`; nueva tabla **`valor_campo_ros`** (FK CASCADE, agregada a `schema.sql` y a la BD viva); validación de obligatorios en cliente y en servidor (POST `/api/ros` + PUT `/api/ros/[id]`); visualización en expediente UAF y detalle del portal; carga y guardado en edición de borradores. Verificado: typecheck/lint/build ✅ + smoke test E2E ✅. **DT-1 cerrada**, A-6 resuelto. |
+| **1.4** | 17/06/2026 | **Fase 1 en progreso (5/13): gestión de plantillas (CU-06) completa.** Nueva sección admin `/admin/plantillas` (listado con KPIs) y `/admin/plantillas/[id]` (editor de campos y documentos). 3 endpoints nuevos (`[id]` PATCH/DELETE, `[id]/campos`, `[id]/documentos`) con auditoría y guardas anti-borrado. Ítem de menú añadido. Verificado: typecheck/lint/build ✅ + smoke test SQL ✅. BL-010…014 marcados Hechos. CU-06 pasa de 🟡 a ✅. |
+| **1.3** | 17/06/2026 | **Fase 0 completada (8/8).** Nuevo `lib/logger.ts` (gateado por entorno, sin datos sensibles); eliminados los 32 `console.log` de runtime (incluían IDs, correos, IP y códigos TOTP). Creado `.eslintrc.json` (faltaba); `typecheck`/`lint`/`build` en verde. Comentarios de "Prototipo.html" saneados. Decisión de 5 roles asentada en CLAUDE.md. Añadido el **tablero de estado de avance** en la sección 4. BL-001/004/005/006/007/008 marcados Hechos. |
 | **1.2** | 17/06/2026 | **Decisión:** la BD **no precarga ROS** — se eliminó el bloque de ROS demo de `db/seed.ts` (registro manual, CU-01) y se realinearon README/CLAUDE.md. Se **verificaron los conteos reales** del seed y se anclaron a la **Figura 1** del docx (nuevo **A-10**): 5 plantillas / 70 docs; zonas francas y contadores quedan como extensibilidad pendiente. BL-002/BL-003 marcados **Hechos**. |
 | **1.1** | 16/06/2026 | Se establece la **jerarquía de fuentes de la verdad** (docx > código > README/CLAUDE.md). El **Anexo A** se reescribe: las inconsistencias dejan de ser "pendientes" y se **resuelven** contra el docx. Se corrige la **notificación de subsanación** (de opcional a requerida, CA-CU08-03/CU-08 A4) y la **gestión de plantillas** (de mejora a obligatoria, CU-06). Se añade este Changelog. |
 | **1.0** | 16/06/2026 | Versión inicial: análisis completo del proyecto y las 14 secciones de planificación a partir de README, docx, CONTEXTO.md y código fuente. |

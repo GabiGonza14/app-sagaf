@@ -5,7 +5,7 @@ import { TopBar } from '@/components/TopBar';
 import { KpiCard } from '@/components/KpiCard';
 import { Badge, riskTone, estadoTone, estadoLabel } from '@/components/Badge';
 import { FilterBar } from './FilterBar';
-import { Landmark, Home, MapPin } from 'lucide-react';
+import { Landmark, Home, MapPin, AlertTriangle } from 'lucide-react';
 
 export const revalidate = 0;
 
@@ -133,7 +133,7 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
 
   const ros = db.prepare<unknown[], RosRow>(sql).all(...innerParams, ...outerParams);
 
-  // KPIs (sec. 2.2 del documento; mismos del Prototipo.html)
+  // KPIs (sec. 2.2 del documento)
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const nuevosHoy = db
     .prepare<[string], { c: number }>(`SELECT COUNT(*) AS c FROM ros WHERE fecha_recepcion >= ?`)
@@ -151,6 +151,15 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
     .prepare<[], { c: number }>(`SELECT COUNT(*) AS c FROM vinculo_intersectorial WHERE confirmado = 0`)
     .get()?.c ?? 0;
 
+  // BL-021 (CU-08 A4) — Marca como vencidas las subsanaciones que superaron su plazo y alerta a la UAF
+  db.prepare(
+    `UPDATE solicitud_subsanacion SET estado = 'vencida'
+      WHERE estado = 'pendiente' AND fecha_limite IS NOT NULL AND fecha_limite < date('now')`,
+  ).run();
+  const vencidas = db
+    .prepare<[], { c: number }>(`SELECT COUNT(*) AS c FROM solicitud_subsanacion WHERE estado = 'vencida'`)
+    .get()?.c ?? 0;
+
   return (
     <>
       <TopBar
@@ -165,6 +174,18 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
         <KpiCard label="Con sustento incompleto" value={conSubs} badge="Subsanación" tone="amber" />
         <KpiCard label="Vínculos detectados" value={vinculos} badge="Validar relación" tone="purple" />
       </div>
+
+      {/* BL-021 — Alerta de subsanaciones vencidas (CU-08 A4) */}
+      {vencidas > 0 && (
+        <div className="notice red" style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 18 }}>
+          <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <strong>{vencidas} subsanación{vencidas > 1 ? 'es' : ''} vencida{vencidas > 1 ? 's' : ''}.</strong>{' '}
+            Una o más solicitudes superaron su plazo de 5 días sin ser atendidas por el sujeto obligado (CU-08 A4).
+            Revise los expedientes afectados para escalar o gestionar el caso.
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="panel-head">

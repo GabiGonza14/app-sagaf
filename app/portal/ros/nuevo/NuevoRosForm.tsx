@@ -6,6 +6,7 @@ import { FileDropZone, isAllowedFile, MAX_BYTES } from '@/components/FileDropZon
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 interface DocReq    { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string }
+interface CampoDin  { id: string; plantilla_id: string; nombre: string; tipo_dato: string; obligatorio: number; orden: number }
 
 interface PartyState {
   id: string;
@@ -33,12 +34,14 @@ interface InitialData {
   comprador: PartyState;
   cliente: PartyState;
   uploadedDocs: Record<string, string>;
+  camposValores?: Record<string, string>;
 }
 
 interface Props {
   sujeto: { id: string; nombre: string; tipo: string };
   plantillas: Plantilla[];
   docsByPlantilla: Record<string, DocReq[]>;
+  camposByPlantilla?: Record<string, CampoDin[]>;
   oficialDefault: string;
   correoDefault: string;
   initialData?: InitialData;
@@ -64,7 +67,7 @@ function formatApiError(data: { error?: string; issues?: { fieldErrors?: Record<
   return detail || fallback;
 }
 
-export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefault, correoDefault, initialData }: Props) {
+export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlantilla = {}, oficialDefault, correoDefault, initialData }: Props) {
   const esEdicion = !!initialData;
   const router = useRouter();
   const isBank = sujeto.tipo === 'bank';
@@ -99,6 +102,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const [correoOficial, setCorreoOficial] = useState(initialData?.correoOficial ?? correoDefault);
   const [fechaDeteccion, setFechaDeteccion] = useState(initialData?.fechaDeteccion ?? new Date().toISOString().slice(0, 10));
 
+  const [camposValores, setCamposValores] = useState<Record<string, string>>(initialData?.camposValores ?? {});
   const [observaciones, setObservaciones] = useState('');
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [extras, setExtras] = useState<File[]>([]);
@@ -127,6 +131,14 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       : plantillas.find((p) => p.id === 'pl_bank_legal');
     return want?.id ?? plantillaId ?? defaultPlantilla;
   }, [isBank, tipoCliente, plantillaId, plantillas, defaultPlantilla]);
+
+  const camposDinamicos = camposByPlantilla[effectivePlantillaId] ?? [];
+  const camposDinamicosOk = camposDinamicos.every(
+    (c) => c.obligatorio !== 1 || (camposValores[c.id] ?? '').trim() !== '',
+  );
+  function setCampoValor(id: string, valor: string) {
+    setCamposValores((cur) => ({ ...cur, [id]: valor }));
+  }
 
   const docList    = docsByPlantilla[effectivePlantillaId] ?? [];
   const docListReq = docList.filter((d) => d.tipo_requerimiento === 'requerido');
@@ -157,7 +169,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     formaPago.trim(),
   );
   const camposGenericOk = !isGeneric || cliente.id.trim().length >= 3;
-  const formListo = camposBaseOk && camposBancoOk && camposInmobiliariaOk && camposGenericOk;
+  const formListo = camposBaseOk && camposBancoOk && camposInmobiliariaOk && camposGenericOk && camposDinamicosOk;
   const hayAlgunDato = [
     ordenante.id, beneficiario.id, comprador.id, cliente.id,
     monto, descripcion, productoServicio, bienInmueble, formaPago, jurisdiccion,
@@ -228,6 +240,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         tipo_operacion: isBank ? 'bancaria' : 'inmobiliaria',
       },
       partes: buildPartes(),
+      campos: camposDinamicos.map((c) => ({ campo_plantilla_id: c.id, valor: camposValores[c.id] ?? '' })),
     };
   }
 
@@ -332,6 +345,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     if (realEstateError) return realEstateError;
     const genericError = validateGeneric();
     if (genericError) return genericError;
+    const campoFaltante = camposDinamicos.find((c) => c.obligatorio === 1 && !(camposValores[c.id] ?? '').trim());
+    if (campoFaltante) return `El campo "${campoFaltante.nombre}" es obligatorio.`;
     if (!descripcion.trim() || descripcion.length < 30)
       return 'La descripción narrativa debe tener al menos 30 caracteres.';
     if (!todosDocumentosCargados && observaciones.trim().length < 10)
@@ -579,6 +594,37 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
             Una narrativa insuficiente puede generar solicitud de subsanación.
           </div>
         </div>
+
+        {/* ── Sección dinámica: campos definidos por la plantilla (RF-01, data-driven) ── */}
+        {camposDinamicos.length > 0 && (
+          <>
+            <div className="section-title">
+              <span className="section-num" aria-hidden="true">+</span>
+              Información adicional de la plantilla
+            </div>
+            {camposDinamicos.map((c) => {
+              const val = camposValores[c.id] ?? '';
+              const req = c.obligatorio === 1;
+              const fid = `campo-${c.id}`;
+              return (
+                <div className={`field${c.tipo_dato === 'textarea' ? ' full' : ''}`} key={c.id}>
+                  <label htmlFor={fid}>
+                    {c.nombre}{req && <span className="req"> *</span>}
+                  </label>
+                  {c.tipo_dato === 'textarea' ? (
+                    <textarea id={fid} value={val} required={req}
+                      onChange={(e) => setCampoValor(c.id, e.target.value)}
+                      placeholder="Información requerida por la plantilla" />
+                  ) : (
+                    <input id={fid} value={val} required={req}
+                      type={c.tipo_dato === 'number' ? 'number' : c.tipo_dato === 'date' ? 'date' : 'text'}
+                      onChange={(e) => setCampoValor(c.id, e.target.value)} />
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
 
         {/* ── Sección 4: Sustento documental ── */}
         <div className="section-title">

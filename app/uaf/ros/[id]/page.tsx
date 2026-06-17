@@ -140,6 +140,13 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
        FROM operacion_sospechosa WHERE ros_id = ?`,
   ).get(id);
 
+  // Valores de campos dinámicos de la plantilla (RF-01, data-driven)
+  const camposDin = db.prepare<[string], { nombre: string; valor: string | null }>(
+    `SELECT cp.nombre, vcr.valor
+       FROM valor_campo_ros vcr JOIN campo_plantilla cp ON cp.id = vcr.campo_plantilla_id
+      WHERE vcr.ros_id = ? ORDER BY cp.orden`,
+  ).all(id);
+
   const docsReq = db.prepare<[string], DocReqRow>(
     'SELECT id, nombre, orden FROM documento_requerido WHERE plantilla_id = ? ORDER BY orden',
   ).all(ros.plantilla_id);
@@ -260,6 +267,18 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
                   {op.bien_inmueble && <InfoBox label="Bien inmueble" value={op.bien_inmueble} />}
                   {op.forma_pago && <InfoBox label="Forma de pago" value={op.forma_pago} />}
                   <InfoBox label="Señal de alerta" value={op.senal_alerta} />
+                </div>
+              </div>
+            )}
+
+            {camposDin.length > 0 && (
+              <div className="card" style={{ marginTop: 12, padding: 14 }}>
+                <h3 style={{ margin: 0, fontSize: 16 }}>Información adicional de la plantilla</h3>
+                <p className="small" style={{ marginBottom: 12 }}>Campos definidos por la plantilla del sector (RF-01).</p>
+                <div className="summary-grid">
+                  {camposDin.map((c) => (
+                    <InfoBox key={c.nombre} label={c.nombre} value={c.valor?.trim() ? c.valor : '—'} />
+                  ))}
                 </div>
               </div>
             )}

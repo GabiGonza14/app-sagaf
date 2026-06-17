@@ -154,7 +154,7 @@ sagaf-app/
 │   ├── admin/                  ADMINISTRADOR (CU-05, CU-06)
 │   │   ├── usuarios/
 │   │   ├── sujetos-obligados/
-│   │   └── plantillas/          (CU-06 — API lista en `api/plantillas/`; UI pendiente)
+│   │   └── plantillas/          (CU-06 — listado + editor de campos/documentos por plantilla)
 │   └── api/                    Route Handlers REST
 │       ├── auth/[...nextauth]/
 │       ├── mfa/{setup,verify}/
@@ -272,7 +272,7 @@ sagaf-app/
 
 5. **Login como Auditor**: `auditor@uaf.gob.pa` → `/auditor` muestra el log completo de TODAS las acciones, **sin** acceso al contenido de los ROS.
 
-6. **Login como Admin**: `/admin` → crear usuarios y sujetos obligados. (Gestión de plantillas: API disponible, UI pendiente — CU-06.)
+6. **Login como Admin**: `/admin` → crear usuarios, sujetos obligados y **plantillas ROS** (con sus campos y documentos requeridos, CU-06).
 
 ---
 

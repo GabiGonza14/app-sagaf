@@ -4,10 +4,12 @@ import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { BackButton } from '@/components/BackButton';
 import { NuevoRosForm } from '../../nuevo/NuevoRosForm';
+import { DiscardDraftButton } from './DiscardDraftButton';
 
 interface SujetoRow { id: string; nombre: string; tipo: string }
 interface PlantillaRow { id: string; nombre: string; tipo_sujeto_obligado: string }
 interface DocRow { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string }
+interface CampoRow { id: string; plantilla_id: string; nombre: string; tipo_dato: string; obligatorio: number; orden: number }
 
 interface RosRow {
   id: string; numero_ros: string; plantilla_id: string;
@@ -74,6 +76,22 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
     }
   }
 
+  const campos = db.prepare<[], CampoRow>(
+    'SELECT id, plantilla_id, nombre, tipo_dato, obligatorio, orden FROM campo_plantilla ORDER BY plantilla_id, orden',
+  ).all();
+  const camposByPlantilla: Record<string, CampoRow[]> = {};
+  for (const c of campos) {
+    if (plantillas.find((p) => p.id === c.plantilla_id)) {
+      (camposByPlantilla[c.plantilla_id] ||= []).push(c);
+    }
+  }
+
+  const valoresCampos = db.prepare<[string], { campo_plantilla_id: string; valor: string | null }>(
+    'SELECT campo_plantilla_id, valor FROM valor_campo_ros WHERE ros_id = ?',
+  ).all(id);
+  const camposValores: Record<string, string> = {};
+  for (const v of valoresCampos) camposValores[v.campo_plantilla_id] = v.valor ?? '';
+
   const op = db.prepare<[string], OpRow | undefined>(
     'SELECT * FROM operacion_sospechosa WHERE ros_id = ?',
   ).get(id);
@@ -121,6 +139,7 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
       ? { id: partePorRol['cliente'].identificador, status: partyStatus(partePorRol['cliente']), nombre: partePorRol['cliente'].nombre_visible ?? '' }
       : { id: '', status: 'idle' as const, nombre: '' },
     uploadedDocs,
+    camposValores,
   };
 
   return (
@@ -132,10 +151,15 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
         right={<BackButton href="/portal/ros" label="Mis ROS" />}
       />
 
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <DiscardDraftButton rosId={ros.id} numeroRos={ros.numero_ros} />
+      </div>
+
       <NuevoRosForm
         sujeto={{ id: so.id, nombre: so.nombre, tipo: so.tipo }}
         plantillas={plantillas}
         docsByPlantilla={docsByPlantilla}
+        camposByPlantilla={camposByPlantilla}
         oficialDefault={session.user.name ?? ''}
         correoDefault={session.user.email ?? ''}
         initialData={initialData}

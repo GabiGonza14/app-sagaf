@@ -93,6 +93,12 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
     'SELECT monto, moneda, jurisdiccion, producto_servicio, bien_inmueble, forma_pago, senal_alerta FROM operacion_sospechosa WHERE ros_id = ?',
   ).get(id);
 
+  const camposDin = db.prepare<[string], { nombre: string; valor: string | null }>(
+    `SELECT cp.nombre, vcr.valor
+       FROM valor_campo_ros vcr JOIN campo_plantilla cp ON cp.id = vcr.campo_plantilla_id
+      WHERE vcr.ros_id = ? ORDER BY cp.orden`,
+  ).all(id);
+
   const docsReq = db.prepare<[string], DocReqRow>(
     'SELECT id, nombre, orden FROM documento_requerido WHERE plantilla_id = ? ORDER BY orden',
   ).all(ros.plantilla_id);
@@ -195,6 +201,19 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
           </div>
         </div>
       </div>
+
+      {camposDin.length > 0 && (
+        <div className="card" style={{ marginTop: 18 }}>
+          <div className="panel-head">
+            <div><h3>Información adicional de la plantilla</h3><p>Campos definidos por la plantilla de tu sector.</p></div>
+          </div>
+          <div className="summary-grid">
+            {camposDin.map((c) => (
+              <InfoBox key={c.nombre} label={c.nombre} value={c.valor?.trim() ? c.valor : '—'} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ marginTop: 18 }}>
         <div className="panel-head">

@@ -19,6 +19,15 @@ interface DocRow {
   tipo_requerimiento: string;
 }
 
+interface CampoRow {
+  id: string;
+  plantilla_id: string;
+  nombre: string;
+  tipo_dato: string;
+  obligatorio: number;
+  orden: number;
+}
+
 interface SujetoRow {
   id: string;
   nombre: string;
@@ -57,6 +66,17 @@ export default async function NuevoRosPage() {
   for (const d of docs) {
     if (plantillas.find((p) => p.id === d.plantilla_id)) {
       (docsByPlantilla[d.plantilla_id] ||= []).push(d);
+    }
+  }
+
+  // Campos dinámicos definidos por el admin para cada plantilla (RF-01, data-driven)
+  const campos = db
+    .prepare<[], CampoRow>('SELECT id, plantilla_id, nombre, tipo_dato, obligatorio, orden FROM campo_plantilla ORDER BY plantilla_id, orden')
+    .all();
+  const camposByPlantilla: Record<string, CampoRow[]> = {};
+  for (const c of campos) {
+    if (plantillas.find((p) => p.id === c.plantilla_id)) {
+      (camposByPlantilla[c.plantilla_id] ||= []).push(c);
     }
   }
 
@@ -106,6 +126,7 @@ export default async function NuevoRosPage() {
         sujeto={{ id: so.id, nombre: so.nombre, tipo: so.tipo }}
         plantillas={plantillas}
         docsByPlantilla={docsByPlantilla}
+        camposByPlantilla={camposByPlantilla}
         oficialDefault={session.user.name ?? ''}
         correoDefault={session.user.email ?? ''}
       />
