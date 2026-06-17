@@ -82,7 +82,6 @@ export default async function AdminHome() {
             </p>
           </div>
           <div style={{ marginTop: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>CU-05 · RF-05</span>
             <Link href="/admin/usuarios" className="btn primary" style={{ marginLeft: 'auto', padding: '8px 14px', fontSize: 13 }}>
               Gestionar <ArrowRight size={14} />
             </Link>
@@ -101,7 +100,6 @@ export default async function AdminHome() {
             </p>
           </div>
           <div style={{ marginTop: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>CU-06 · RF-05</span>
             <Link href="/admin/sujetos-obligados" className="btn teal" style={{ marginLeft: 'auto', padding: '8px 14px', fontSize: 13 }}>
               Gestionar <ArrowRight size={14} />
             </Link>
@@ -120,7 +118,6 @@ export default async function AdminHome() {
             </p>
           </div>
           <div style={{ marginTop: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>RF-01 · RF-07</span>
             <Link href="/admin/plantillas" className="btn ghost" style={{ marginLeft: 'auto', padding: '8px 14px', fontSize: 13 }}>
               Ver plantillas <ArrowRight size={14} />
             </Link>
@@ -132,7 +129,7 @@ export default async function AdminHome() {
       <div className="notice" style={{ marginTop: 18, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
         <ShieldCheck size={16} style={{ flexShrink: 0, marginTop: 2 }} />
         <span>
-          <strong>Separación de responsabilidades (RNF-02):</strong> El Administrador gestiona la infraestructura del sistema pero no tiene acceso al contenido sensible de los ROS ni al log de auditoría de casos. Esto cumple con el principio de mínimo privilegio de la Ley 23 de 2015 y los estándares GAFI.
+          <strong>Separación de responsabilidades:</strong> El Administrador gestiona la infraestructura del sistema pero no tiene acceso al contenido sensible de los ROS ni al log de auditoría de casos. Esto cumple con el principio de mínimo privilegio de la Ley 23 de 2015 y los estándares GAFI.
         </span>
       </div>
     </>

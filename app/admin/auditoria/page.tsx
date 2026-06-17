@@ -84,7 +84,7 @@ export default async function AdminAuditoria() {
       <TopBar
         eyebrow="Administración SAGAF"
         title="Registro de auditoría"
-        description="Historial completo de todas las creaciones, modificaciones y desactivaciones realizadas por administradores (RE-03). Solo lectura."
+        description="Historial completo de todas las creaciones, modificaciones y desactivaciones realizadas por administradores. Solo lectura."
       />
 
       {/* KPIs rápidos */}
@@ -106,7 +106,7 @@ export default async function AdminAuditoria() {
       <div className="notice" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 18 }}>
         <ShieldCheck size={16} style={{ flexShrink: 0, marginTop: 2 }} />
         <span>
-          <strong>RE-03 — CU-06:</strong> Toda creación, modificación o desactivación queda registrada automáticamente con usuario, rol, entidad afectada, cambios realizados, fecha del servidor e IP. Este log no puede modificarse.
+          <strong>Registro inmutable:</strong> Toda creación, modificación o desactivación queda registrada automáticamente con usuario, rol, entidad afectada, cambios realizados, fecha del servidor e IP. Este log no puede modificarse.
         </span>
       </div>
 

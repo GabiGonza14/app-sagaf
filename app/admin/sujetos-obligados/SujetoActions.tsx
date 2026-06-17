@@ -69,7 +69,7 @@ export function SujetoActions({
     e.preventDefault();
     setError(null);
     if (seleccionadas.length === 0) {
-      setError('Debe asociar al menos una plantilla ROS (RE-01).');
+      setError('Debe asociar al menos una plantilla ROS.');
       return;
     }
     setBusy(true);

@@ -209,7 +209,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
       <TopBar
         eyebrow="Reportes e inteligencia financiera"
         title={TIPO_LABEL[tipo] ?? 'Reportes'}
-        description="Datos agregados y anonimizados. La visualización y exportación quedan registradas en auditoría (RE-02)."
+        description="Datos agregados y anonimizados. La visualización y exportación quedan registradas en auditoría."
       />
 
       {/* KPIs globales — sin filtros */}
@@ -280,7 +280,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
         <>
           <div className="card">
             <h3 style={{ margin: 0 }}>ROS por sector económico</h3>
-            <p className="small" style={{ marginBottom: 12 }}>Datos agregados por sector reportante — sin identificación individual (RE-01, RE-03).</p>
+            <p className="small" style={{ marginBottom: 12 }}>Datos agregados por sector reportante — sin identificación individual.</p>
             {porSector.length === 0 ? EMPTY : (
               <table className="table">
                 <thead><tr><th>Sector</th><th>Total</th><th>Alto</th><th>Medio</th><th>Bajo</th><th>Monto (USD)</th></tr></thead>
@@ -326,7 +326,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
       {tipo === 'documental' && (
         <>
           <div className="card">
-            <h3 style={{ margin: 0 }}>Completitud documental por requisito (RE-04)</h3>
+            <h3 style={{ margin: 0 }}>Completitud documental por tipo</h3>
             <p className="small" style={{ marginBottom: 12 }}>Evalúa cumplimiento por tipo de documento requerido.</p>
             {completitudDocs.length === 0 ? EMPTY : (
               <table className="table">
@@ -401,7 +401,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
           <div className="uaf-layout">
             <div className="card">
               <h3 style={{ margin: 0 }}>Jurisdicciones más frecuentes</h3>
-              <p className="small" style={{ marginBottom: 12 }}>Volumen de operaciones sospechosas por jurisdicción (RE-01).</p>
+              <p className="small" style={{ marginBottom: 12 }}>Volumen de operaciones sospechosas por jurisdicción.</p>
               {jurisdicciones.length === 0 ? EMPTY : (
                 <table className="table">
                   <thead><tr><th>Jurisdicción</th><th>ROS</th></tr></thead>
@@ -451,8 +451,8 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
       )}
 
       <div className="notice" style={{ marginTop: 18 }}>
-        <strong>Privacidad por diseño (RE-03)</strong>: reportes con datos agregados sin identificadores personales.
-        Visualización y exportación registradas en auditoría (RE-02).
+        <strong>Privacidad por diseño</strong>: reportes con datos agregados sin identificadores personales.
+        Visualización y exportación registradas en auditoría.
       </div>
     </>
   );

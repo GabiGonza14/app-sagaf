@@ -181,7 +181,7 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
           <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 1 }} />
           <div>
             <strong>{vencidas} subsanación{vencidas > 1 ? 'es' : ''} vencida{vencidas > 1 ? 's' : ''}.</strong>{' '}
-            Una o más solicitudes superaron su plazo de 5 días sin ser atendidas por el sujeto obligado (CU-08 A4).
+            Una o más solicitudes superaron su plazo de 5 días sin ser atendidas por el sujeto obligado.
             Revise los expedientes afectados para escalar o gestionar el caso.
           </div>
         </div>

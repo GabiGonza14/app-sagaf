@@ -68,7 +68,7 @@ export default async function AuditorHome({ searchParams }: { searchParams: Prom
       <div className="notice" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 18 }}>
         <ShieldCheck size={16} style={{ flexShrink: 0, marginTop: 2 }} />
         <span>
-          <strong>Log inmutable — CU-03 · RF-03 · RNF-03:</strong> Este historial es de solo lectura.
+          <strong>Log inmutable:</strong> Este historial es de solo lectura.
           Los triggers de base de datos bloquean cualquier UPDATE o DELETE sobre la tabla{' '}
           <code style={{ fontFamily: 'Consolas, monospace', background: '#e8f3ff', padding: '1px 5px', borderRadius: 5 }}>evento_auditoria</code>.
           La consulta que estás realizando ahora también quedó registrada.

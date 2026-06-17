@@ -68,7 +68,7 @@ export function NuevaPlantillaForm({ tiposExistentes = [] }: { tiposExistentes?:
             ))}
           </datalist>
           <span className="small" style={{ color: 'var(--muted)' }}>
-            Puedes escribir un tipo nuevo para habilitar un sector futuro (RE-02).
+            Puedes escribir un tipo nuevo para habilitar un sector futuro.
           </span>
         </div>
         <div className="field">

@@ -84,13 +84,13 @@ export default async function PlantillasAdmin() {
       <TopBar
         eyebrow="Gestión de plantillas ROS"
         title="Plantillas dinámicas"
-        description="Define las plantillas por sector con sus campos y documentos requeridos. Permite habilitar nuevos sectores sin reprogramar (CU-06, RE-02). Cada cambio queda auditado."
+        description="Define las plantillas por sector con sus campos y documentos requeridos. Permite habilitar nuevos sectores sin reprogramar. Cada cambio queda auditado."
       />
 
       <div className="kpis">
         <KpiCard label="Plantillas totales" value={rows.length} badge="Total" tone="blue" />
         <KpiCard label="Activas" value={rows.filter((r) => r.activa === 1).length} badge="En uso" tone="green" />
-        <KpiCard label="Sectores cubiertos" value={new Set(rows.map((r) => r.tipo_sujeto_obligado)).size} badge="RE-02" tone="purple" />
+        <KpiCard label="Sectores cubiertos" value={new Set(rows.map((r) => r.tipo_sujeto_obligado)).size} badge="Diversificación" tone="purple" />
       </div>
 
       <div className="card">
@@ -142,7 +142,7 @@ export default async function PlantillasAdmin() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
             <h3 style={{ margin: 0 }}>Actividad reciente</h3>
-            <p className="small" style={{ margin: '2px 0 0' }}>Cambios sobre plantillas, campos y documentos (RE-03)</p>
+            <p className="small" style={{ margin: '2px 0 0' }}>Cambios sobre plantillas, campos y documentos</p>
           </div>
           <Link href="/admin/auditoria" className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }}>
             Ver historial completo →

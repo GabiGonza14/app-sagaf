@@ -116,7 +116,7 @@ export default async function SujetosAdmin() {
       <TopBar
         eyebrow="Gestión de sujetos obligados"
         title="Sujetos obligados"
-        description="Registra, clasifica y administra sujetos obligados. Cada uno debe tener tipo, sector, estado y plantilla ROS asociada (RE-01). Todo cambio queda auditado (RE-03)."
+        description="Registra, clasifica y administra sujetos obligados. Cada uno debe tener tipo, sector, estado y plantilla ROS asociada. Todo cambio queda auditado."
       />
 
       <div className="card">
@@ -172,7 +172,7 @@ export default async function SujetosAdmin() {
       <div className="card" style={{ marginTop: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
-            <h3 style={{ margin: 0 }}>Últimas acciones (RE-03)</h3>
+            <h3 style={{ margin: 0 }}>Últimas acciones</h3>
             <p className="small" style={{ margin: '2px 0 0' }}>Registro de creaciones, modificaciones y desactivaciones</p>
           </div>
           <Link href="/admin/auditoria" className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }}>
@@ -212,7 +212,7 @@ export default async function SujetosAdmin() {
       <div className="card" style={{ marginTop: 18 }}>
         <h3 style={{ margin: 0 }}>Registrar nuevo sujeto obligado</h3>
         <p className="small" style={{ marginBottom: 14 }}>
-          Campos obligatorios: nombre, tipo, sector, estado y al menos una plantilla ROS (RE-01).
+          Campos obligatorios: nombre, tipo, sector, estado y al menos una plantilla ROS.
         </p>
         <NuevoSujetoForm plantillas={plantillas} tiposDisponibles={tiposDisponibles} />
       </div>

@@ -48,7 +48,7 @@ export function NuevoSujetoForm({
       return;
     }
     if (seleccionadas.length === 0) {
-      setError('Debe asociar al menos una plantilla ROS (RE-01).');
+      setError('Debe asociar al menos una plantilla ROS.');
       return;
     }
     setBusy(true);

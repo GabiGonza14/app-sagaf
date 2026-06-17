@@ -147,7 +147,7 @@ export default async function PortalHome() {
               </div>
               <div style={{ flex: 1 }}>
                 <strong style={{ display: 'block', fontSize: 14, color: '#102a43' }}>Registrar nuevo ROS</strong>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Formulario dinámico según sector · CU-01</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Formulario dinámico según sector</span>
               </div>
               <ArrowRight size={16} style={{ color: 'var(--muted)' }} />
             </Link>

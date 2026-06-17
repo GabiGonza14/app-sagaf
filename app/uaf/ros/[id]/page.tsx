@@ -274,7 +274,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
             {camposDin.length > 0 && (
               <div className="card" style={{ marginTop: 12, padding: 14 }}>
                 <h3 style={{ margin: 0, fontSize: 16 }}>Información adicional de la plantilla</h3>
-                <p className="small" style={{ marginBottom: 12 }}>Campos definidos por la plantilla del sector (RF-01).</p>
+                <p className="small" style={{ marginBottom: 12 }}>Campos definidos por la plantilla del sector.</p>
                 <div className="summary-grid">
                   {camposDin.map((c) => (
                     <InfoBox key={c.nombre} label={c.nombre} value={c.valor?.trim() ? c.valor : '—'} />

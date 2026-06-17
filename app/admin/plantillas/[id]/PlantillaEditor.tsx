@@ -209,7 +209,7 @@ export function PlantillaEditor({
       <div className="card" style={{ marginTop: 18 }}>
         <h3 style={{ margin: '0 0 4px' }}>Campos del formulario dinámico</h3>
         <p className="small" style={{ marginBottom: 14, color: 'var(--muted)' }}>
-          Definen qué campos verá el sujeto obligado al registrar un ROS con esta plantilla (RF-01).
+          Definen qué campos verá el sujeto obligado al registrar un ROS con esta plantilla.
         </p>
         {campos.length === 0 ? (
           <div className="notice amber">Esta plantilla aún no tiene campos. Agrega el primero abajo.</div>
@@ -271,7 +271,7 @@ export function PlantillaEditor({
       <div className="card" style={{ marginTop: 18 }}>
         <h3 style={{ margin: '0 0 4px' }}>Documentos requeridos</h3>
         <p className="small" style={{ marginBottom: 14, color: 'var(--muted)' }}>
-          Cada documento tendrá su propio contenedor de carga para el sujeto obligado (RF-07). Los &quot;requeridos&quot; bloquean el envío del ROS.
+          Cada documento tendrá su propio contenedor de carga para el sujeto obligado. Los &quot;requeridos&quot; bloquean el envío del ROS.
         </p>
         {documentos.length === 0 ? (
           <div className="notice amber">Esta plantilla aún no tiene documentos requeridos. Agrega el primero abajo.</div>

@@ -118,7 +118,7 @@ export function UsuarioActions({ usuarioId, estadoActual, rolActualId, roles }: 
         isOpen={openRol}
         variant="warning"
         title="¿Cambiar rol del usuario?"
-        message={`El usuario recibirá el rol "${rolNuevoNombre}". Sus permisos cambiarán de inmediato y la acción quedará registrada en auditoría (RE-04).`}
+        message={`El usuario recibirá el rol "${rolNuevoNombre}". Sus permisos cambiarán de inmediato y la acción quedará registrada en auditoría.`}
         confirmLabel="Sí, cambiar rol"
         cancelLabel="Cancelar"
         busy={busy}
