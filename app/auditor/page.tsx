@@ -66,7 +66,7 @@ export default async function AuditorHome({ searchParams }: { searchParams: Prom
       </div>
 
       <div className="notice" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 18 }}>
-        <ShieldCheck size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+        <ShieldCheck size={18} className="animate-glow-pulse" style={{ flexShrink: 0, marginTop: 2, color: 'var(--primary)' }} />
         <span>
           <strong>Log inmutable:</strong> Este historial es de solo lectura.
           Los triggers de base de datos bloquean cualquier UPDATE o DELETE sobre la tabla{' '}

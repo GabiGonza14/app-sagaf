@@ -479,7 +479,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         </div>
         <div className="notice" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
           <Shield size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
-          <strong>Privacidad (Ley 81/2019)</strong>: si {isBank && tipoCliente === 'juridica' ? 'un RUC' : 'una cédula/RUC'} ya existe en nuestros registros,
+          <strong>Privacidad</strong>: si {isBank && tipoCliente === 'juridica' ? 'un RUC' : 'una cédula/RUC'} ya existe en nuestros registros,
           solo verás {isBank && tipoCliente === 'juridica' ? <strong>la razón social</strong> : <strong>el nombre</strong>} para corroboración. No se autocompletan datos sensibles.
         </div>
 

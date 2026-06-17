@@ -71,9 +71,10 @@ export default async function AdminHome() {
       {/* Módulos administrativos */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {/* Usuarios */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--primary-soft)', display: 'grid', placeItems: 'center' }}>
-            <Users size={22} style={{ color: 'var(--primary)' }} />
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: 'linear-gradient(180deg, var(--primary), var(--teal))' }} />
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg, var(--primary-soft), white)', border: '1px solid rgba(20,92,158,.1)', display: 'grid', placeItems: 'center', boxShadow: '0 4px 12px rgba(20,92,158,.08)' }}>
+            <Users size={24} style={{ color: 'var(--primary)' }} />
           </div>
           <div>
             <h3 style={{ margin: '0 0 4px', fontSize: 16 }}>Usuarios</h3>
@@ -89,9 +90,10 @@ export default async function AdminHome() {
         </div>
 
         {/* Sujetos obligados */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--teal-soft)', display: 'grid', placeItems: 'center' }}>
-            <Building2 size={22} style={{ color: 'var(--teal)' }} />
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: 'linear-gradient(180deg, var(--teal), var(--green))' }} />
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg, var(--teal-soft), white)', border: '1px solid rgba(15,118,110,.1)', display: 'grid', placeItems: 'center', boxShadow: '0 4px 12px rgba(15,118,110,.08)' }}>
+            <Building2 size={24} style={{ color: 'var(--teal)' }} />
           </div>
           <div>
             <h3 style={{ margin: '0 0 4px', fontSize: 16 }}>Sujetos Obligados</h3>
@@ -107,9 +109,10 @@ export default async function AdminHome() {
         </div>
 
         {/* Plantillas */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--green-soft)', display: 'grid', placeItems: 'center' }}>
-            <FileText size={22} style={{ color: 'var(--green)' }} />
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: 'linear-gradient(180deg, var(--green), var(--primary))' }} />
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg, var(--green-soft), white)', border: '1px solid rgba(21,128,61,.1)', display: 'grid', placeItems: 'center', boxShadow: '0 4px 12px rgba(21,128,61,.08)' }}>
+            <FileText size={24} style={{ color: 'var(--green)' }} />
           </div>
           <div>
             <h3 style={{ margin: '0 0 4px', fontSize: 16 }}>Plantillas ROS</h3>
@@ -129,7 +132,7 @@ export default async function AdminHome() {
       <div className="notice" style={{ marginTop: 18, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
         <ShieldCheck size={16} style={{ flexShrink: 0, marginTop: 2 }} />
         <span>
-          <strong>Separación de responsabilidades:</strong> El Administrador gestiona la infraestructura del sistema pero no tiene acceso al contenido sensible de los ROS ni al log de auditoría de casos. Esto cumple con el principio de mínimo privilegio de la Ley 23 de 2015 y los estándares GAFI.
+          <strong>Separación de responsabilidades:</strong> El Administrador gestiona la infraestructura del sistema pero no tiene acceso al contenido sensible de los ROS ni al log de auditoría de casos. Esto cumple con el principio de mínimo privilegio.
         </span>
       </div>
     </>

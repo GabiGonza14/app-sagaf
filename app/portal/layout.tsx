@@ -28,7 +28,7 @@ export default async function PortalLayout({ children }: { children: React.React
   return (
     <AppShell
       role="sujeto_obligado"
-      userName={session.user.name ?? session.user.email ?? 'Sujeto obligado'}
+      userName={(session.user.name ?? session.user.email ?? 'Sujeto obligado').replace(' · Cumplimiento', '')}
       userInitials={userInitials}
       navItems={navItems}
       note="Portal autenticado con verificación de dos factores. Cada documento se carga en su propio contenedor y la identidad se valida sin exponer datos personales."

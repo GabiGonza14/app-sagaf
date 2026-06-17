@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function Badge({ children, tone = 'blue', className }: Props) {
-  return <span className={clsx('badge', tone, className)}>{children}</span>;
+  return <span className={clsx('badge', tone, className)} style={{ fontWeight: 800 }}>{children}</span>;
 }
 
 export function riskTone(nivel: string): Tone {

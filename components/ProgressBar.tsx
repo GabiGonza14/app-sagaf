@@ -18,7 +18,12 @@ export function ProgressList({ items }: { items: Item[] }) {
             <strong>{it.label}</strong>
             <Badge tone={it.tone ?? 'blue'}>{it.badge}</Badge>
           </div>
-          <div className="bar"><div style={{ width: `${Math.max(0, Math.min(100, it.value))}%` }} /></div>
+          <div className="bar">
+            <div 
+              style={{ width: `${Math.max(0, Math.min(100, it.value))}%` }} 
+              className="animate-shimmer"
+            />
+          </div>
         </div>
       ))}
     </div>

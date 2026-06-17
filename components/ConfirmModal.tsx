@@ -108,7 +108,11 @@ export function ConfirmModal({
 
         <div
           className="modal-icon"
-          style={{ background: iconBg, color: iconColor }}
+          style={{ 
+            background: iconBg, 
+            color: iconColor,
+            boxShadow: `0 4px 14px ${iconColor.replace('var(', 'var(--shadow-glow-').replace(')', ')')}` 
+          }}
         >
           {icon}
         </div>

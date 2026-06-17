@@ -130,13 +130,13 @@ export default async function PortalHome() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'stretch' }}>
         {/* Acciones rápidas */}
         <div className="card">
           <div className="panel-head" style={{ marginBottom: 14 }}>
             <div>
               <h3>Acciones rápidas</h3>
-              <p>Operaciones frecuentes de cumplimiento</p>
+              <p>Operaciones frecuentes</p>
             </div>
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
@@ -205,7 +205,7 @@ export default async function PortalHome() {
           ) : (
             <div className="report-list">
               {recientes.map((r) => (
-                <Link key={r.id} href={`/portal/ros/${r.id}`} className="report-item">
+                <Link key={r.id} href={`/portal/ros/${r.id}`} className="report-item" style={r.nivel_riesgo ? { borderLeft: `4px solid var(--${riskTone(r.nivel_riesgo)})` } : undefined}>
                   <div className="report-top">
                     <strong>{r.numero_ros}</strong>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -232,13 +232,7 @@ export default async function PortalHome() {
         </div>
       </div>
 
-      {/* Aviso legal */}
-      <div className="notice" style={{ marginTop: 18 }}>
-        <strong>Cumplimiento Ley 23 de 2015 y Ley 81 de 2019 — Privacy by Design</strong>
-        <br />
-        Todos los documentos se cargan en contenedores individuales. Los datos de identidad verificados no son almacenados ni expuestos por el sistema.
-        Cada acción en este portal queda registrada en el log de auditoría inmutable de la UAF.
-      </div>
+
     </>
   );
 }

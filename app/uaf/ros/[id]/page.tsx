@@ -225,7 +225,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
       <TopBar
         eyebrow="Expediente del ROS"
         title={`${ros.numero_ros} · ${ros.sujeto_tipo === 'bank' ? 'Banco' : ros.sujeto_tipo === 'realestate' ? 'Inmobiliaria' : ros.sujeto_tipo}`}
-        description="Reporte recibido desde el portal público. Datos sensibles enmascarados por defecto (Ley 81)."
+        description="Reporte recibido desde el portal público. Datos sensibles enmascarados por defecto."
         right={
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <BackButton href="/uaf" label="Bandeja" />
@@ -245,7 +245,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
             <div className="summary-grid">
               <InfoBox label="Sujeto obligado" value={ros.sujeto_nombre} />
               <InfoBox label="Tipo" value={ros.sujeto_tipo === 'bank' ? 'Banco · Persona Jurídica/Natural' : ros.sujeto_tipo === 'realestate' ? 'Inmobiliaria / Promotora' : ros.sujeto_tipo} />
-              <InfoBox label="Cliente" value={partes[0] ? <span className="masked" title="Identificador enmascarado — Ley 81 de Protección de Datos Personales">{partes[0].identificador_enmascarado}</span> : '—'} />
+              <InfoBox label="Cliente" value={partes[0] ? <span className="masked" title="Identificador enmascarado">{partes[0].identificador_enmascarado}</span> : '—'} />
               <InfoBox label="Monto reportado" value={op ? `USD ${op.monto.toLocaleString('en-US')}` : '—'} />
               <InfoBox label="Estado" value={<Badge tone={estadoTone(ros.estado)}>{estadoLabel(ros.estado)}</Badge>} />
               <InfoBox label="Completitud" value={`${docsAdj.filter((d) => d.documento_requerido_id).length} de ${docsReq.length} documentos (${completitud}%)`} />
@@ -290,7 +290,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
                 {partes.map((p) => (
                   <InfoBox key={p.id} label={p.rol_en_operacion.replace(/_/g, ' ')}
                     value={<>
-                      <div><span className="masked" title="Identificador enmascarado — Ley 81 de Protección de Datos Personales">{p.identificador_enmascarado}</span></div>
+                      <div><span className="masked" title="Identificador enmascarado">{p.identificador_enmascarado}</span></div>
                       {p.nombre_visible && <div style={{ marginTop: 6 }}>{p.nombre_visible}</div>}
                     </>} />
                 ))}
