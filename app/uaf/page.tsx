@@ -70,11 +70,11 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
   if (estado) { innerFilters.push(`r.estado = ?`); innerParams.push(estado); }
   if (sector) { innerFilters.push(`so.sector = ?`); innerParams.push(sector); }
 
-  // Analista solo ve los ROS que le fueron asignados formalmente por el supervisor
+  // Analista ve los ROS asignados a él O los que no tienen asignación activa (pool general)
   const isAnalista = session?.user?.rol === 'analista';
   if (isAnalista) {
     innerFilters.push(
-      `EXISTS (SELECT 1 FROM asignacion_ros ar WHERE ar.ros_id = r.id AND ar.analista_id = ? AND ar.activa = 1)`,
+      `(EXISTS (SELECT 1 FROM asignacion_ros ar WHERE ar.ros_id = r.id AND ar.analista_id = ? AND ar.activa = 1) OR NOT EXISTS (SELECT 1 FROM asignacion_ros ar WHERE ar.ros_id = r.id AND ar.activa = 1))`
     );
     innerParams.push(session!.user.id);
   }

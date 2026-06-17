@@ -31,6 +31,7 @@ export function MfaVerifyForm({ qr }: Props) {
             <label htmlFor="code">Código de 6 dígitos</label>
             <input
               id="code"
+              name="code"
               inputMode="numeric"
               pattern="[0-9]{6}"
               maxLength={6}

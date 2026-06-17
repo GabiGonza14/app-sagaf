@@ -21,6 +21,6 @@
     "forceConsistentCasingInFileNames": true,
     "noUncheckedIndexedAccess": false
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "__tests__/**/*.ts", "e2e/**/*.ts"],
   "exclude": ["node_modules", "public/uploads"]
 }

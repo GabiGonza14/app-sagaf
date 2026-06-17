@@ -21,7 +21,10 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
-  const form = await req.formData().catch(() => null);
+  const form = await req.formData().catch((e) => {
+    console.error('[API Upload] Error parsing form data:', e);
+    return null;
+  });
   if (!form) return NextResponse.json({ error: 'multipart/form-data requerido' }, { status: 400 });
 
   const file = form.get('file');
@@ -42,6 +45,7 @@ export async function POST(req: Request) {
     rol: session.user.rol, sujeto_obligado_id: session.user.sujetoObligadoId,
   };
   if (!canAccessROS(subject, ros.sujeto_obligado_id)) {
+    console.error('[API Upload] No autorizado:', { subject, ros_so: ros.sujeto_obligado_id });
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }
 
@@ -68,6 +72,7 @@ export async function POST(req: Request) {
   const mime = file.type;
   const fileName = file.name ?? '';
   if (!ALLOWED_MIME.has(mime) || !ALLOWED_EXT.test(fileName)) {
+    console.error('[API Upload] MIME o extensión no permitida:', { mime, fileName });
     return NextResponse.json({ error: 'Solo se permiten archivos PDF, JPG o PNG.' }, { status: 400 });
   }
 

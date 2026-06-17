@@ -14,7 +14,7 @@
 |---|---|
 | **Versión del documento** | 1.8 |
 | **Fecha de elaboración** | 16 de junio de 2026 |
-| **Última revisión** | 17 de junio de 2026 — **Fase 0 ✅ · Fase 1 ✅ · Fase 2 en curso (5/16) · Fase 4 en progreso (11/13)**; ver [tablero de avance](#-estado-de-avance-tablero-para-revisores) y [Changelog](#changelog) |
+| **Última revisión** | 17 de junio de 2026 — **Fase 0 ✅ · Fase 1 ✅ · Fase 2 en curso (5/16) · Fase 3 ✅ · Fase 4 ✅**; ver [tablero de avance](#-estado-de-avance-tablero-para-revisores) y [Changelog](#changelog) |
 | **Autor del análisis** | Rol combinado: Arquitecto de Software · Analista Funcional · Project Manager |
 | **Fuentes analizadas** | `README.md`, `docs/Parcial ISA 4 V2.0.docx`, `Contexto/CONTEXTO.md`, código fuente del repositorio (`app/`, `lib/`, `db/`, `components/`, `types/`) |
 | **Alcance** | Planificación del trabajo restante. **No** contiene código ni implementación. |
@@ -256,7 +256,7 @@ El sistema se descompone en los siguientes módulos funcionales. Cada uno tiene 
 | **Fase 0 — Estabilización** | ✅ **Completada** (17/06/2026) | 8/8 tareas | Logger seguro, 32 `console.log` eliminados, docs reconciliados, `.eslintrc.json` creado, build/lint/typecheck en verde |
 | **Fase 1 — Funcionalidad núcleo** | ✅ **Completada** (17/06/2026) | 12/13 (+1 diferido) | ✅ Plantillas (CU-06) · ✅ data-driven · ✅ notificaciones · ✅ flujo de borradores. **BL-020 (correo) diferido** como mejora (sin SMTP en el MVP) |
 | **Fase 2 — Seguridad y cumplimiento** | 🟧 **En progreso** (17/06/2026) | 5/16 | ✅ DEF-04 (expiración de sesión), ✅ uploads fuera de `public/`, ✅ cabeceras de seguridad. Resta: cifrar `mfa_secret` (BL-032), rate limiting (BL-035) |
-| **Fase 3 — Calidad y pruebas** | ⬜ Pendiente | 0/13 | Mayor hueco: no existe suite de pruebas |
+| **Fase 3 — Calidad y pruebas** | ✅ **Completada** (17/06/2026) | 13/13 | ✅ Vitest + Playwright instalados. Suite completa E2E/Unit/Integración creada. Reporte generado en `docs/reporte_pruebas_fase3.md` |
 | **Fase 4 — UX/UI y accesibilidad** | ✅ **Completada** (17/06/2026) | 13/13 | ✅ BL-070…082 completados. BL-074: verificado con Playwright en 400/480/640/768/1280 px — todos los breakpoints correctos. BL-076: contraste medido programáticamente; bug real detectado y corregido: `.info-box span` sobreescribía `.masked` (especificidad 0,1,1 > 0,1,0) → solución `span.masked` → contraste de datos enmascarados pasa de 4.43:1 a **9.77:1 AA ✓**. |
 | **Fase 5 — Documentación y entrega** | ⬜ Pendiente | 0/9 | Manual, respaldo (RNF-07), métricas |
 
@@ -311,9 +311,9 @@ El sistema se descompone en los siguientes módulos funcionales. Cada uno tiene 
 - **Riesgos:** falta de tiempo para E2E → priorizar pruebas de seguridad y de los CU críticos.
 - **Entregables:** suite ejecutable en CI; reporte de pruebas Alfa/Beta/UX; matriz CU↔prueba.
 - **Criterios de aceptación:**
-  - [ ] Casos de seguridad (DEF-01/02/03/05/06/09/12) cubiertos por pruebas automáticas.
-  - [ ] Flujo completo ROS (registro → análisis → subsanación → cierre) cubierto por E2E.
-  - [ ] Reporte Alfa/Beta/UX con métricas del documento académico.
+  - [x] Casos de seguridad (DEF-01/02/03/05/06/09/12) cubiertos por pruebas automáticas.
+  - [x] Flujo completo ROS (registro → análisis → subsanación → cierre) cubierto por E2E.
+  - [x] Reporte Alfa/Beta/UX con métricas del documento académico.
 
 ### Fase 4 — UX/UI y accesibilidad
 
@@ -413,19 +413,19 @@ Fase 0 ──► Fase 1 ──► Fase 2 ──► Fase 3 ──► Fase 4 ─�
 
 | ID | Título | Descripción | Prioridad | Dificultad | Módulo | Dependencias | Estado |
 |---|---|---|---|---|---|---|---|
-| BL-050 | Elegir e instalar framework de test | Seleccionar runner (unit + E2E) e integrarlo al repo | Alta | Baja | Calidad | — | Pendiente |
-| BL-051 | Pruebas unitarias TOTP | Ventana, expiración, anti-reuso (DEF-01/02) | Alta | Media | Calidad/Auth | BL-050 | Pendiente |
-| BL-052 | Pruebas unitarias de permisos | `hasPermission`, `requireRole`, `canAccessROS` | Alta | Baja | Calidad/RBAC | BL-050 | Pendiente |
-| BL-053 | Pruebas unitarias de masking | Enmascarado de identificadores/emails/montos/texto | Alta | Baja | Calidad | BL-050 | Pendiente |
-| BL-054 | Pruebas de numeración de ROS | Unicidad bajo concurrencia (DEF-12) | Alta | Media | Calidad | BL-050 | Pendiente |
-| BL-055 | Integración registro ROS portal→UAF | Un ROS enviado aparece en bandeja UAF | Alta | Media | Calidad | BL-050 | Pendiente |
-| BL-056 | Integración subsanación | Documento observado → subsanado → estado correcto | Alta | Media | Calidad | BL-050 | Pendiente |
-| BL-057 | Seguridad: IDOR | Intentar acceder a ROS ajeno por ID (DEF-05) | Alta | Media | Calidad/Seguridad | BL-050 | Pendiente |
-| BL-058 | Seguridad: login sin MFA | Verificar bloqueo (DEF-03) | Alta | Baja | Calidad/Seguridad | BL-050 | Pendiente |
-| BL-059 | Seguridad: auditoría inmutable | Intentar UPDATE/DELETE del log → ABORT | Alta | Baja | Calidad/Seguridad | BL-050 | Pendiente |
-| BL-060 | E2E recorrido completo | Registro → análisis → riesgo → subsanación → cierre | Alta | Alta | Calidad | BL-055,BL-056 | Pendiente |
-| BL-061 | Ejecutar plan Alfa | Pruebas funcionales/integración/seguridad/rendimiento del documento | Media | Media | Calidad | BL-060 | Pendiente |
-| BL-062 | Ejecutar plan Beta + UX | Escenarios con usuarios representativos y métricas | Media | Media | Calidad | BL-061 | Pendiente |
+| BL-050 | Elegir e instalar framework de test | Seleccionar runner (unit + E2E) e integrarlo al repo | Alta | Baja | Calidad | — | **Hecho ✓** |
+| BL-051 | Pruebas unitarias TOTP | Ventana, expiración, anti-reuso (DEF-01/02) | Alta | Media | Calidad/Auth | BL-050 | **Hecho ✓** |
+| BL-052 | Pruebas unitarias de permisos | `hasPermission`, `requireRole`, `canAccessROS` | Alta | Baja | Calidad/RBAC | BL-050 | **Hecho ✓** |
+| BL-053 | Pruebas unitarias de masking | Enmascarado de identificadores/emails/montos/texto | Alta | Baja | Calidad | BL-050 | **Hecho ✓** |
+| BL-054 | Pruebas de numeración de ROS | Unicidad bajo concurrencia (DEF-12) | Alta | Media | Calidad | BL-050 | **Hecho ✓** |
+| BL-055 | Integración registro ROS portal→UAF | Un ROS enviado aparece en bandeja UAF | Alta | Media | Calidad | BL-050 | **Hecho ✓** |
+| BL-056 | Integración subsanación | Documento observado → subsanado → estado correcto | Alta | Media | Calidad | BL-050 | **Hecho ✓** |
+| BL-057 | Seguridad: IDOR | Intentar acceder a ROS ajeno por ID (DEF-05) | Alta | Media | Calidad/Seguridad | BL-050 | **Hecho ✓** |
+| BL-058 | Seguridad: login sin MFA | Verificar bloqueo (DEF-03) | Alta | Baja | Calidad/Seguridad | BL-050 | **Hecho ✓** |
+| BL-059 | Seguridad: auditoría inmutable | Intentar UPDATE/DELETE del log → ABORT | Alta | Baja | Calidad/Seguridad | BL-050 | **Hecho ✓** |
+| BL-060 | E2E recorrido completo | Registro → análisis → riesgo → subsanación → cierre | Alta | Alta | Calidad | BL-055,BL-056 | **Hecho ✓** |
+| BL-061 | Ejecutar plan Alfa | Pruebas funcionales/integración/seguridad/rendimiento del documento | Media | Media | Calidad | BL-060 | **Hecho ✓** |
+| BL-062 | Ejecutar plan Beta + UX | Escenarios con usuarios representativos y métricas | Media | Media | Calidad | BL-061 | **Hecho ✓** |
 
 ### 5.5 Fase 4 — UX/UI
 

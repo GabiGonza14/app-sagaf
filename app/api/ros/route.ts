@@ -124,6 +124,7 @@ export async function POST(req: Request) {
     : schema;
   const parsed = baseSchema.safeParse(payload);
   if (!parsed.success) {
+    console.error('[API ROS] Error de validación Zod:', JSON.stringify(parsed.error.flatten(), null, 2));
     return NextResponse.json({ error: 'Datos inválidos', issues: parsed.error.flatten() }, { status: 400 });
   }
 
