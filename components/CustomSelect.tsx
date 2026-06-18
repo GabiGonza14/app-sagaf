@@ -60,13 +60,14 @@ export default function CustomSelect({
   });
 
   const selected = options.find((o) => o.value === value);
+  const menuOptions = options.filter((o) => !(o.disabled && o.value === ''));
 
   const computeDropdownStyle = useCallback(() => {
     if (!triggerRef.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom - GAP;
     const spaceAbove = rect.top - GAP;
-    const estimatedHeight = Math.min(DROPDOWN_MAX_HEIGHT, options.length * 40 + 12);
+    const estimatedHeight = Math.min(DROPDOWN_MAX_HEIGHT, menuOptions.length * 40 + 12);
     const shouldOpenUp = spaceBelow < estimatedHeight && spaceAbove > spaceBelow;
 
     if (shouldOpenUp) {
@@ -88,7 +89,7 @@ export default function CustomSelect({
         animation: 'fadeInUp 0.15s ease',
       });
     }
-  }, [options.length]);
+  }, [menuOptions.length]);
 
   const handleToggle = () => {
     if (disabled) return;
@@ -157,7 +158,7 @@ export default function CustomSelect({
         ...dropdownStyle,
       }}
     >
-      {options.map((opt) => {
+      {menuOptions.map((opt) => {
         const isSelected = opt.value === value;
         return (
           <li

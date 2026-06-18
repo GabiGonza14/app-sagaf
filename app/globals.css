@@ -1216,6 +1216,43 @@ span.masked, .masked {
   background-size: 200% 100%;
 }
 
+.progress-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.progress-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(248, 250, 252, 0.85);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.progress-chip strong {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.progress-chip.green { border-color: rgba(21,128,61,.22); background: rgba(233,249,239,.72); color: #166534; }
+.progress-chip.green strong { color: #15803d; }
+.progress-chip.amber { border-color: rgba(183,121,31,.22); background: rgba(255,244,219,.72); color: #926012; }
+.progress-chip.amber strong { color: #b7791f; }
+.progress-chip.red { border-color: rgba(180,35,24,.22); background: rgba(255,233,231,.72); color: #9f2e26; }
+.progress-chip.red strong { color: var(--red); }
+.progress-chip.teal { border-color: rgba(15,118,110,.22); background: rgba(239,250,247,.72); color: #0f766e; }
+.progress-chip.teal strong { color: #0f766e; }
+.progress-chip.gray { border-color: rgba(148,163,184,.25); background: rgba(248,250,252,.85); color: #64748b; }
+
 /* =====================================================================
    PORTAL
    ===================================================================== */

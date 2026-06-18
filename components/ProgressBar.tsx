@@ -7,6 +7,7 @@ interface Item {
   value: number; // 0-100
   badge: string;
   tone?: Tone;
+  detail?: Array<{ label: string; value: string; tone?: Tone }>;
 }
 
 export function ProgressList({ items }: { items: Item[] }) {
@@ -24,6 +25,16 @@ export function ProgressList({ items }: { items: Item[] }) {
               className="animate-shimmer"
             />
           </div>
+          {it.detail && it.detail.length > 0 && (
+            <div className="progress-detail">
+              {it.detail.map((d) => (
+                <span key={d.label} className={`progress-chip ${d.tone ?? 'gray'}`}>
+                  <strong>{d.value}</strong>
+                  {d.label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>

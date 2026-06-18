@@ -9,7 +9,7 @@ import { maskDescriptionText } from '@/lib/masking';
 import { formatPanama } from '@/lib/date';
 import CustomSelect from '@/components/CustomSelect';
 
-interface DocReq  { id: string; nombre: string; orden: number }
+interface DocReq  { id: string; nombre: string; orden: number; tipo_requerimiento: string }
 interface DocAdj  {
   id: string; documento_requerido_id: string | null; nombre_archivo: string;
   estado: string; observacion: string | null; fecha_carga: string;
@@ -267,6 +267,9 @@ export function RosExpedienteTabs({
 
   const adjByReq = new Map(docsAdj.filter((d) => d.documento_requerido_id).map((d) => [d.documento_requerido_id!, d]));
   const extras = docsAdj.filter((d) => !d.documento_requerido_id);
+  const docListReq = docsReq.filter((d) => d.tipo_requerimiento === 'requerido');
+  const docListCond = docsReq.filter((d) => d.tipo_requerimiento === 'condicional');
+  const docListOpt = docsReq.filter((d) => d.tipo_requerimiento === 'opcional');
 
   // Subsanaciones pendientes: bloquean acciones sobre el adjunto hasta que sujeto suba corrección
   const pendingSubsByAdjId = new Set(
@@ -451,11 +454,15 @@ export function RosExpedienteTabs({
             </div>
           </div>
 
-          <div className="doc-grid">
-            {docsReq.map((dr, i) => {
+          {(() => {
+            const renderDocCard = (dr: DocReq) => {
               const adj = adjByReq.get(dr.id);
               const hasPendingSubsOnAdj = adj ? pendingSubsByAdjId.has(adj.id) : false;
               const hasSolicitudPend    = !adj && pendingSubsByDocReqId.has(dr.id);
+              const globalIdx = docsReq.findIndex((d) => d.id === dr.id) + 1;
+              const typeClass =
+                dr.tipo_requerimiento === 'requerido' ? 'req-card' :
+                dr.tipo_requerimiento === 'condicional' ? 'cond-card' : 'opt-card';
 
               const tone =
                 adj?.estado === 'validado'  ? 'teal' :
@@ -465,12 +472,13 @@ export function RosExpedienteTabs({
                 hasSolicitudPend            ? 'purple' : 'amber';
               const badgeLabel =
                 hasSolicitudPend ? 'Solicitado' : (adj?.estado ?? 'pendiente');
+              const showBadge = Boolean(adj || hasSolicitudPend || dr.tipo_requerimiento === 'requerido');
               const klass = adj?.estado === 'observado' ? 'observed' : adj?.estado === 'validado' ? 'validated' : adj?.estado === 'cargado' ? 'uploaded' : '';
 
               return (
-                <div key={dr.id} className={`doc-card uaf-doc-card ${klass}`}>
+                <div key={dr.id} className={`doc-card uaf-doc-card ${typeClass} ${klass}`}>
                   <div className="uaf-doc-header">
-                    <div className="uaf-doc-index">{i + 1}</div>
+                    <div className="uaf-doc-index doc-num">{globalIdx}</div>
                     <div className="uaf-doc-meta">
                       <div className="doc-title">{dr.nombre}</div>
                       {adj && adj.estado !== 'no_aplica' && (
@@ -482,7 +490,9 @@ export function RosExpedienteTabs({
                         </div>
                       )}
                     </div>
-                    <Badge tone={tone as 'teal' | 'red' | 'green' | 'amber' | 'purple'}>{badgeLabel}</Badge>
+                    {showBadge && (
+                      <Badge tone={tone as 'teal' | 'red' | 'green' | 'amber' | 'purple'}>{badgeLabel}</Badge>
+                    )}
                   </div>
 
                   {adj ? (
@@ -554,8 +564,43 @@ export function RosExpedienteTabs({
                   )}
                 </div>
               );
-            })}
-          </div>
+            };
+
+            return (
+              <>
+                {docListReq.length > 0 && (
+                  <>
+                    <div className="doc-group-label req">
+                      <span className="doc-group-dot" />
+                      Obligatorios — {docListReq.length} documentos
+                      <span className="doc-group-line" />
+                    </div>
+                    <div className="doc-grid">{docListReq.map(renderDocCard)}</div>
+                  </>
+                )}
+                {docListCond.length > 0 && (
+                  <>
+                    <div className="doc-group-label cond">
+                      <span className="doc-group-dot" />
+                      Condicionales — {docListCond.length} documentos
+                      <span className="doc-group-line" />
+                    </div>
+                    <div className="doc-grid">{docListCond.map(renderDocCard)}</div>
+                  </>
+                )}
+                {docListOpt.length > 0 && (
+                  <>
+                    <div className="doc-group-label opt">
+                      <span className="doc-group-dot" />
+                      Opcionales — {docListOpt.length} documentos
+                      <span className="doc-group-line" />
+                    </div>
+                    <div className="doc-grid">{docListOpt.map(renderDocCard)}</div>
+                  </>
+                )}
+              </>
+            );
+          })()}
 
           {extras.length > 0 && (
             <>

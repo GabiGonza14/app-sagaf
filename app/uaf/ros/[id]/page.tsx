@@ -44,7 +44,7 @@ interface OpRow {
   forma_pago: string | null;
   senal_alerta: string;
 }
-interface DocReqRow { id: string; nombre: string; orden: number }
+interface DocReqRow { id: string; nombre: string; orden: number; tipo_requerimiento: string }
 interface DocAdjRow {
   id: string;
   documento_requerido_id: string | null;
@@ -148,7 +148,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
   ).all(id);
 
   const docsReq = db.prepare<[string], DocReqRow>(
-    'SELECT id, nombre, orden FROM documento_requerido WHERE plantilla_id = ? ORDER BY orden',
+    'SELECT id, nombre, orden, tipo_requerimiento FROM documento_requerido WHERE plantilla_id = ? ORDER BY orden',
   ).all(ros.plantilla_id);
 
   const docsAdj = db.prepare<[string], DocAdjRow>(
@@ -198,6 +198,16 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
   const completitud = docsReq.length === 0
     ? 0
     : Math.round((docsAdj.filter((d) => d.documento_requerido_id).length / docsReq.length) * 100);
+  const docsReqObligatorios = docsReq.filter((d) => d.tipo_requerimiento === 'requerido');
+  const docsReqCondicionales = docsReq.filter((d) => d.tipo_requerimiento === 'condicional');
+  const docsReqOpcionales = docsReq.filter((d) => d.tipo_requerimiento === 'opcional');
+  const countCargados = (docs: DocReqRow[]) => docs.filter((d) => docsAdj.some((a) => a.documento_requerido_id === d.id)).length;
+  const obligatoriosCargados = countCargados(docsReqObligatorios);
+  const condicionalesCargados = countCargados(docsReqCondicionales);
+  const opcionalesCargados = countCargados(docsReqOpcionales);
+  const completitudObligatoria = docsReqObligatorios.length === 0
+    ? 100
+    : Math.round((obligatoriosCargados / docsReqObligatorios.length) * 100);
 
   const canClassify = ['analista', 'supervisor'].includes(session.user.rol);
   const canClose = session.user.rol === 'supervisor';
@@ -303,7 +313,29 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
             <ProgressList
               items={[
                 { label: 'Señales de alerta', value: riesgoActual?.puntaje ?? 0, badge: riesgoActual ? riesgoActual.nivel : 'sin clasificar', tone: riesgoActual ? riskTone(riesgoActual.nivel) : 'gray' },
-                { label: 'Completitud documental', value: completitud, badge: `${completitud}%`, tone: completitud >= 90 ? 'green' : completitud >= 60 ? 'amber' : 'red' },
+                {
+                  label: 'Completitud documental obligatoria',
+                  value: completitudObligatoria,
+                  badge: `${obligatoriosCargados}/${docsReqObligatorios.length} obligatorios`,
+                  tone: completitudObligatoria === 100 ? 'green' : completitudObligatoria >= 75 ? 'amber' : 'red',
+                  detail: [
+                    {
+                      label: 'obligatorios',
+                      value: `${obligatoriosCargados}/${docsReqObligatorios.length}`,
+                      tone: completitudObligatoria === 100 ? 'green' : 'red',
+                    },
+                    {
+                      label: 'condicionales',
+                      value: `${condicionalesCargados}/${docsReqCondicionales.length}`,
+                      tone: condicionalesCargados >= docsReqCondicionales.length && docsReqCondicionales.length > 0 ? 'green' : 'amber',
+                    },
+                    {
+                      label: 'opcionales',
+                      value: `${opcionalesCargados}/${docsReqOpcionales.length}`,
+                      tone: opcionalesCargados > 0 ? 'teal' : 'gray',
+                    },
+                  ],
+                },
                 { label: 'Coincidencias con otros ROS', value: Math.min(vinculos.length * 25, 100), badge: `${vinculos.length} vínculo(s)`, tone: vinculos.length > 0 ? 'purple' : 'gray' },
               ]}
             />
