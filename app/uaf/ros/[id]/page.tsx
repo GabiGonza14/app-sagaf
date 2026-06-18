@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
-import { audit } from '@/lib/audit';
+import { audit, extractClientIp } from '@/lib/audit';
 import { TopBar } from '@/components/TopBar';
 import { Badge, riskTone, estadoTone, estadoLabel } from '@/components/Badge';
 import { formatPanama } from '@/lib/date';
@@ -104,7 +104,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
         modulo: 'expediente', accion: 'consulta_expediente', resultado: 'bloqueado',
         usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
         recurso_afectado: ros.numero_ros,
-        ip: h2.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h2.get('x-real-ip'),
+        ip: extractClientIp(h2),
         user_agent: h2.get('user-agent'),
         criticidad: 'alta',
       });
@@ -126,7 +126,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
     modulo: 'expediente', accion: 'consulta_expediente', resultado: 'exito',
     usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
     recurso_afectado: ros.numero_ros,
-    ip: h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip'),
+    ip: extractClientIp(h),
     user_agent: h.get('user-agent'),
   });
 

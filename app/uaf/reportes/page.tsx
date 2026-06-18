@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
-import { audit } from '@/lib/audit';
+import { audit, extractClientIp } from '@/lib/audit';
 import { TopBar } from '@/components/TopBar';
 import { KpiCard } from '@/components/KpiCard';
 import { Badge } from '@/components/Badge';
@@ -64,7 +64,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
   audit({
     modulo: 'reportes', accion: 'generar_reporte', resultado: 'exito',
     usuario_id: session!.user.id, usuario_correo: session!.user.email, rol: session!.user.rol,
-    ip: h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? undefined,
+    ip: extractClientIp(h) ?? undefined,
     user_agent: h.get('user-agent') ?? undefined,
     detalle: { tipo, sector, estado, fecha_desde: fd, fecha_hasta: fh },
   });

@@ -73,7 +73,8 @@ interface PlantillaAsig {
 export default async function SujetosObligadosSupervisor() {
   const session = await auth();
   if (!session?.user) redirect('/login');
-  if (session.user.rol !== 'supervisor') redirect('/uaf');
+  // Solo admin gestiona sujetos obligados desde /admin/sujetos-obligados
+  if (session.user.rol !== 'admin') redirect('/uaf');
 
   const rows = db.prepare<[], Row>(
     `SELECT so.id, so.nombre, so.ruc, so.tipo, so.sector, so.organismo_supervisor,

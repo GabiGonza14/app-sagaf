@@ -106,29 +106,6 @@ export default async function PortalHome() {
         <KpiCard label="Clasificados alto riesgo" value={totales.altos} badge="Prioridad" tone="red" />
       </div>
 
-      {/* Alertas de subsanación */}
-      {subsanacionesPendientes.length > 0 && (
-        <div className="notice amber" style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 18 }}>
-          <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 1 }} />
-          <div style={{ flex: 1 }}>
-            <strong style={{ display: 'block', marginBottom: 6 }}>
-              {subsanacionesPendientes.length} solicitud{subsanacionesPendientes.length > 1 ? 'es' : ''} de subsanación pendiente{subsanacionesPendientes.length > 1 ? 's' : ''}
-            </strong>
-            <div style={{ display: 'grid', gap: 4 }}>
-              {subsanacionesPendientes.map((s) => (
-                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                  <span style={{ fontFamily: 'Consolas, monospace', fontWeight: 700 }}>{s.numero_ros}</span>
-                  <span>—</span>
-                  <span>{s.motivo}</span>
-                  <Link href={`/portal/ros/${s.ros_id}`} style={{ marginLeft: 'auto', color: '#7a4b00', fontWeight: 700, textDecoration: 'underline' }}>
-                    Atender →
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'stretch' }}>
         {/* Acciones rápidas */}

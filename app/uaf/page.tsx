@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
+import { formatPanamaMedium } from '@/lib/date';
 import { TopBar } from '@/components/TopBar';
 import { KpiCard } from '@/components/KpiCard';
 import { Badge, riskTone, estadoTone, estadoLabel } from '@/components/Badge';
@@ -134,10 +135,9 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
   const ros = db.prepare<unknown[], RosRow>(sql).all(...innerParams, ...outerParams);
 
   // KPIs (sec. 2.2 del documento)
-  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const nuevosHoy = db
-    .prepare<[string], { c: number }>(`SELECT COUNT(*) AS c FROM ros WHERE fecha_recepcion >= ?`)
-    .get(todayStart.toISOString())?.c ?? 0;
+    .prepare<[], { c: number }>(`SELECT COUNT(*) AS c FROM ros WHERE date(fecha_recepcion, 'localtime') = date('now', 'localtime')`)
+    .get()?.c ?? 0;
   const altoRiesgo = db
     .prepare<[], { c: number }>(
       `SELECT COUNT(DISTINCT ros_id) AS c FROM riesgo_caso rc
@@ -193,7 +193,6 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
             <h3>Bandeja de ROS</h3>
             <p>Priorizada por riesgo, estado y completitud documental.</p>
           </div>
-          <span className="badge green">Actualizado</span>
         </div>
 
         <FilterBar
@@ -235,6 +234,9 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
                   <span>Sustento: {r.doc_cargados}/{r.doc_total} documentos · USD {r.monto.toLocaleString('en-US')}</span>
                   {r.jurisdiccion && <span>Jurisdicción: {r.jurisdiccion}</span>}
                 </div>
+                <span style={{ position: 'absolute', bottom: 14, right: 16, fontSize: 11, color: 'var(--muted)' }}>
+                  {formatPanamaMedium(r.fecha_recepcion)}
+                </span>
               </Link>
             ))}
           </div>

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import CustomSelect from '@/components/CustomSelect';
+import { SuccessModal } from '@/components/SuccessModal';
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 
@@ -43,6 +44,7 @@ export function NuevoSujetoForm({
   const [seleccionadas, setSeleccionadas] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState(false);
 
   const compatibles = plantillas.filter((p) => p.tipo_sujeto_obligado === tipo);
 
@@ -81,11 +83,19 @@ export function NuevoSujetoForm({
       if (!res.ok) { setError(data.error ?? 'Error.'); return; }
       setNombre(''); setRuc(''); setOrganismo(''); setResponsable(''); setSeleccionadas([]);
       setEstado('activo');
+      setSuccessModal(true);
       router.refresh();
     } finally { setBusy(false); }
   }
 
   return (
+    <>
+    <SuccessModal
+      isOpen={successModal}
+      title="Sujeto obligado registrado"
+      message="El nuevo sujeto obligado fue creado correctamente en el sistema."
+      onClose={() => setSuccessModal(false)}
+    />
     <form onSubmit={onSubmit}>
       <div className="form-grid">
         <div className="field">
@@ -154,5 +164,6 @@ export function NuevoSujetoForm({
         </div>
       </div>
     </form>
+    </>
   );
 }

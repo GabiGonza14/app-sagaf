@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { SuccessModal } from '@/components/SuccessModal';
 import { X } from 'lucide-react';
 import CustomSelect from '@/components/CustomSelect';
 
@@ -35,6 +36,8 @@ export function UsuarioActions({
   const [sujetoId, setSujetoId] = useState(sujetoObligadoId ?? '');
 
   const [error, setError] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState<{ title: string; message: string } | null>(null);
+  const [refreshOnClose, setRefreshOnClose] = useState(false);
 
   const desactivar = estadoActual === 'activo';
   const nuevoEstado = desactivar ? 'inactivo' : 'activo';
@@ -53,6 +56,7 @@ export function UsuarioActions({
         body: JSON.stringify({ estado: nuevoEstado }),
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'No se pudo actualizar el estado del usuario.'); return; }
+      setSuccessModal({ title: 'Estado actualizado', message: `El usuario fue ${nuevoEstado === 'activo' ? 'activado' : 'desactivado'} correctamente.` });
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -74,6 +78,7 @@ export function UsuarioActions({
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'No se pudo actualizar el usuario.'); return; }
       setOpenEditar(false);
+      setSuccessModal({ title: 'Usuario actualizado', message: 'Los cambios del usuario fueron guardados correctamente.' });
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -85,7 +90,8 @@ export function UsuarioActions({
     try {
       const res = await fetch(`/api/usuarios/${usuarioId}`, { method: 'DELETE' });
       if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'No se pudo eliminar el usuario.'); return; }
-      router.refresh();
+      setSuccessModal({ title: 'Usuario eliminado', message: 'El usuario fue eliminado del sistema correctamente.' });
+      setRefreshOnClose(true);
     } finally { setBusy(false); }
   }
 
@@ -187,6 +193,16 @@ export function UsuarioActions({
         busy={busy}
         onConfirm={eliminarUsuario}
         onCancel={() => setOpenEliminar(false)}
+      />
+
+      <SuccessModal
+        isOpen={!!successModal}
+        title={successModal?.title ?? ''}
+        message={successModal?.message ?? ''}
+        onClose={() => {
+          setSuccessModal(null);
+          if (refreshOnClose) { setRefreshOnClose(false); router.refresh(); }
+        }}
       />
     </>
   );

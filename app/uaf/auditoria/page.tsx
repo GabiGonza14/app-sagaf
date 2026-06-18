@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { TopBar } from '@/components/TopBar';
 import { AuditTable } from '@/components/AuditTable';
-import { audit, extractRequestContext } from '@/lib/audit';
+import { audit, extractClientIp } from '@/lib/audit';
 import { headers } from 'next/headers';
 
 export const revalidate = 0;
@@ -13,8 +13,8 @@ interface SP {
 
 export default async function UafAuditoriaPage({ searchParams }: { searchParams: Promise<SP> }) {
   const session = await auth();
-  // Solo supervisor puede acceder a la auditoría desde /uaf; analista no tiene permiso
-  if (session?.user?.rol === 'analista') redirect('/uaf');
+  // Solo el rol auditor accede desde /auditor; supervisor y analista no tienen permiso aquí
+  if (session?.user?.rol !== 'admin') redirect('/uaf');
   const sp = await searchParams;
   const filters = {
     q: sp.q ?? '',
@@ -35,7 +35,7 @@ export default async function UafAuditoriaPage({ searchParams }: { searchParams:
     usuario_id: session!.user.id,
     usuario_correo: session!.user.email,
     rol: session!.user.rol,
-    ip: h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip'),
+    ip: extractClientIp(h),
     user_agent: h.get('user-agent'),
     detalle: filters,
   });

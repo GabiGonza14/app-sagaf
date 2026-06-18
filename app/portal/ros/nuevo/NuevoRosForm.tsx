@@ -139,6 +139,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
   const [oficial, setOficial] = useState(initialData?.oficial ?? oficialDefault);
   const [correoOficial, setCorreoOficial] = useState(initialData?.correoOficial ?? correoDefault);
   const [fechaDeteccion, setFechaDeteccion] = useState(initialData?.fechaDeteccion ?? new Date().toISOString().slice(0, 10));
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const [camposValores, setCamposValores] = useState<Record<string, string>>(initialData?.camposValores ?? {});
   const [observaciones, setObservaciones] = useState(initialData?.observaciones ?? '');
@@ -630,7 +631,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         </div>
         <div className="field">
           <label htmlFor="fecha-deteccion">Fecha de detección <span className="req">*</span></label>
-          <input id="fecha-deteccion" type="date" value={fechaDeteccion} onChange={(e) => setFechaDeteccion(e.target.value)} required />
+          <input id="fecha-deteccion" type="date" value={fechaDeteccion} onChange={(e) => setFechaDeteccion(e.target.value)} max={today} required />
         </div>
         <div className="field">
           <label htmlFor="oficial-cumplimiento">Oficial de cumplimiento <span className="req">*</span></label>

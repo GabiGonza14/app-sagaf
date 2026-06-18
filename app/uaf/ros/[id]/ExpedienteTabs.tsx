@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/Badge';
 import { Timeline } from '@/components/Timeline';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { SuccessModal } from '@/components/SuccessModal';
 import { maskDescriptionText } from '@/lib/masking';
 import { formatPanama } from '@/lib/date';
 import CustomSelect from '@/components/CustomSelect';
@@ -71,6 +72,7 @@ export function RosExpedienteTabs({
   const [solicitudEnviada, setSolicitudEnviada] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [altoRiesgoMsg, setAltoRiesgoMsg] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState<{ title: string; message: string } | null>(null);
 
   const TABS: Tab[] = ['resumen', 'riesgo', 'documentos', 'vinculos', 'auditoria'];
 
@@ -96,6 +98,7 @@ export function RosExpedienteTabs({
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'Error al clasificar.'); return; }
       setRiesgoJustif('');
+      setSuccessModal({ title: 'Riesgo clasificado', message: `El nivel de riesgo ${riesgoNivel.toUpperCase()} fue registrado correctamente en el expediente.` });
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -136,6 +139,7 @@ export function RosExpedienteTabs({
         body: JSON.stringify({ estado: nuevoEstado }),
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo actualizar el estado del ROS.'); return; }
+      setSuccessModal({ title: 'Estado actualizado', message: `El ROS ${numeroRos} fue cambiado a "${nuevoEstado.replace(/_/g, ' ')}" correctamente.` });
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -236,6 +240,7 @@ export function RosExpedienteTabs({
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo asignar el analista.'); return; }
       setAnalistaId('');
+      setSuccessModal({ title: 'Analista asignado', message: 'El analista fue asignado al expediente correctamente.' });
       router.refresh();
     } finally { setAsignandoBusy(false); }
   }
@@ -730,6 +735,13 @@ export function RosExpedienteTabs({
         busy={busy}
         onConfirm={() => doVinculo(false)}
         onCancel={() => setActiveModal(null)}
+      />
+
+      <SuccessModal
+        isOpen={!!successModal}
+        title={successModal?.title ?? ''}
+        message={successModal?.message ?? ''}
+        onClose={() => setSuccessModal(null)}
       />
     </div>
   );

@@ -47,12 +47,26 @@ export function audit(payload: AuditPayload): void {
   );
 }
 
+export function extractClientIp(h: Headers): string | null {
+  const proxyIp =
+    h.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    h.get('x-real-ip') ??
+    h.get('x-client-ip') ??
+    h.get('cf-connecting-ip') ??
+    h.get('true-client-ip') ??
+    h.get('forwarded')?.split(';').find((p) => p.trim().startsWith('for='))?.split('=')[1]?.replace(/"/g, '')?.trim();
+  if (proxyIp) return proxyIp;
+
+  const host = h.get('host') ?? '';
+  if (host.includes('localhost') || host.startsWith('127.0.0.1') || host.startsWith('::1')) return '127.0.0.1';
+
+  return null;
+}
+
 export function extractRequestContext(req: Request): { ip: string | null; user_agent: string | null } {
-  const headers = req.headers;
-  const ip =
-    headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    headers.get('x-real-ip') ??
-    null;
-  const user_agent = headers.get('user-agent') ?? null;
-  return { ip, user_agent };
+  const h = req.headers;
+  return {
+    ip: extractClientIp(h),
+    user_agent: h.get('user-agent') ?? null,
+  };
 }

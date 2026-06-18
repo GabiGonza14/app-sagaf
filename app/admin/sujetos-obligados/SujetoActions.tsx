@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { SuccessModal } from '@/components/SuccessModal';
 import CustomSelect from '@/components/CustomSelect';
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
@@ -50,6 +51,8 @@ export function SujetoActions({
   const [error, setError] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [openEliminar, setOpenEliminar] = useState(false);
+  const [successModal, setSuccessModal] = useState<{ title: string; message: string } | null>(null);
+  const [refreshOnClose, setRefreshOnClose] = useState(false);
 
   // form state
   const [nombre, setNombre] = useState(sujeto.nombre);
@@ -103,6 +106,7 @@ export function SujetoActions({
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Error al actualizar.'); return; }
       setOpen(false);
+      setSuccessModal({ title: 'Sujeto actualizado', message: 'Los datos del sujeto obligado fueron guardados correctamente.' });
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -122,6 +126,7 @@ export function SujetoActions({
         setToggleError(data.error ?? 'Error al cambiar el estado.');
         return;
       }
+      setSuccessModal({ title: 'Estado actualizado', message: `El sujeto obligado fue ${nuevoEstado === 'activo' ? 'activado' : 'desactivado'} correctamente.` });
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -137,7 +142,8 @@ export function SujetoActions({
         setToggleError(data.error ?? 'No se pudo eliminar el sujeto obligado.');
         return;
       }
-      router.refresh();
+      setSuccessModal({ title: 'Sujeto eliminado', message: 'El sujeto obligado fue eliminado del sistema correctamente.' });
+      setRefreshOnClose(true);
     } finally { setBusy(false); }
   }
 
@@ -271,6 +277,16 @@ export function SujetoActions({
         busy={busy}
         onConfirm={eliminarSujeto}
         onCancel={() => setOpenEliminar(false)}
+      />
+
+      <SuccessModal
+        isOpen={!!successModal}
+        title={successModal?.title ?? ''}
+        message={successModal?.message ?? ''}
+        onClose={() => {
+          setSuccessModal(null);
+          if (refreshOnClose) { setRefreshOnClose(false); router.refresh(); }
+        }}
       />
     </>
   );

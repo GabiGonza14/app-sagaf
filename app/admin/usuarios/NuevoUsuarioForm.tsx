@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PasswordInput } from '@/components/PasswordInput';
 import CustomSelect from '@/components/CustomSelect';
+import { SuccessModal } from '@/components/SuccessModal';
 
 interface Props {
   sujetos: Array<{ id: string; nombre: string }>;
@@ -19,6 +20,7 @@ export function NuevoUsuarioForm({ sujetos, roles }: Props) {
   const [sujetoId, setSujetoId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState(false);
 
   const rolName = roles.find((r) => r.id === rolId)?.nombre;
   const requiresSujeto = rolName === 'sujeto_obligado';
@@ -43,11 +45,19 @@ export function NuevoUsuarioForm({ sujetos, roles }: Props) {
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Error creando usuario.'); return; }
       setNombre(''); setCorreo(''); setPassword(''); setSujetoId('');
+      setSuccessModal(true);
       router.refresh();
     } finally { setBusy(false); }
   }
 
   return (
+    <>
+    <SuccessModal
+      isOpen={successModal}
+      title="Usuario creado"
+      message="El nuevo usuario fue registrado correctamente en el sistema."
+      onClose={() => setSuccessModal(false)}
+    />
     <form onSubmit={onSubmit}>
       <div className="form-grid">
         <div className="field">
@@ -85,5 +95,6 @@ export function NuevoUsuarioForm({ sujetos, roles }: Props) {
         </div>
       </div>
     </form>
+    </>
   );
 }
