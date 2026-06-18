@@ -51,7 +51,7 @@ export function RosExpedienteTabs({
   const [busy, setBusy] = useState(false);
 
   // Clasificación de riesgo
-  const [riesgoNivel, setRiesgoNivel] = useState<'alto' | 'medio' | 'bajo'>('alto');
+  const [riesgoNivel, setRiesgoNivel] = useState<'alto' | 'medio' | 'bajo' | ''>('');
   const [riesgoPuntaje, setRiesgoPuntaje] = useState(0);
   const [riesgoJustif, setRiesgoJustif] = useState('');
 
@@ -89,6 +89,7 @@ export function RosExpedienteTabs({
   async function clasificar(e: React.FormEvent) {
     e.preventDefault();
     clearError();
+    if (!riesgoNivel) { setActionError('Debe seleccionar un nivel de riesgo.'); return; }
     if (riesgoJustif.trim().length < 15) { setActionError('La justificación debe tener al menos 15 caracteres.'); return; }
     setBusy(true);
     try {
@@ -392,7 +393,8 @@ export function RosExpedienteTabs({
                 <div className="form-grid">
                   <div className="field">
                     <label>Nivel</label>
-                    <CustomSelect value={riesgoNivel} onChange={(e) => setRiesgoNivel(e.target.value as 'alto' | 'medio' | 'bajo')}>
+                    <CustomSelect value={riesgoNivel} onChange={(e) => setRiesgoNivel(e.target.value as 'alto' | 'medio' | 'bajo' | '')}>
+                      <option value="" disabled>Seleccione un nivel...</option>
                       <option value="alto">Alto</option>
                       <option value="medio">Medio</option>
                       <option value="bajo">Bajo</option>
