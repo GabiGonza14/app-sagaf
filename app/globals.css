@@ -860,6 +860,28 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   background: rgba(20, 92, 158, 0.08);
 }
 
+/* React Datepicker Overrides */
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
+.react-datepicker {
+  background-color: white !important;
+  border: 1px solid var(--line) !important;
+  font-family: inherit !important;
+  box-shadow: var(--shadow) !important;
+}
+.react-datepicker__header {
+  background-color: #f8fafc !important;
+  border-bottom: 1px solid var(--line) !important;
+}
+.react-datepicker__day--selected {
+  background-color: var(--primary) !important;
+  color: white !important;
+}
+.react-datepicker__day:hover {
+  background-color: rgba(20, 92, 158, 0.08) !important;
+}
+
 /* =====================================================================
    REPORT LIST
    ===================================================================== */

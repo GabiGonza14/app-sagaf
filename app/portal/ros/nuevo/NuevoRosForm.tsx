@@ -5,6 +5,11 @@ import { CheckCircle, FileText, AlertCircle, User, Building2, Shield, FileCheck,
 import { FileDropZone, isAllowedFile, MAX_BYTES } from '@/components/FileDropZone';
 import { useNavigationGuard } from '@/lib/navigation-guard';
 import CustomSelect from '@/components/CustomSelect';
+import DatePicker, { registerLocale } from 'react-datepicker';
+import { es } from 'date-fns/locale';
+import 'react-datepicker/dist/react-datepicker.css';
+
+registerLocale('es', es);
 
 // ── Auto-save draft helpers (sessionStorage) ──
 const DRAFT_KEY = 'sagaf_ros_draft';
@@ -631,7 +636,34 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         </div>
         <div className="field">
           <label htmlFor="fecha-deteccion">Fecha de detección <span className="req">*</span></label>
-          <input id="fecha-deteccion" type="date" value={fechaDeteccion} onChange={(e) => setFechaDeteccion(e.target.value)} max={today} required />
+          <div className="relative">
+            <DatePicker
+              id="fecha-deteccion"
+              selected={fechaDeteccion ? new Date(fechaDeteccion + 'T12:00:00') : null}
+              onChange={(date: Date | null) => {
+                if (date) {
+                  const yyyy = date.getFullYear();
+                  const mm = String(date.getMonth() + 1).padStart(2, '0');
+                  const dd = String(date.getDate()).padStart(2, '0');
+                  setFechaDeteccion(`${yyyy}-${mm}-${dd}`);
+                } else {
+                  setFechaDeteccion('');
+                }
+              }}
+              maxDate={new Date()}
+              locale="es"
+              dateFormat="yyyy-MM-dd"
+              className="w-full"
+              wrapperClassName="w-full"
+              placeholderText="Seleccione una fecha"
+              required
+              showPopperArrow={false}
+              autoComplete="off"
+              popperPlacement="bottom-start"
+              popperClassName="-translate-x-3 mt-1"
+            />
+            <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+          </div>
         </div>
         <div className="field">
           <label htmlFor="oficial-cumplimiento">Oficial de cumplimiento <span className="req">*</span></label>
