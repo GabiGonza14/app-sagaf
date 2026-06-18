@@ -165,7 +165,7 @@ export default async function MisROS({
                       {formatPanamaShort(r.fecha_recepcion)}
                     </td>
                     <td><Badge tone={estadoTone(r.estado)}>{estadoLabel(r.estado, 'portal')}</Badge></td>
-                    <td style={{ whiteSpace: 'nowrap' }}>USD {r.monto.toLocaleString('en-US')}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>${r.monto.toLocaleString('en-US')}</td>
                     <td>
                       {r.nivel_riesgo
                         ? <Badge tone={riskTone(r.nivel_riesgo)}>{r.nivel_riesgo}</Badge>

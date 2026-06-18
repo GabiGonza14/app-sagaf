@@ -8,7 +8,7 @@ import { Badge, riskTone, estadoTone, estadoLabel } from '@/components/Badge';
 import { formatPanama } from '@/lib/date';
 import { InfoBox } from '@/components/InfoBox';
 import { Notice } from '@/components/Notice';
-import { BackButton } from '@/components/BackButton';
+
 import { ProgressList } from '@/components/ProgressBar';
 import { Timeline } from '@/components/Timeline';
 import { RosExpedienteTabs } from './ExpedienteTabs';
@@ -111,7 +111,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
       return (
         <>
           <TopBar eyebrow="Expediente del ROS" title={ros.numero_ros}
-            description="" right={<BackButton href="/uaf" label="Bandeja" />} />
+            description="" />
           <div className="notice" style={{ color: 'var(--red)', borderColor: 'var(--red)', marginTop: 16 }}>
             <strong>Acceso restringido.</strong> Este ROS no le ha sido asignado.
             Solo puede gestionar los expedientes que el Supervisor le asigne formalmente.
@@ -222,9 +222,6 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
 
   return (
     <>
-      <div style={{ marginBottom: 16 }}>
-        <BackButton href="/uaf" label="Volver a Bandeja" />
-      </div>
 
       <TopBar
         eyebrow="Expediente del ROS"

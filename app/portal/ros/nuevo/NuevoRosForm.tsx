@@ -1,8 +1,20 @@
 'use client';
-import { useRef, useMemo, useState, useTransition } from 'react';
+import { useRef, useMemo, useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, FileText, AlertCircle, User, Building2, Shield, FileCheck, Save } from 'lucide-react';
 import { FileDropZone, isAllowedFile, MAX_BYTES } from '@/components/FileDropZone';
+import { useNavigationGuard } from '@/lib/navigation-guard';
+
+// ── Auto-save draft helpers (sessionStorage) ──
+const DRAFT_KEY = 'sagaf_ros_draft';
+
+function saveDraft(data: unknown) {
+  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch {}
+}
+
+function clearDraft() {
+  try { sessionStorage.removeItem(DRAFT_KEY); } catch {}
+}
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 interface DocReq    { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string }
@@ -15,6 +27,29 @@ interface PartyState {
   message?: string;
 }
 
+interface FormDraft {
+  plantillaId: string;
+  tipoCliente: 'natural' | 'juridica';
+  ordenante: PartyState;
+  beneficiario: PartyState;
+  comprador: PartyState;
+  cliente: PartyState;
+  monto: string;
+  jurisdiccion: string;
+  senalAlerta: string;
+  productoServicio: string;
+  bienInmueble: string;
+  formaPago: string;
+  descripcion: string;
+  oficial: string;
+  correoOficial: string;
+  fechaDeteccion: string;
+  camposValores: Record<string, string>;
+  observaciones: string;
+  fileLabels: Record<string, string>;
+  savedAt: number;
+}
+
 interface InitialData {
   rosId: string;
   plantillaId: string;
@@ -22,6 +57,7 @@ interface InitialData {
   correoOficial: string;
   fechaDeteccion: string;
   descripcion: string;
+  observaciones?: string;
   monto: number;
   jurisdiccion: string;
   senalAlerta: string;
@@ -91,7 +127,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     initialData?.cliente ?? { id: '', status: 'idle', nombre: '' }
   );
 
-  const [monto, setMonto] = useState(initialData?.monto ? String(initialData.monto) : '');
+  const [monto, setMonto] = useState(initialData?.monto != null ? String(initialData.monto) : '');
   const [jurisdiccion, setJurisdiccion] = useState(initialData?.jurisdiccion ?? '');
   const [senalAlerta, setSenalAlerta] = useState(initialData?.senalAlerta ?? 'Movimientos incompatibles con el perfil');
   const [productoServicio, setProductoServicio] = useState(initialData?.productoServicio ?? '');
@@ -103,7 +139,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
   const [fechaDeteccion, setFechaDeteccion] = useState(initialData?.fechaDeteccion ?? new Date().toISOString().slice(0, 10));
 
   const [camposValores, setCamposValores] = useState<Record<string, string>>(initialData?.camposValores ?? {});
-  const [observaciones, setObservaciones] = useState('');
+  const [observaciones, setObservaciones] = useState(initialData?.observaciones ?? '');
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [extras, setExtras] = useState<File[]>([]);
   const [fileLabels, setFileLabels] = useState<Record<string, string>>(initialData?.uploadedDocs ?? {});
@@ -112,6 +148,20 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // ── Navigation guard (unsaved changes) ──
+  const { setUnsavedChanges, registerSaveDraft } = useNavigationGuard();
+
+  function collectDraft(): FormDraft {
+    return {
+      plantillaId, tipoCliente,
+      ordenante, beneficiario, comprador, cliente,
+      monto, jurisdiccion, senalAlerta, productoServicio, bienInmueble, formaPago,
+      descripcion, oficial, correoOficial, fechaDeteccion,
+      camposValores, observaciones, fileLabels,
+      savedAt: Date.now(),
+    };
+  }
 
   interface DuplicadoROS {
     id: string;
@@ -158,24 +208,53 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     descripcion.trim().length >= 30 &&
     docsOk,
   );
+  function partyNameValid(p: PartyState): boolean {
+    return p.status !== 'not_found' || p.nombre.trim().length >= 2;
+  }
   const camposBancoOk = !isBank || Boolean(
-    ordenante.id.trim().length >= 3 &&
-    beneficiario.id.trim().length >= 3 &&
+    ordenante.id.trim().length >= 3 && partyNameValid(ordenante) &&
+    beneficiario.id.trim().length >= 3 && partyNameValid(beneficiario) &&
     jurisdiccion.trim() &&
     productoServicio.trim(),
   );
   const camposInmobiliariaOk = !isRealEstate || Boolean(
-    comprador.id.trim().length >= 3 &&
+    comprador.id.trim().length >= 3 && partyNameValid(comprador) &&
     jurisdiccion.trim() &&
     bienInmueble.trim() &&
     formaPago.trim(),
   );
-  const camposGenericOk = !isGeneric || cliente.id.trim().length >= 3;
+  const camposGenericOk = !isGeneric || (cliente.id.trim().length >= 3 && partyNameValid(cliente));
   const formListo = camposBaseOk && camposBancoOk && camposInmobiliariaOk && camposGenericOk && camposDinamicosOk;
   const hayAlgunDato = [
     ordenante.id, beneficiario.id, comprador.id, cliente.id,
     monto, descripcion, productoServicio, bienInmueble, formaPago, jurisdiccion,
   ].some((v) => v.trim() !== '') || cargados > 0;
+
+  // Auto-save draft every 3s when there's data
+  useEffect(() => {
+    if (!hayAlgunDato) return;
+    const timer = setTimeout(() => saveDraft(collectDraft()), 3000);
+    return () => clearTimeout(timer);
+  }, [
+    hayAlgunDato, plantillaId, tipoCliente,
+    ordenante, beneficiario, comprador, cliente,
+    monto, jurisdiccion, senalAlerta, productoServicio, bienInmueble, formaPago,
+    descripcion, oficial, correoOficial, fechaDeteccion,
+    camposValores, observaciones, fileLabels,
+  ]);
+
+  // beforeunload: warn browser close/refresh
+  useEffect(() => {
+    if (!hayAlgunDato) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hayAlgunDato]);
+
+  // Sync unsaved changes flag for navigation guard
+  useEffect(() => {
+    setUnsavedChanges(hayAlgunDato);
+  }, [hayAlgunDato, setUnsavedChanges]);
 
   async function verifyParty(
     field: 'ordenante' | 'beneficiario' | 'comprador' | 'cliente',
@@ -200,7 +279,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
       if (data.found) {
         setState({ id: state.id, status: 'verified', nombre: data.nombre });
       } else {
-        setState({ id: state.id, status: 'not_found', nombre: '', message: 'Sin coincidencia. La UAF validará con la documentación adjunta.' });
+        setState({ id: state.id, status: 'not_found', nombre: '', message: 'Sin coincidencia. Ingrese el nombre para registrarlo en el sistema.' });
       }
     } catch {
       setState({ ...state, status: 'error', message: 'No fue posible verificar en este momento.' });
@@ -324,6 +403,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
       const ok = await uploadFiles(rosId);
       if (!ok) return;
 
+      clearDraft();
+      setUnsavedChanges(false);
       setSuccess(`ROS ${numeroRos} enviado correctamente a la UAF.`);
       router.refresh();
       startTransition(() => {
@@ -403,8 +484,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     await doSubmit();
   }
 
-  async function onSaveDraft(e: React.MouseEvent) {
-    e.preventDefault();
+  async function saveDraftAction() {
     setError(null); setSuccess(null);
     setSubmitting(true);
     try {
@@ -419,7 +499,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           body: JSON.stringify({ ...body, submit: false }),
         });
         const data = await res.json();
-        if (!res.ok) { setError(formatApiError(data, 'Error al guardar borrador.')); return; }
+        if (!res.ok) { throw new Error(formatApiError(data, 'Error al guardar borrador.')); }
         rosId = initialData!.rosId;
         numeroRos = data.numero_ros;
       } else {
@@ -429,14 +509,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           body: JSON.stringify({ ...body, modo: 'borrador' }),
         });
         const data = await res.json();
-        if (!res.ok) { setError(formatApiError(data, 'No fue posible guardar el borrador.')); return; }
+        if (!res.ok) { throw new Error(formatApiError(data, 'No fue posible guardar el borrador.')); }
         rosId = data.id;
         numeroRos = data.numero_ros;
       }
 
       const ok = await uploadFiles(rosId);
-      if (!ok) return;
+      if (!ok) throw new Error('Error al subir archivos.');
 
+      clearDraft();
+      setUnsavedChanges(false);
       setSuccess(`Borrador ${numeroRos} guardado.`);
       router.refresh();
       startTransition(() => {
@@ -446,6 +528,21 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
       setSubmitting(false);
     }
   }
+
+  async function onSaveDraft(e: React.MouseEvent) {
+    e.preventDefault();
+    try {
+      await saveDraftAction();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al guardar borrador.');
+    }
+  }
+
+  // Register save function with navigation guard (sin deps para tener la fn actualizada en cada render)
+  useEffect(() => {
+    registerSaveDraft(saveDraftAction);
+    return () => registerSaveDraft(null);
+  });
 
   return (
     <form className="card" onSubmit={onSubmit}>
@@ -489,10 +586,14 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           <>
             <div className="field">
               <label>Tipo de cliente</label>
-              <select value={tipoCliente} onChange={(e) => setTipoCliente(e.target.value as 'natural' | 'juridica')}>
-                <option value="natural">Persona Natural</option>
-                <option value="juridica">Persona Jurídica</option>
-              </select>
+              <div className="segmented-control">
+                <button type="button" className={`segment ${tipoCliente === 'natural' ? 'active' : ''}`} onClick={() => setTipoCliente('natural')}>
+                  Persona Natural
+                </button>
+                <button type="button" className={`segment ${tipoCliente === 'juridica' ? 'active' : ''}`} onClick={() => setTipoCliente('juridica')}>
+                  Persona Jurídica
+                </button>
+              </div>
             </div>
             <div className="field full">
               <div className="helper" style={{ marginBottom: 8 }}>
@@ -531,11 +632,15 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
               Verifique al cliente o parte involucrada. El sistema solo mostrará el nombre si la cédula/RUC existe en el directorio.
             </div>
             <div className="field" style={{ marginBottom: 12 }}>
-              <label htmlFor="tipo-cliente-generic">Tipo de persona</label>
-              <select id="tipo-cliente-generic" value={tipoCliente} onChange={(e) => setTipoCliente(e.target.value as 'natural' | 'juridica')}>
-                <option value="natural">Persona Natural</option>
-                <option value="juridica">Persona Jurídica</option>
-              </select>
+              <label>Tipo de persona</label>
+              <div className="segmented-control">
+                <button type="button" className={`segment ${tipoCliente === 'natural' ? 'active' : ''}`} onClick={() => setTipoCliente('natural')}>
+                  Persona Natural
+                </button>
+                <button type="button" className={`segment ${tipoCliente === 'juridica' ? 'active' : ''}`} onClick={() => setTipoCliente('juridica')}>
+                  Persona Jurídica
+                </button>
+              </div>
             </div>
             <div className="lookup-grid single">
               <PartyCard label="Cliente / Parte involucrada" role="Cliente" icon={<User size={14} />} required
@@ -957,7 +1062,9 @@ function PartyCard({
   onVerify: () => void;
 }) {
   const idLabel    = esJuridica ? 'RUC' : 'Cédula';
-  const nombreLabel = esJuridica ? 'Razón social encontrada' : 'Nombre encontrado';
+  const nombreLabel = state.status === 'not_found'
+    ? (esJuridica ? 'Razón social' : 'Nombre')
+    : (esJuridica ? 'Razón social encontrada' : 'Nombre encontrado');
   const coincidenciaMsg = esJuridica
     ? `Coincidencia encontrada. Por privacidad, únicamente se muestra la razón social del ${role.toLowerCase()}.`
     : `Coincidencia encontrada. Por privacidad, únicamente se muestra el nombre del ${role.toLowerCase()}.`;
@@ -989,7 +1096,7 @@ function PartyCard({
       {state.status === 'not_found' && (
         <div className="client-status warning" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <AlertCircle size={13} style={{ flexShrink: 0 }} />
-          {state.message ?? 'Sin coincidencia. La UAF validará con la documentación adjunta.'}
+          {state.message ?? 'Sin coincidencia. Ingrese el nombre para registrarlo en el sistema.'}
         </div>
       )}
       {state.status === 'error' && (
@@ -1000,7 +1107,16 @@ function PartyCard({
       )}
       <div className="field full">
         <label>{nombreLabel}</label>
-        <input value={state.nombre} readOnly placeholder={`Solo se mostrará ${esJuridica ? 'la razón social' : 'el nombre'} si existe coincidencia`} />
+        <input
+          value={state.nombre}
+          readOnly={state.status !== 'not_found'}
+          onChange={(e) => setState({ ...state, nombre: e.target.value })}
+          placeholder={
+            state.status === 'not_found'
+              ? `Ingrese ${esJuridica ? 'la razón social' : 'el nombre'} del ${role.toLowerCase()}`
+              : `Solo se mostrará ${esJuridica ? 'la razón social' : 'el nombre'} si existe coincidencia`
+          }
+        />
       </div>
     </div>
   );

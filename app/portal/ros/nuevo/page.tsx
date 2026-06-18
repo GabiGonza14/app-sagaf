@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
-import { BackButton } from '@/components/BackButton';
+
 import { NuevoRosForm } from './NuevoRosForm';
 
 interface PlantillaRow {
@@ -87,7 +87,6 @@ export default async function NuevoRosPage() {
         <TopBar
           eyebrow="Recepción y registro"
           title="Registrar nuevo Reporte de Operación Sospechosa"
-          right={<BackButton href="/portal" label="Inicio" />}
         />
         <div className="notice red" style={{ marginTop: 24 }}>
           <strong>Organización inactiva.</strong> Su organización ha sido desactivada por el administrador del sistema.
@@ -104,7 +103,6 @@ export default async function NuevoRosPage() {
         <TopBar
           eyebrow="Recepción y registro"
           title="Registrar nuevo Reporte de Operación Sospechosa"
-          right={<BackButton href="/portal" label="Inicio" />}
         />
         <div className="notice amber" style={{ marginTop: 24 }}>
           <strong>Sin plantillas asignadas.</strong> Su organización no tiene plantillas ROS habilitadas.
@@ -119,7 +117,6 @@ export default async function NuevoRosPage() {
       <TopBar
         eyebrow="Recepción y registro"
         title="Registrar nuevo Reporte de Operación Sospechosa"
-        right={<BackButton href="/portal" label="Inicio" />}
       />
 
       <NuevoRosForm

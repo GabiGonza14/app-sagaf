@@ -2,7 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
-import { BackButton } from '@/components/BackButton';
+
 import { NuevoRosForm } from '../../nuevo/NuevoRosForm';
 import { DiscardDraftButton } from './DiscardDraftButton';
 
@@ -15,6 +15,7 @@ interface RosRow {
   id: string; numero_ros: string; plantilla_id: string;
   oficial_cumplimiento: string; correo_oficial: string | null;
   fecha_deteccion: string; descripcion: string; estado: string;
+  observaciones: string | null;
 }
 
 interface OpRow {
@@ -119,6 +120,7 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
     correoOficial: ros.correo_oficial ?? '',
     fechaDeteccion: ros.fecha_deteccion.slice(0, 10),
     descripcion: ros.descripcion,
+    observaciones: ros.observaciones ?? '',
     monto: op?.monto ?? 0,
     jurisdiccion: op?.jurisdiccion ?? '',
     senalAlerta: op?.senal_alerta ?? '',
@@ -147,13 +149,9 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
       <TopBar
         eyebrow="Editar borrador"
         title={`Editar ${ros.numero_ros}`}
-        description="Complete o corrija los datos del borrador antes de enviarlo a la UAF."
-        right={<BackButton href="/portal/ros" label="Mis ROS" />}
+        description="Agrega la documentación o completa los campos faltantes."
+        right={<DiscardDraftButton rosId={ros.id} numeroRos={ros.numero_ros} />}
       />
-
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <DiscardDraftButton rosId={ros.id} numeroRos={ros.numero_ros} />
-      </div>
 
       <NuevoRosForm
         sujeto={{ id: so.id, nombre: so.nombre, tipo: so.tipo }}

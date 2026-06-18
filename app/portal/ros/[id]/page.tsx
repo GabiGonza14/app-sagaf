@@ -6,7 +6,7 @@ import { TopBar } from '@/components/TopBar';
 import { Badge, estadoTone, estadoLabel, riskTone } from '@/components/Badge';
 import { formatPanama, formatPanamaDate } from '@/lib/date';
 import { InfoBox } from '@/components/InfoBox';
-import { BackButton } from '@/components/BackButton';
+
 import { canAccessROS } from '@/lib/permissions';
 import { ResubmitDocCard } from './ResubmitDocCard';
 
@@ -127,9 +127,6 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
 
   return (
     <>
-      <div style={{ marginBottom: 16 }}>
-        <BackButton href="/portal/ros" label="Volver a Mis ROS" />
-      </div>
 
       <TopBar
         eyebrow="Detalle del ROS"

@@ -1,10 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { LogOut, X } from 'lucide-react';
 import { ConfirmModal } from './ConfirmModal';
+import { useNavigationGuard } from '@/lib/navigation-guard';
 import type { Role } from '@/types';
 import type { ReactNode } from 'react';
 
@@ -26,6 +27,7 @@ interface Props {
 
 export function Sidebar({ role, userName, navItems, note, mobileOpen, onClose }: Props) {
   const path = usePathname();
+  const { hasUnsavedChanges, requestNavigate } = useNavigationGuard();
   const [showSignOut, setShowSignOut] = useState(false);
   const roleLabel: Record<Role, string> = {
     sujeto_obligado: 'Portal del Sujeto Obligado',
@@ -75,7 +77,14 @@ export function Sidebar({ role, userName, navItems, note, mobileOpen, onClose }:
               key={item.href}
               href={item.href}
               className={active ? 'active' : ''}
-              onClick={onClose}
+              onClick={(e) => {
+                if (hasUnsavedChanges && path !== item.href) {
+                  e.preventDefault();
+                  requestNavigate(item.href);
+                } else {
+                  onClose?.();
+                }
+              }}
             >
               <span style={{ display: 'flex', alignItems: 'center', marginRight: 4 }}>{item.icon}</span>
               {item.label}
