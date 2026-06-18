@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import CustomSelect from '@/components/CustomSelect';
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 
@@ -9,6 +10,15 @@ const TIPO_LABEL: Record<string, string> = {
   realestate: 'Inmobiliaria',
   casino:     'Casino',
   notarios:   'Notaría',
+};
+
+const TIPO_SECTOR_MAP: Record<string, string> = {
+  bank:       'financiero',
+  realestate: 'no_financiero',
+  casino:     'no_financiero',
+  zona_franca:'no_financiero',
+  notarios:   'actividad_profesional',
+  contador:   'actividad_profesional',
 };
 
 export function NuevoSujetoForm({
@@ -24,6 +34,10 @@ export function NuevoSujetoForm({
   const [tipo, setTipo] = useState('');
   const [sector, setSector] = useState('financiero');
   const [estado, setEstado] = useState('activo');
+  useEffect(() => {
+    if (TIPO_SECTOR_MAP[tipo]) setSector(TIPO_SECTOR_MAP[tipo]);
+  }, [tipo]);
+
   const [organismo, setOrganismo] = useState('');
   const [responsable, setResponsable] = useState('');
   const [seleccionadas, setSeleccionadas] = useState<string[]>([]);
@@ -84,27 +98,24 @@ export function NuevoSujetoForm({
         </div>
         <div className="field">
           <label htmlFor="so-tipo">Tipo</label>
-          <select id="so-tipo" value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }} required>
-            <option value="">— Seleccione —</option>
+          <CustomSelect id="so-tipo" value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }} placeholder="— Seleccione —" required>
             {tiposDisponibles.map((t) => (
               <option key={t} value={t}>{TIPO_LABEL[t] ?? t}</option>
             ))}
-          </select>
+          </CustomSelect>
         </div>
         <div className="field">
-          <label htmlFor="so-sector">Sector</label>
-          <select id="so-sector" value={sector} onChange={(e) => setSector(e.target.value)}>
-            <option value="financiero">Financiero</option>
-            <option value="no_financiero">No financiero</option>
-            <option value="actividad_profesional">Actividad profesional</option>
-          </select>
+          <label>Sector</label>
+          <div style={{ padding: '11px 14px', background: '#f1f5f9', borderRadius: 'var(--radius-sm)', fontSize: 13, color: '#475569' }}>
+            {sector === 'financiero' ? 'Financiero' : sector === 'no_financiero' ? 'No financiero' : sector === 'actividad_profesional' ? 'Actividad profesional' : sector}
+          </div>
         </div>
         <div className="field">
           <label htmlFor="so-estado">Estado inicial</label>
-          <select id="so-estado" value={estado} onChange={(e) => setEstado(e.target.value)}>
+          <CustomSelect id="so-estado" value={estado} onChange={(e) => setEstado(e.target.value)}>
             <option value="activo">Activo</option>
             <option value="inactivo">Inactivo</option>
-          </select>
+          </CustomSelect>
         </div>
         <div className="field">
           <label htmlFor="so-organismo">Organismo supervisor <span aria-hidden="true" style={{ color: 'var(--danger, #dc2626)' }}>*</span></label>

@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { PasswordInput } from '@/components/PasswordInput';
+import CustomSelect from '@/components/CustomSelect';
 
 interface Props {
   sujetos: Array<{ id: string; nombre: string }>;
@@ -58,21 +60,21 @@ export function NuevoUsuarioForm({ sujetos, roles }: Props) {
         </div>
         <div className="field">
           <label>Contraseña inicial</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+          <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
         </div>
         <div className="field">
           <label>Rol</label>
-          <select value={rolId} onChange={(e) => setRolId(e.target.value)} required>
+          <CustomSelect value={rolId} onChange={(e) => setRolId(e.target.value)} required>
             {roles.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-          </select>
+          </CustomSelect>
         </div>
         {requiresSujeto && (
           <div className="field full">
             <label>Sujeto obligado asociado</label>
-            <select value={sujetoId} onChange={(e) => setSujetoId(e.target.value)} required>
+            <CustomSelect value={sujetoId} onChange={(e) => setSujetoId(e.target.value)} required>
               <option value="">— seleccione —</option>
               {sujetos.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-            </select>
+            </CustomSelect>
           </div>
         )}
         {error && <div className="client-status error" style={{ gridColumn: '1 / -1' }}>{error}</div>}

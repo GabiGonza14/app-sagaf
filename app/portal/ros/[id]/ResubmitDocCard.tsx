@@ -20,6 +20,7 @@ interface Props {
   adjunto: Adjunto | null;
   readOnly?: boolean;
   solicitudMotivo?: string | null;
+  tipoRequerimiento?: string;
 }
 
 const CARD_CLASS: Record<string, string> = {
@@ -43,7 +44,7 @@ const BADGE_LABEL: Record<string, string> = {
   no_aplica: 'No aplica',
 };
 
-export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readOnly = false, solicitudMotivo }: Readonly<Props>) {
+export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readOnly = false, solicitudMotivo, tipoRequerimiento = 'requerido' }: Readonly<Props>) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -94,7 +95,7 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
   }
 
   const estado = adjunto?.estado ?? 'pendiente';
-  const cardClass = CARD_CLASS[estado] ?? 'doc-card';
+  const cardClass = `${CARD_CLASS[estado] ?? 'doc-card'} ${tipoRequerimiento === 'requerido' ? 'req-card' : tipoRequerimiento === 'condicional' ? 'cond-card' : 'opt-card'}`;
   const badgeClass = BADGE_CLASS[estado] ?? 'badge amber';
   const badgeLabel = BADGE_LABEL[estado] ?? 'Pendiente';
 
@@ -104,6 +105,7 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
 
   const isNoAplica = adjunto?.estado === 'no_aplica';
   const hasFile    = !!adjunto && !isNoAplica;
+  const showBadge  = estado !== 'pendiente' || tipoRequerimiento === 'requerido';
 
   let adjuntoSubtitle: React.ReactNode = readOnly ? 'Documento adjunto' : 'Clic para descargar · Sube uno nuevo para reemplazar';
   if (adjunto?.observacion && adjunto?.estado === 'observado') {
@@ -117,7 +119,7 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
           <FileText size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 5, opacity: 0.6 }} />
           {index}. {nombre}
         </div>
-        <span className={badgeClass}>{badgeLabel}</span>
+        {showBadge && <span className={badgeClass}>{badgeLabel}</span>}
       </div>
 
       {isNoAplica && (
@@ -211,13 +213,8 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
       )}
 
       {readOnly && !hasSolicitud && !adjunto && (
-        <div className="upload-zone" style={{ pointerEvents: 'none', opacity: 0.6 }}>
-          <div className="upload-zone-content">
-            <Upload size={16} className="upload-zone-icon" />
-            <div className="upload-zone-empty">
-              <div className="upload-zone-hint">Sin documento adjunto</div>
-            </div>
-          </div>
+        <div style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '0.85rem', opacity: 0.8, background: '#f8fafc', borderRadius: 8, marginTop: 8, border: '1px solid #e2e8f0' }}>
+          Sin documento adjunto
         </div>
       )}
     </div>

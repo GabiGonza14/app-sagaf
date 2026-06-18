@@ -45,6 +45,7 @@ interface DocReqRow {
   id: string;
   nombre: string;
   orden: number;
+  tipo_requerimiento: string;
 }
 
 interface DocAdjRow {
@@ -100,7 +101,7 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
   ).all(id);
 
   const docsReq = db.prepare<[string], DocReqRow>(
-    'SELECT id, nombre, orden FROM documento_requerido WHERE plantilla_id = ? ORDER BY orden',
+    'SELECT id, nombre, orden, tipo_requerimiento FROM documento_requerido WHERE plantilla_id = ? ORDER BY orden',
   ).all(ros.plantilla_id);
 
   const docsAdj = db.prepare<[string], DocAdjRow>(
@@ -252,17 +253,23 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
           <div><h3>Documentos requeridos por la plantilla</h3><p>Cada documento solicitado tiene su propio contenedor de carga independiente.</p></div>
         </div>
 
-        <div className="doc-grid">
-          {docsReq.map((dr, i) => {
+        {(() => {
+          const docListReq = docsReq.filter((d) => d.tipo_requerimiento === 'requerido');
+          const docListCond = docsReq.filter((d) => d.tipo_requerimiento === 'condicional');
+          const docListOpt = docsReq.filter((d) => d.tipo_requerimiento === 'opcional');
+
+          const renderCard = (dr: DocReqRow, idxInArray: number) => {
             const adj = adjByReq.get(dr.id);
             const solicitudMotivo = pendingSolicitudesByDocReq.get(dr.id) ?? null;
+            const globalIdx = docsReq.findIndex(x => x.id === dr.id) + 1;
             return (
               <ResubmitDocCard
                 key={dr.id}
                 rosId={ros.id}
                 docReqId={dr.id}
-                index={i + 1}
+                index={globalIdx}
                 nombre={dr.nombre}
+                tipoRequerimiento={dr.tipo_requerimiento}
                 readOnly={ros.estado !== 'borrador' && adj?.estado !== 'observado' && !solicitudMotivo}
                 solicitudMotivo={solicitudMotivo}
                 adjunto={adj ? {
@@ -274,8 +281,43 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
                 } : null}
               />
             );
-          })}
-        </div>
+          };
+
+          return (
+            <>
+              {docListReq.length > 0 && (
+                <>
+                  <div className="doc-group-label req">
+                    <span className="doc-group-dot" />
+                    Obligatorios — {docListReq.length} documentos
+                    <span className="doc-group-line" />
+                  </div>
+                  <div className="doc-grid">{docListReq.map((d, i) => renderCard(d, i))}</div>
+                </>
+              )}
+              {docListCond.length > 0 && (
+                <>
+                  <div className="doc-group-label cond">
+                    <span className="doc-group-dot" />
+                    Condicionales — {docListCond.length} documentos
+                    <span className="doc-group-line" />
+                  </div>
+                  <div className="doc-grid">{docListCond.map((d, i) => renderCard(d, i))}</div>
+                </>
+              )}
+              {docListOpt.length > 0 && (
+                <>
+                  <div className="doc-group-label opt">
+                    <span className="doc-group-dot" />
+                    Opcionales — {docListOpt.length} documentos
+                    <span className="doc-group-line" />
+                  </div>
+                  <div className="doc-grid">{docListOpt.map((d, i) => renderCard(d, i))}</div>
+                </>
+              )}
+            </>
+          );
+        })()}
 
         {extras.length > 0 && (
           <div style={{ marginTop: 18 }}>

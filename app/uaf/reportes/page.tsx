@@ -7,6 +7,7 @@ import { KpiCard } from '@/components/KpiCard';
 import { Badge } from '@/components/Badge';
 import { formatPanama } from '@/lib/date';
 import { InfoBox } from '@/components/InfoBox';
+import { ReportesFilterForm } from './ReportesFilterForm';
 
 export const revalidate = 0;
 
@@ -221,52 +222,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
       </div>
 
       {/* Filtros + selector de tipo */}
-      <form method="get" className="card" style={{ padding: 16 }}>
-        <div className="form-grid" style={{ gap: 10 }}>
-          <div className="field">
-            <label>Tipo de reporte</label>
-            <select name="tipo" defaultValue={tipo}>
-              <option value="operativo">Operativo</option>
-              <option value="documental">Documental</option>
-              <option value="estadistico">Estadístico</option>
-              <option value="inteligencia">Inteligencia financiera</option>
-            </select>
-          </div>
-          <div className="field">
-            <label>Sector</label>
-            <select name="sector" defaultValue={sector}>
-              <option value="">Todos</option>
-              <option value="financiero">Financiero</option>
-              <option value="no_financiero">No financiero</option>
-              <option value="actividad_profesional">Actividad profesional</option>
-            </select>
-          </div>
-          <div className="field">
-            <label>Estado del ROS</label>
-            <select name="estado" defaultValue={estado}>
-              <option value="">Todos</option>
-              <option value="recibido">Recibido</option>
-              <option value="en_analisis">En análisis</option>
-              <option value="revision_documental">Revisión documental</option>
-              <option value="subsanacion">Subsanación</option>
-              <option value="escalado">Escalado</option>
-              <option value="vinculado">Vinculado</option>
-              <option value="cerrado">Cerrado</option>
-            </select>
-          </div>
-          <div className="field">
-            <label>Desde</label>
-            <input type="date" name="fecha_desde" defaultValue={fd} />
-          </div>
-          <div className="field">
-            <label>Hasta</label>
-            <input type="date" name="fecha_hasta" defaultValue={fh} />
-          </div>
-          <div className="field" style={{ alignSelf: 'flex-end' }}>
-            <button type="submit" className="btn primary">Aplicar filtros</button>
-          </div>
-        </div>
-      </form>
+      <ReportesFilterForm tipo={tipo} sector={sector} estado={estado} fd={fd} fh={fh} />
 
       {/* Exportación controlada (RE-02, A3) */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '8px 0' }}>

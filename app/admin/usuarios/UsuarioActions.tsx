@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { X } from 'lucide-react';
+import CustomSelect from '@/components/CustomSelect';
 
 interface Rol { id: string; nombre: string }
 interface Sujeto { id: string; nombre: string }
@@ -138,17 +139,17 @@ export function UsuarioActions({
               </div>
               <div className="field">
                 <label>Rol</label>
-                <select value={rolId} onChange={(e) => setRolId(e.target.value)} required>
+                <CustomSelect value={rolId} onChange={(e) => setRolId(e.target.value)} required>
                   {roles.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-                </select>
+                </CustomSelect>
               </div>
               {requiresSujeto && (
                 <div className="field">
                   <label>Sujeto obligado asociado</label>
-                  <select value={sujetoId} onChange={(e) => setSujetoId(e.target.value)} required>
+                  <CustomSelect value={sujetoId} onChange={(e) => setSujetoId(e.target.value)} required>
                     <option value="">— seleccione —</option>
                     {sujetos.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                  </select>
+                  </CustomSelect>
                 </div>
               )}
               <div className="modal-actions" style={{ marginTop: 8 }}>

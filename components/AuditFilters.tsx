@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import CustomSelect from '@/components/CustomSelect';
 
 export interface AuditFilterValues {
   q: string;
@@ -55,7 +56,7 @@ export function AuditFilters({ initial, modulosDisponibles }: Readonly<Props>) {
       </div>
       <div className="field">
         <label htmlFor="af-modulo">Módulo</label>
-        <select id="af-modulo" value={v.modulo} onChange={(e) => setV({ ...v, modulo: e.target.value })}>
+        <CustomSelect id="af-modulo" value={v.modulo} onChange={(e) => setV({ ...v, modulo: e.target.value })}>
           <option value="">Todos</option>
           {modulosDisponibles
             ? modulosDisponibles.map((m) => (
@@ -71,36 +72,36 @@ export function AuditFilters({ initial, modulosDisponibles }: Readonly<Props>) {
                 <option value="system">Sistema</option>
               </>
             )}
-        </select>
+        </CustomSelect>
       </div>
       <div className="field">
         <label htmlFor="af-rol">Rol</label>
-        <select id="af-rol" value={v.rol} onChange={(e) => setV({ ...v, rol: e.target.value })}>
+        <CustomSelect id="af-rol" value={v.rol} onChange={(e) => setV({ ...v, rol: e.target.value })}>
           <option value="">Todos</option>
           <option value="sujeto_obligado">Sujeto obligado</option>
           <option value="analista">Analista</option>
           <option value="supervisor">Supervisor</option>
           <option value="auditor">Auditor</option>
           <option value="admin">Admin</option>
-        </select>
+        </CustomSelect>
       </div>
       <div className="field">
         <label htmlFor="af-resultado">Resultado</label>
-        <select id="af-resultado" value={v.resultado} onChange={(e) => setV({ ...v, resultado: e.target.value })}>
+        <CustomSelect id="af-resultado" value={v.resultado} onChange={(e) => setV({ ...v, resultado: e.target.value })}>
           <option value="">Cualquiera</option>
           <option value="exito">Éxito</option>
           <option value="fallo">Fallo</option>
           <option value="bloqueado">Bloqueado</option>
-        </select>
+        </CustomSelect>
       </div>
       <div className="field">
         <label htmlFor="af-criticidad">Criticidad</label>
-        <select id="af-criticidad" value={v.criticidad} onChange={(e) => setV({ ...v, criticidad: e.target.value })}>
+        <CustomSelect id="af-criticidad" value={v.criticidad} onChange={(e) => setV({ ...v, criticidad: e.target.value })}>
           <option value="">Cualquiera</option>
           <option value="normal">Normal</option>
           <option value="alta">Alta</option>
           <option value="critica">Crítica</option>
-        </select>
+        </CustomSelect>
       </div>
       <div className="field">
         <label htmlFor="af-desde">Desde</label>

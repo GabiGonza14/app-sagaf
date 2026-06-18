@@ -127,19 +127,19 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
     productoServicio: op?.producto_servicio ?? '',
     bienInmueble: op?.bien_inmueble ?? '',
     formaPago: op?.forma_pago ?? '',
-    tipoCliente: (partePorRol['ordenante']?.tipo_persona ?? partePorRol['cliente']?.tipo_persona ?? 'natural') as 'natural' | 'juridica',
+    sujetoInvestigacion: (partePorRol['ordenante']?.tipo_persona ?? partePorRol['cliente']?.tipo_persona ?? 'natural') as 'natural' | 'juridica',
     ordenante: partePorRol['ordenante']
-      ? { id: partePorRol['ordenante'].identificador, status: partyStatus(partePorRol['ordenante']), nombre: partePorRol['ordenante'].nombre_visible ?? '' }
-      : { id: '', status: 'idle' as const, nombre: '' },
+      ? { id: partePorRol['ordenante'].identificador, tipo: partePorRol['ordenante'].tipo_persona as 'natural' | 'juridica', status: partyStatus(partePorRol['ordenante']), nombre: partePorRol['ordenante'].nombre_visible ?? '' }
+      : { id: '', tipo: 'natural' as const, status: 'idle' as const, nombre: '' },
     beneficiario: partePorRol['beneficiario']
-      ? { id: partePorRol['beneficiario'].identificador, status: partyStatus(partePorRol['beneficiario']), nombre: partePorRol['beneficiario'].nombre_visible ?? '' }
-      : { id: '', status: 'idle' as const, nombre: '' },
+      ? { id: partePorRol['beneficiario'].identificador, tipo: partePorRol['beneficiario'].tipo_persona as 'natural' | 'juridica', status: partyStatus(partePorRol['beneficiario']), nombre: partePorRol['beneficiario'].nombre_visible ?? '' }
+      : { id: '', tipo: 'natural' as const, status: 'idle' as const, nombre: '' },
     comprador: partePorRol['comprador']
-      ? { id: partePorRol['comprador'].identificador, status: partyStatus(partePorRol['comprador']), nombre: partePorRol['comprador'].nombre_visible ?? '' }
-      : { id: '', status: 'idle' as const, nombre: '' },
+      ? { id: partePorRol['comprador'].identificador, tipo: partePorRol['comprador'].tipo_persona as 'natural' | 'juridica', status: partyStatus(partePorRol['comprador']), nombre: partePorRol['comprador'].nombre_visible ?? '' }
+      : { id: '', tipo: 'natural' as const, status: 'idle' as const, nombre: '' },
     cliente: partePorRol['cliente']
-      ? { id: partePorRol['cliente'].identificador, status: partyStatus(partePorRol['cliente']), nombre: partePorRol['cliente'].nombre_visible ?? '' }
-      : { id: '', status: 'idle' as const, nombre: '' },
+      ? { id: partePorRol['cliente'].identificador, tipo: partePorRol['cliente'].tipo_persona as 'natural' | 'juridica', status: partyStatus(partePorRol['cliente']), nombre: partePorRol['cliente'].nombre_visible ?? '' }
+      : { id: '', tipo: 'natural' as const, status: 'idle' as const, nombre: '' },
     uploadedDocs,
     camposValores,
   };

@@ -12,12 +12,7 @@ export function TopBar({ eyebrow, title, description, right }: Props) {
     <div className="topbar">
       <div>
         <div className="eyebrow">{eyebrow}</div>
-        <h2 style={{
-          background: 'linear-gradient(135deg, var(--ink) 0%, var(--muted) 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          marginBottom: '8px'
-        }}>{title}</h2>
+        <h2 style={{ color: 'var(--ink)', marginBottom: '8px' }}>{title}</h2>
         <div style={{
           height: '3px',
           width: '40px',

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { CheckCircle, FileText, AlertCircle, User, Building2, Shield, FileCheck, Save, Info, ClipboardList, UserCheck, FileWarning, DollarSign, MapPin, Calendar, Mail, FileDigit, Type } from 'lucide-react';
 import { FileDropZone, isAllowedFile, MAX_BYTES } from '@/components/FileDropZone';
 import { useNavigationGuard } from '@/lib/navigation-guard';
+import CustomSelect from '@/components/CustomSelect';
 
 // ── Auto-save draft helpers (sessionStorage) ──
 const DRAFT_KEY = 'sagaf_ros_draft';
@@ -22,6 +23,7 @@ interface CampoDin  { id: string; plantilla_id: string; nombre: string; tipo_dat
 
 interface PartyState {
   id: string;
+  tipo: 'natural' | 'juridica';
   status: 'idle' | 'verified' | 'not_found' | 'error';
   nombre: string;
   message?: string;
@@ -29,7 +31,7 @@ interface PartyState {
 
 interface FormDraft {
   plantillaId: string;
-  tipoCliente: 'natural' | 'juridica';
+  sujetoInvestigacion: 'natural' | 'juridica';
   ordenante: PartyState;
   beneficiario: PartyState;
   comprador: PartyState;
@@ -64,7 +66,7 @@ interface InitialData {
   productoServicio: string;
   bienInmueble: string;
   formaPago: string;
-  tipoCliente: 'natural' | 'juridica';
+  sujetoInvestigacion: 'natural' | 'juridica';
   ordenante: PartyState;
   beneficiario: PartyState;
   comprador: PartyState;
@@ -112,24 +114,24 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
 
   const defaultPlantilla = initialData?.plantillaId ?? plantillas[0]?.id ?? '';
   const [plantillaId, setPlantillaId] = useState(defaultPlantilla);
-  const [tipoCliente, setTipoCliente] = useState<'natural' | 'juridica'>(initialData?.tipoCliente ?? 'natural');
+  const [sujetoInvestigacion, setSujetoInvestigacion] = useState<'natural' | 'juridica'>(initialData?.sujetoInvestigacion ?? 'natural');
 
   const [ordenante, setOrdenante] = useState<PartyState>(
-    initialData?.ordenante ?? { id: '', status: 'idle', nombre: '' }
+    initialData?.ordenante ?? { id: '', tipo: 'natural', status: 'idle', nombre: '' }
   );
   const [beneficiario, setBeneficiario] = useState<PartyState>(
-    initialData?.beneficiario ?? { id: '', status: 'idle', nombre: '' }
+    initialData?.beneficiario ?? { id: '', tipo: 'natural', status: 'idle', nombre: '' }
   );
   const [comprador, setComprador] = useState<PartyState>(
-    initialData?.comprador ?? { id: '', status: 'idle', nombre: '' }
+    initialData?.comprador ?? { id: '', tipo: 'natural', status: 'idle', nombre: '' }
   );
   const [cliente, setCliente] = useState<PartyState>(
-    initialData?.cliente ?? { id: '', status: 'idle', nombre: '' }
+    initialData?.cliente ?? { id: '', tipo: 'natural', status: 'idle', nombre: '' }
   );
 
   const [monto, setMonto] = useState(initialData?.monto != null ? String(initialData.monto) : '');
   const [jurisdiccion, setJurisdiccion] = useState(initialData?.jurisdiccion ?? '');
-  const [senalAlerta, setSenalAlerta] = useState(initialData?.senalAlerta ?? 'Movimientos incompatibles con el perfil');
+  const [senalAlerta, setSenalAlerta] = useState(initialData?.senalAlerta ?? '');
   const [productoServicio, setProductoServicio] = useState(initialData?.productoServicio ?? '');
   const [bienInmueble, setBienInmueble] = useState(initialData?.bienInmueble ?? '');
   const [formaPago, setFormaPago] = useState(initialData?.formaPago ?? '');
@@ -154,7 +156,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
 
   function collectDraft(): FormDraft {
     return {
-      plantillaId, tipoCliente,
+      plantillaId, sujetoInvestigacion,
       ordenante, beneficiario, comprador, cliente,
       monto, jurisdiccion, senalAlerta, productoServicio, bienInmueble, formaPago,
       descripcion, oficial, correoOficial, fechaDeteccion,
@@ -176,11 +178,11 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
 
   const effectivePlantillaId = useMemo(() => {
     if (!isBank) return plantillaId || defaultPlantilla;
-    const want = tipoCliente === 'natural'
+    const want = sujetoInvestigacion === 'natural'
       ? plantillas.find((p) => p.id === 'pl_bank_natural')
       : plantillas.find((p) => p.id === 'pl_bank_legal');
     return want?.id ?? plantillaId ?? defaultPlantilla;
-  }, [isBank, tipoCliente, plantillaId, plantillas, defaultPlantilla]);
+  }, [isBank, sujetoInvestigacion, plantillaId, plantillas, defaultPlantilla]);
 
   const camposDinamicos = camposByPlantilla[effectivePlantillaId] ?? [];
   const camposDinamicosOk = camposDinamicos.every(
@@ -205,6 +207,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     isValidEmail(correoOficial) &&
     fechaDeteccion &&
     Number(monto) > 0 &&
+    senalAlerta.trim() &&
     descripcion.trim().length >= 30 &&
     docsOk,
   );
@@ -215,27 +218,28 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
   interface FaltaItem {
     label: string;
     icon: React.ReactNode;
-    categoria: 'verificacion' | 'datos' | 'documentos';
+    categoria: 'generales' | 'verificacion' | 'datos' | 'adicional' | 'documentos';
   }
 
   function getFaltantes(): FaltaItem[] {
     const faltantes: FaltaItem[] = [];
 
+    // 1. Datos generales del ROS
+    if (!oficial.trim()) faltantes.push({ label: 'Ingresar el nombre del oficial de cumplimiento', icon: <User size={14} />, categoria: 'generales' });
+    if (!correoOficial.trim() || !isValidEmail(correoOficial)) faltantes.push({ label: 'Ingresar un correo institucional válido', icon: <Mail size={14} />, categoria: 'generales' });
+    if (!fechaDeteccion) faltantes.push({ label: 'Seleccionar la fecha de detección', icon: <Calendar size={14} />, categoria: 'generales' });
+
+    // 2. Verificación de identidad
     if (isBank) {
       if (ordenante.status === 'idle') faltantes.push({ label: 'Verificar la cédula del ordenante', icon: <UserCheck size={14} />, categoria: 'verificacion' });
       else if (ordenante.status === 'not_found' && ordenante.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del ordenante', icon: <User size={14} />, categoria: 'verificacion' });
       if (beneficiario.status === 'idle') faltantes.push({ label: 'Verificar la cédula del beneficiario', icon: <UserCheck size={14} />, categoria: 'verificacion' });
       else if (beneficiario.status === 'not_found' && beneficiario.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del beneficiario', icon: <User size={14} />, categoria: 'verificacion' });
-      if (!jurisdiccion.trim()) faltantes.push({ label: 'Ingresar la jurisdicción relacionada', icon: <MapPin size={14} />, categoria: 'datos' });
-      if (!productoServicio.trim()) faltantes.push({ label: 'Ingresar el producto bancario involucrado', icon: <FileDigit size={14} />, categoria: 'datos' });
     }
 
     if (isRealEstate) {
       if (comprador.status === 'idle') faltantes.push({ label: 'Verificar la cédula del comprador', icon: <UserCheck size={14} />, categoria: 'verificacion' });
       else if (comprador.status === 'not_found' && comprador.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del comprador', icon: <User size={14} />, categoria: 'verificacion' });
-      if (!jurisdiccion.trim()) faltantes.push({ label: 'Ingresar la ubicación del bien inmueble', icon: <MapPin size={14} />, categoria: 'datos' });
-      if (!bienInmueble.trim()) faltantes.push({ label: 'Ingresar el bien inmueble involucrado', icon: <Building2 size={14} />, categoria: 'datos' });
-      if (!formaPago.trim()) faltantes.push({ label: 'Ingresar la forma de pago', icon: <DollarSign size={14} />, categoria: 'datos' });
     }
 
     if (isGeneric) {
@@ -243,15 +247,20 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
       else if (cliente.status === 'not_found' && cliente.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del cliente', icon: <User size={14} />, categoria: 'verificacion' });
     }
 
-    if (!oficial.trim()) faltantes.push({ label: 'Ingresar el nombre del oficial de cumplimiento', icon: <User size={14} />, categoria: 'datos' });
-    if (!correoOficial.trim() || !isValidEmail(correoOficial)) faltantes.push({ label: 'Ingresar un correo institucional válido', icon: <Mail size={14} />, categoria: 'datos' });
-    if (!fechaDeteccion) faltantes.push({ label: 'Seleccionar la fecha de detección', icon: <Calendar size={14} />, categoria: 'datos' });
+    // 3. Datos de la operación (en orden del formulario)
     if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0) faltantes.push({ label: 'Ingresar un monto válido mayor a 0', icon: <DollarSign size={14} />, categoria: 'datos' });
+    if (!jurisdiccion.trim()) faltantes.push({ label: isRealEstate ? 'Ingresar la ubicación del bien inmueble' : 'Ingresar la jurisdicción relacionada', icon: <MapPin size={14} />, categoria: 'datos' });
+    if (!senalAlerta.trim()) faltantes.push({ label: 'Seleccionar la tipología / señal de alerta', icon: <AlertCircle size={14} />, categoria: 'datos' });
+    if (isBank && !productoServicio.trim()) faltantes.push({ label: 'Ingresar el producto bancario involucrado', icon: <FileDigit size={14} />, categoria: 'datos' });
+    if (isRealEstate && !bienInmueble.trim()) faltantes.push({ label: 'Ingresar el bien inmueble involucrado', icon: <Building2 size={14} />, categoria: 'datos' });
+    if (isRealEstate && !formaPago.trim()) faltantes.push({ label: 'Ingresar la forma de pago', icon: <DollarSign size={14} />, categoria: 'datos' });
     if (!descripcion.trim() || descripcion.length < 30) faltantes.push({ label: `Ampliar la descripción narrativa (mín. 30 caracteres, actual: ${descripcion.length})`, icon: <Type size={14} />, categoria: 'datos' });
 
+    // 4. Información adicional de la plantilla
     const campoFaltante = camposDinamicos.find((c) => c.obligatorio === 1 && !(camposValores[c.id] ?? '').trim());
-    if (campoFaltante) faltantes.push({ label: `Completar el campo "${campoFaltante.nombre}"`, icon: <FileText size={14} />, categoria: 'datos' });
+    if (campoFaltante) faltantes.push({ label: `Completar el campo "${campoFaltante.nombre}"`, icon: <FileText size={14} />, categoria: 'adicional' });
 
+    // 5. Sustento documental
     if (!todosDocumentosCargados && observaciones.trim().length < 10) {
       faltantes.push({ label: `Cargar ${docListReq.length - cargadosReq} documento(s) obligatorio(s) o justificar su ausencia`, icon: <FileWarning size={14} />, categoria: 'documentos' });
     }
@@ -284,7 +293,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     const timer = setTimeout(() => saveDraft(collectDraft()), 3000);
     return () => clearTimeout(timer);
   }, [
-    hayAlgunDato, plantillaId, tipoCliente,
+    hayAlgunDato, plantillaId, sujetoInvestigacion,
     ordenante, beneficiario, comprador, cliente,
     monto, jurisdiccion, senalAlerta, productoServicio, bienInmueble, formaPago,
     descripcion, oficial, correoOficial, fechaDeteccion,
@@ -325,9 +334,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         return;
       }
       if (data.found) {
-        setState({ id: state.id, status: 'verified', nombre: data.nombre });
+        setState({ id: state.id, tipo: state.tipo, status: 'verified', nombre: data.nombre });
       } else {
-        setState({ id: state.id, status: 'not_found', nombre: '', message: 'Sin coincidencia. Ingrese el nombre para registrarlo en el sistema.' });
+        setState({ id: state.id, tipo: state.tipo, status: 'not_found', nombre: '', message: 'Sin coincidencia. Ingrese el nombre para registrarlo en el sistema.' });
       }
     } catch {
       setState({ ...state, status: 'error', message: 'No fue posible verificar en este momento.' });
@@ -338,15 +347,15 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     const partes: Array<{ rol: string; tipo: string; identificador: string; nombre_visible: string }> = [];
     if (isBank) {
       if (ordenante.id.trim())
-        partes.push({ rol: 'ordenante', tipo: tipoCliente, identificador: ordenante.id.trim(), nombre_visible: ordenante.nombre });
+        partes.push({ rol: 'ordenante', tipo: ordenante.tipo, identificador: ordenante.id.trim(), nombre_visible: ordenante.nombre });
       if (beneficiario.id.trim())
-        partes.push({ rol: 'beneficiario', tipo: tipoCliente, identificador: beneficiario.id.trim(), nombre_visible: beneficiario.nombre });
+        partes.push({ rol: 'beneficiario', tipo: beneficiario.tipo, identificador: beneficiario.id.trim(), nombre_visible: beneficiario.nombre });
     }
     if (isRealEstate && comprador.id.trim()) {
-      partes.push({ rol: 'comprador', tipo: 'natural', identificador: comprador.id.trim(), nombre_visible: comprador.nombre });
+      partes.push({ rol: 'comprador', tipo: comprador.tipo, identificador: comprador.id.trim(), nombre_visible: comprador.nombre });
     }
     if (isGeneric && cliente.id.trim()) {
-      partes.push({ rol: 'cliente', tipo: tipoCliente, identificador: cliente.id.trim(), nombre_visible: cliente.nombre });
+      partes.push({ rol: 'cliente', tipo: cliente.tipo, identificador: cliente.id.trim(), nombre_visible: cliente.nombre });
     }
     return partes;
   }
@@ -478,6 +487,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     if (genericError) return genericError;
     const campoFaltante = camposDinamicos.find((c) => c.obligatorio === 1 && !(camposValores[c.id] ?? '').trim());
     if (campoFaltante) return `El campo "${campoFaltante.nombre}" es obligatorio.`;
+    if (!senalAlerta.trim()) return 'La tipología / señal de alerta es obligatoria.';
     if (!descripcion.trim() || descripcion.length < 30)
       return 'La descripción narrativa debe tener al menos 30 caracteres.';
     if (!todosDocumentosCargados && observaciones.trim().length < 10)
@@ -636,37 +646,40 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           <span className="section-num">2</span>
           Validación de personas relacionadas
         </div>
+        {isBank && (
+          <div className="field full">
+            <label>Sujeto de la investigación</label>
+            <div className="segmented-control">
+              <button type="button" className={`segment ${sujetoInvestigacion === 'natural' ? 'active' : ''}`} onClick={() => setSujetoInvestigacion('natural')}>
+                Persona Natural
+              </button>
+              <button type="button" className={`segment ${sujetoInvestigacion === 'juridica' ? 'active' : ''}`} onClick={() => setSujetoInvestigacion('juridica')}>
+                Persona Jurídica
+              </button>
+            </div>
+            <div className="helper" style={{ marginTop: 6 }}>
+              ¿A quién investiga el banco? Esto determina la plantilla y los documentos requeridos.
+            </div>
+          </div>
+        )}
         <div className="notice" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
           <Shield size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
-          <strong>Privacidad</strong>: si {isBank && tipoCliente === 'juridica' ? 'un RUC' : 'una cédula/RUC'} ya existe en nuestros registros,
-          solo verás {isBank && tipoCliente === 'juridica' ? <strong>la razón social</strong> : <strong>el nombre</strong>} para corroboración. No se autocompletan datos sensibles.
+          <strong>Privacidad</strong>: si una cédula o RUC ya existe en nuestros registros,
+          solo verás el nombre o razón social para corroboración. No se autocompletan datos sensibles.
           {' '}<strong>La verificación es obligatoria</strong> antes de enviar el ROS. Si no existe el identificador, ingrese el nombre manualmente tras verificar.
         </div>
 
         {isBank && (
           <>
-            <div className="field">
-              <label>Tipo de cliente</label>
-              <div className="segmented-control">
-                <button type="button" className={`segment ${tipoCliente === 'natural' ? 'active' : ''}`} onClick={() => setTipoCliente('natural')}>
-                  Persona Natural
-                </button>
-                <button type="button" className={`segment ${tipoCliente === 'juridica' ? 'active' : ''}`} onClick={() => setTipoCliente('juridica')}>
-                  Persona Jurídica
-                </button>
-              </div>
-            </div>
             <div className="field full">
               <div className="helper" style={{ marginBottom: 8 }}>
-                Para reportes bancarios, valide por separado al <strong>ordenante</strong> y al <strong>beneficiario</strong>.
+                Cada parte puede ser persona natural o jurídica. Seleccione el tipo y valide el identificador por separado.
               </div>
               <div className="lookup-grid">
                 <PartyCard label="Persona que realiza la transacción" role="Ordenante" icon={<User size={14} />} required
-                  esJuridica={tipoCliente === 'juridica'}
                   state={ordenante} setState={setOrdenante}
                   onVerify={() => verifyParty('ordenante', ordenante, setOrdenante)} />
                 <PartyCard label="Beneficiario" role="Beneficiario" icon={<User size={14} />} required
-                  esJuridica={tipoCliente === 'juridica'}
                   state={beneficiario} setState={setBeneficiario}
                   onVerify={() => verifyParty('beneficiario', beneficiario, setBeneficiario)} />
               </div>
@@ -690,22 +703,10 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         {isGeneric && (
           <div className="field full">
             <div className="helper" style={{ marginBottom: 8 }}>
-              Verifique al cliente o parte involucrada. El sistema solo mostrará el nombre si la cédula/RUC existe en el directorio.
-            </div>
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label>Tipo de persona</label>
-              <div className="segmented-control">
-                <button type="button" className={`segment ${tipoCliente === 'natural' ? 'active' : ''}`} onClick={() => setTipoCliente('natural')}>
-                  Persona Natural
-                </button>
-                <button type="button" className={`segment ${tipoCliente === 'juridica' ? 'active' : ''}`} onClick={() => setTipoCliente('juridica')}>
-                  Persona Jurídica
-                </button>
-              </div>
+              Verifique al cliente o parte involucrada. Seleccione si es persona natural o jurídica.
             </div>
             <div className="lookup-grid single">
               <PartyCard label="Cliente / Parte involucrada" role="Cliente" icon={<User size={14} />} required
-                esJuridica={tipoCliente === 'juridica'}
                 state={cliente} setState={setCliente}
                 onVerify={() => verifyParty('cliente', cliente, setCliente)} />
             </div>
@@ -726,14 +727,14 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           <input id="jurisdiccion" value={jurisdiccion} onChange={(e) => setJurisdiccion(e.target.value)} placeholder={isRealEstate ? 'Costa del Este, Panamá' : 'Panamá / Suiza'} />
         </div>
         <div className="field">
-          <label>Tipología / señal de alerta</label>
-          <select value={senalAlerta} onChange={(e) => setSenalAlerta(e.target.value)}>
+          <label>Tipología / señal de alerta <span className="req">*</span></label>
+          <CustomSelect value={senalAlerta} onChange={(e) => setSenalAlerta(e.target.value)} placeholder="Seleccione una tipología...">
             <option>Movimientos incompatibles con el perfil</option>
             <option>Uso de terceros o testaferros</option>
             <option>Procedencia de fondos no sustentada</option>
             <option>Operaciones fraccionadas</option>
             <option>Transferencias internacionales inusuales</option>
-          </select>
+          </CustomSelect>
         </div>
         {isBank && (
           <div className="field">
@@ -865,9 +866,11 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
                       <span className="doc-num">{globalIdx}</span>
                       {d.nombre}
                     </div>
-                    <span className={`badge ${uploaded ? 'green' : d.tipo_requerimiento === 'requerido' ? 'amber' : 'gray'}`} style={{ flexShrink: 0, fontSize: 10 }}>
-                      {file ? 'Listo ✓' : fileLabels[d.id] ? 'Guardado' : 'Pendiente'}
-                    </span>
+                    {(file || fileLabels[d.id] || d.tipo_requerimiento === 'requerido') && (
+                      <span className={`badge ${uploaded ? 'green' : d.tipo_requerimiento === 'requerido' ? 'amber' : 'gray'}`} style={{ flexShrink: 0, fontSize: 10 }}>
+                        {file ? 'Listo ✓' : fileLabels[d.id] ? 'Guardado' : 'Pendiente'}
+                      </span>
+                    )}
                   </div>
                   {fileLabels[d.id] && !file ? (
                     <div className="upload-zone has-file">
@@ -1126,8 +1129,10 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
               const cats: Record<string, FaltaItem[]> = {};
               items.forEach((it) => { (cats[it.categoria] ??= []).push(it); });
               const catMeta: Record<string, string> = {
+                generales: 'Datos generales del ROS',
                 verificacion: 'Verificación de identidad',
                 datos: 'Datos de la operación',
+                adicional: 'Información adicional',
                 documentos: 'Documentación',
               };
               return (
@@ -1185,17 +1190,17 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
 }
 
 function PartyCard({
-  label, role, icon, required, esJuridica, state, setState, onVerify,
+  label, role, icon, required, state, setState, onVerify,
 }: {
   label: string;
   role: string;
   icon: React.ReactNode;
   required?: boolean;
-  esJuridica?: boolean;
   state: PartyState;
   setState: (s: PartyState) => void;
   onVerify: () => void;
 }) {
+  const esJuridica = state.tipo === 'juridica';
   const idLabel    = esJuridica ? 'RUC' : 'Cédula';
   const nombreLabel = state.status === 'not_found'
     ? (esJuridica ? 'Razón social' : 'Nombre')
@@ -1210,9 +1215,19 @@ function PartyCard({
         {icon}
         {label}{required && <span className="req">*</span>}
       </div>
+      <div className="segmented-control" style={{ marginBottom: 10 }}>
+        <button type="button" className={`segment ${state.tipo === 'natural' ? 'active' : ''}`}
+          onClick={() => setState({ ...state, tipo: 'natural', id: '', nombre: '', status: 'idle' })}>
+          Persona Natural
+        </button>
+        <button type="button" className={`segment ${state.tipo === 'juridica' ? 'active' : ''}`}
+          onClick={() => setState({ ...state, tipo: 'juridica', id: '', nombre: '', status: 'idle' })}>
+          Persona Jurídica
+        </button>
+      </div>
       <div className="lookup-row">
         <input
-          placeholder={`Ingrese ${idLabel.toLowerCase()} y haga clic en Verificar`}
+          placeholder={`Ingrese ${idLabel} y haga clic en Verificar`}
           value={state.id}
           onChange={(e) => setState({ ...state, id: e.target.value, status: 'idle', nombre: '' })}
           autoComplete="off"
@@ -1225,7 +1240,7 @@ function PartyCard({
       {state.status === 'idle' && state.id.trim().length >= 3 && (
         <div className="client-status" style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#e0f2fe', borderColor: '#7dd3fc', color: '#0369a1' }}>
           <Info size={13} style={{ flexShrink: 0 }} />
-          Haga clic en <strong>Verificar</strong> para validar este {idLabel.toLowerCase()} antes de continuar.
+          Haga clic en <strong>Verificar</strong> para validar este {idLabel} antes de continuar.
         </div>
       )}
       {state.status === 'verified' && (

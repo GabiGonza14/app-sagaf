@@ -6,6 +6,7 @@ import { Timeline } from '@/components/Timeline';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { maskDescriptionText } from '@/lib/masking';
 import { formatPanama } from '@/lib/date';
+import CustomSelect from '@/components/CustomSelect';
 
 interface DocReq  { id: string; nombre: string; orden: number }
 interface DocAdj  {
@@ -328,7 +329,7 @@ export function RosExpedienteTabs({
                 </div>
               )}
               <form onSubmit={asignarAnalista} style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <select
+                <CustomSelect
                   value={analistaId}
                   onChange={(e) => setAnalistaId(e.target.value)}
                   style={{ minWidth: 220 }}
@@ -340,7 +341,7 @@ export function RosExpedienteTabs({
                       {a.nombre}{asignacion?.analista_id === a.id ? ' (actual)' : ''}
                     </option>
                   ))}
-                </select>
+                </CustomSelect>
                 <button className="btn primary" type="submit"
                   disabled={!analistaId || asignandoBusy || analistaId === asignacion?.analista_id}>
                   {asignacion ? 'Reasignar' : 'Asignar'}
@@ -359,14 +360,14 @@ export function RosExpedienteTabs({
           <div className="action-row">
             {canClassify && (
               <form onSubmit={cambiarEstado} style={{ display: 'flex', gap: 8 }}>
-                <select value={nuevoEstado} onChange={(e) => setNuevoEstado(e.target.value)}>
+                <CustomSelect value={nuevoEstado} onChange={(e) => setNuevoEstado(e.target.value)} style={{ minWidth: 200 }}>
                   <option value="en_analisis">En análisis</option>
                   <option value="revision_documental">Revisión documental</option>
                   <option value="subsanacion">Subsanación</option>
                   <option value="escalado">Escalado</option>
                   <option value="vinculado">Vinculado</option>
                   {canClose && <option value="cerrado">Cerrado</option>}
-                </select>
+                </CustomSelect>
                 <button className="btn secondary" disabled={busy}>Actualizar estado</button>
               </form>
             )}
@@ -386,11 +387,11 @@ export function RosExpedienteTabs({
                 <div className="form-grid">
                   <div className="field">
                     <label>Nivel</label>
-                    <select value={riesgoNivel} onChange={(e) => setRiesgoNivel(e.target.value as 'alto' | 'medio' | 'bajo')}>
+                    <CustomSelect value={riesgoNivel} onChange={(e) => setRiesgoNivel(e.target.value as 'alto' | 'medio' | 'bajo')}>
                       <option value="alto">Alto</option>
                       <option value="medio">Medio</option>
                       <option value="bajo">Bajo</option>
-                    </select>
+                    </CustomSelect>
                   </div>
                   <div className="field">
                     <label>Puntaje (0-100)</label>

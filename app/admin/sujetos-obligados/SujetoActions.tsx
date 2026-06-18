@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import CustomSelect from '@/components/CustomSelect';
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 
@@ -10,6 +11,15 @@ const TIPO_LABEL: Record<string, string> = {
   realestate: 'Inmobiliaria',
   casino:     'Casino',
   notarios:   'Notaría',
+};
+
+const TIPO_SECTOR_MAP: Record<string, string> = {
+  bank:       'financiero',
+  realestate: 'no_financiero',
+  casino:     'no_financiero',
+  zona_franca:'no_financiero',
+  notarios:   'actividad_profesional',
+  contador:   'actividad_profesional',
 };
 
 interface Sujeto {
@@ -50,6 +60,10 @@ export function SujetoActions({
   const [organismo, setOrganismo] = useState(sujeto.organismo_supervisor ?? '');
   const [responsable, setResponsable] = useState(sujeto.responsable_cumpl ?? '');
   const [seleccionadas, setSeleccionadas] = useState<string[]>(sujeto.plantillasAsignadas);
+
+  useEffect(() => {
+    if (TIPO_SECTOR_MAP[tipo]) setSector(TIPO_SECTOR_MAP[tipo]);
+  }, [tipo]);
 
   useEffect(() => {
     const el = dialogRef.current;
@@ -183,26 +197,24 @@ export function SujetoActions({
             </div>
             <div className="field">
               <label htmlFor={`edit-tipo-${sujeto.id}`}>Tipo</label>
-              <select id={`edit-tipo-${sujeto.id}`} value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }} required>
+              <CustomSelect id={`edit-tipo-${sujeto.id}`} value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }} required>
                 {tiposDisponibles.map((t) => (
                   <option key={t} value={t}>{TIPO_LABEL[t] ?? t}</option>
                 ))}
-              </select>
+              </CustomSelect>
             </div>
             <div className="field">
-              <label htmlFor={`edit-sector-${sujeto.id}`}>Sector</label>
-              <select id={`edit-sector-${sujeto.id}`} value={sector} onChange={(e) => setSector(e.target.value)}>
-                <option value="financiero">Financiero</option>
-                <option value="no_financiero">No financiero</option>
-                <option value="actividad_profesional">Actividad profesional</option>
-              </select>
+              <label>Sector</label>
+              <div style={{ padding: '11px 14px', background: '#f1f5f9', borderRadius: 'var(--radius-sm)', fontSize: 13, color: '#475569' }}>
+                {sector === 'financiero' ? 'Financiero' : sector === 'no_financiero' ? 'No financiero' : sector === 'actividad_profesional' ? 'Actividad profesional' : sector}
+              </div>
             </div>
             <div className="field">
               <label htmlFor={`edit-estado-${sujeto.id}`}>Estado</label>
-              <select id={`edit-estado-${sujeto.id}`} value={estado} onChange={(e) => setEstado(e.target.value)}>
+              <CustomSelect id={`edit-estado-${sujeto.id}`} value={estado} onChange={(e) => setEstado(e.target.value)}>
                 <option value="activo">Activo</option>
                 <option value="inactivo">Inactivo</option>
-              </select>
+              </CustomSelect>
             </div>
             <div className="field">
               <label htmlFor={`edit-organismo-${sujeto.id}`}>Organismo supervisor</label>

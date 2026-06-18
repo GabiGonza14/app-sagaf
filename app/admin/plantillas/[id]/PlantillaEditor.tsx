@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, Plus } from 'lucide-react';
+import CustomSelect from '@/components/CustomSelect';
 import { Badge } from '@/components/Badge';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
@@ -184,11 +185,11 @@ export function PlantillaEditor({
             </div>
             <div className="field">
               <label htmlFor="ph-sector">Sector</label>
-              <select id="ph-sector" value={sector} onChange={(e) => setSector(e.target.value)}>
+              <CustomSelect id="ph-sector" value={sector} onChange={(e) => setSector(e.target.value)}>
                 <option value="financiero">Financiero</option>
                 <option value="no_financiero">No financiero</option>
                 <option value="actividad_profesional">Actividad profesional</option>
-              </select>
+              </CustomSelect>
             </div>
             {headerErr && <div className="client-status error" style={{ gridColumn: '1 / -1' }}>{headerErr}</div>}
             {headerMsg && <div className="client-status found" style={{ gridColumn: '1 / -1' }}>{headerMsg}</div>}
@@ -245,16 +246,16 @@ export function PlantillaEditor({
             </div>
             <div className="field">
               <label htmlFor="c-tipo">Tipo de dato</label>
-              <select id="c-tipo" value={cTipo} onChange={(e) => setCTipo(e.target.value)}>
+              <CustomSelect id="c-tipo" value={cTipo} onChange={(e) => setCTipo(e.target.value)}>
                 {Object.entries(TIPO_DATO_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
+              </CustomSelect>
             </div>
             <div className="field">
               <label htmlFor="c-oblig">¿Obligatorio?</label>
-              <select id="c-oblig" value={cOblig ? '1' : '0'} onChange={(e) => setCOblig(e.target.value === '1')}>
+              <CustomSelect id="c-oblig" value={cOblig ? '1' : '0'} onChange={(e) => setCOblig(e.target.value === '1')}>
                 <option value="1">Sí</option>
                 <option value="0">No</option>
-              </select>
+              </CustomSelect>
             </div>
             {campoErr && <div className="client-status error" style={{ gridColumn: '1 / -1' }}>{campoErr}</div>}
             <div className="field full">
@@ -311,9 +312,9 @@ export function PlantillaEditor({
             </div>
             <div className="field">
               <label htmlFor="d-tipo">Tipo de requerimiento</label>
-              <select id="d-tipo" value={dTipo} onChange={(e) => setDTipo(e.target.value)}>
+              <CustomSelect id="d-tipo" value={dTipo} onChange={(e) => setDTipo(e.target.value)}>
                 {Object.entries(REQ_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
+              </CustomSelect>
             </div>
             <div className="field">
               <label htmlFor="d-formatos">Formatos permitidos</label>

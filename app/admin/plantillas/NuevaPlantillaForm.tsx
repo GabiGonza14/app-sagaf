@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import CustomSelect from '@/components/CustomSelect';
 
 const TIPOS_SUGERIDOS = [
   { value: 'bank', label: 'Banco' },
@@ -73,11 +74,11 @@ export function NuevaPlantillaForm({ tiposExistentes = [] }: { tiposExistentes?:
         </div>
         <div className="field">
           <label htmlFor="pl-sector">Sector</label>
-          <select id="pl-sector" value={sector} onChange={(e) => setSector(e.target.value)}>
+          <CustomSelect id="pl-sector" value={sector} onChange={(e) => setSector(e.target.value)}>
             <option value="financiero">Financiero</option>
             <option value="no_financiero">No financiero</option>
             <option value="actividad_profesional">Actividad profesional</option>
-          </select>
+          </CustomSelect>
         </div>
         <div className="field">
           <label htmlFor="pl-version">Versión</label>

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth, signIn } from '@/auth';
 import { AuthError } from 'next-auth';
 import { LoginSubmitButton } from './LoginSubmitButton';
+import { PasswordInput } from '@/components/PasswordInput';
 
 // Server action para login con credenciales (paso 1 de MFA)
 async function loginAction(formData: FormData): Promise<void> {
@@ -35,7 +36,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <div className="brand" style={{ color: '#102a43', marginBottom: 18 }}>
           <div className="brand-icon" style={{ animation: 'glowPulse 3s infinite' }}>SG</div>
           <div>
-            <h1 style={{ background: 'linear-gradient(135deg, var(--ink), var(--primary))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>SAGAF</h1>
+            <h1 style={{ color: '#102a43' }}>SAGAF</h1>
             <span style={{ color: '#667085' }}>
               Sistema Automatizado de Gestión de Análisis Financiero
             </span>
@@ -68,13 +69,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             </div>
             <div className="field full">
               <label htmlFor="password">Contraseña</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                placeholder="••••••••"
-              />
+              <PasswordInput id="password" name="password" required placeholder="••••••••" />
             </div>
             <div className="field full">
               <LoginSubmitButton />

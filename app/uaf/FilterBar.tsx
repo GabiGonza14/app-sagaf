@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, X, Filter, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import CustomSelect from '@/components/CustomSelect';
 
 interface Props {
   initial: {
@@ -206,34 +207,34 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
         <div className="filter-grid">
           <div className="filter-group">
             <label className="filter-label">Tipo de entidad</label>
-            <select value={tipo} onChange={(e) => { setTipo(e.target.value); }}>
+            <CustomSelect value={tipo} onChange={(e) => { setTipo(e.target.value); }}>
               <option value="">Todos los tipos</option>
               <option value="bank">Banco</option>
               <option value="realestate">Inmobiliaria</option>
-            </select>
+            </CustomSelect>
           </div>
 
           <div className="filter-group">
             <label className="filter-label">Sector económico</label>
-            <select value={sector} onChange={(e) => { setSector(e.target.value); }}>
+            <CustomSelect value={sector} onChange={(e) => { setSector(e.target.value); }}>
               <option value="">Todos los sectores</option>
               {sectores.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+            </CustomSelect>
           </div>
 
           <div className="filter-group">
             <label className="filter-label">Riesgo</label>
-            <select value={riesgo} onChange={(e) => { setRiesgo(e.target.value); }}>
+            <CustomSelect value={riesgo} onChange={(e) => { setRiesgo(e.target.value); }}>
               <option value="">Cualquier riesgo</option>
               <option value="alto">Alto</option>
               <option value="medio">Medio</option>
               <option value="bajo">Bajo</option>
-            </select>
+            </CustomSelect>
           </div>
 
           <div className="filter-group">
             <label className="filter-label">Estado</label>
-            <select value={estado} onChange={(e) => { setEstado(e.target.value); }}>
+            <CustomSelect value={estado} onChange={(e) => { setEstado(e.target.value); }}>
               <option value="">Cualquier estado</option>
               <option value="recibido">Recibido</option>
               <option value="en_analisis">En análisis</option>
@@ -242,7 +243,7 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
               <option value="escalado">Escalado</option>
               <option value="vinculado">Vinculado</option>
               <option value="cerrado">Cerrado</option>
-            </select>
+            </CustomSelect>
           </div>
 
           <div className="filter-group">
@@ -262,12 +263,12 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
 
           <div className="filter-group">
             <label className="filter-label">Completitud</label>
-            <select value={completitud} onChange={(e) => { setCompletitud(e.target.value); }}>
+            <CustomSelect value={completitud} onChange={(e) => { setCompletitud(e.target.value); }}>
               <option value="">Cualquier completitud</option>
               <option value="completo">Completo (100%)</option>
               <option value="incompleto">Incompleto</option>
               <option value="con_observados">Con observados</option>
-            </select>
+            </CustomSelect>
           </div>
 
           <div className="filter-group">
@@ -282,14 +283,14 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
 
           <div className="filter-group">
             <label className="filter-label">Ordenar por</label>
-            <select value={ordenar} onChange={(e) => { setOrdenar(e.target.value); }}>
+            <CustomSelect value={ordenar} onChange={(e) => { setOrdenar(e.target.value); }}>
               <option value="fecha_recepcion_desc">Recibido (más reciente)</option>
               <option value="fecha_recepcion_asc">Recibido (más antiguo)</option>
               <option value="monto_desc">Monto (mayor)</option>
               <option value="monto_asc">Monto (menor)</option>
               <option value="riesgo_desc">Riesgo (alto primero)</option>
               <option value="riesgo_asc">Riesgo (bajo primero)</option>
-            </select>
+            </CustomSelect>
           </div>
 
           <div className="filter-group filter-group-actions">

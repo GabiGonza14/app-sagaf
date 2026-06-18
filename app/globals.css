@@ -73,6 +73,11 @@
   to   { opacity: 1; }
 }
 
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes modalSlideUp {
   from { transform: translateY(18px) scale(0.97); opacity: 0; }
   to   { transform: translateY(0)    scale(1);   opacity: 1; }
@@ -746,7 +751,7 @@ h2 {
 
 .filter-group input,
 .filter-group select {
-  background: white;
+  background-color: white;
 }
 
 .filter-label {
@@ -772,7 +777,7 @@ h2 {
    ===================================================================== */
 input, select, textarea {
   border: 1px solid var(--line);
-  background: rgba(251, 253, 255, 0.85);
+  background-color: rgba(251, 253, 255, 0.85);
   color: var(--ink);
   border-radius: var(--radius-sm);
   padding: 11px 14px;
@@ -792,12 +797,35 @@ textarea { min-height: 105px; resize: vertical; line-height: 1.5; }
 input:focus, select:focus, textarea:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(20, 92, 158, 0.08);
-  background: white;
+  background-color: white;
 }
 
 input:disabled, textarea:disabled, select:disabled {
-  background: #f1f5f9;
+  background-color: #f1f5f9;
   color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* Custom select — reemplaza la flecha nativa del sistema operativo */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 15px 15px;
+  padding-right: 38px;
+  cursor: pointer;
+}
+
+select:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%23145c9e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-size: 15px 15px;
+}
+
+select:disabled {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-size: 15px 15px;
   cursor: not-allowed;
 }
 
@@ -1446,15 +1474,20 @@ label {
   flex: 1;
   height: 1px;
   background: var(--line);
-  opacity: .6;
+  opacity: 1;
 }
 
 .doc-group-label.req { color: #9f2e26; }
 .doc-group-label.req .doc-group-dot { background: var(--red); box-shadow: 0 0 0 2px rgba(180,35,24,.15); }
+.doc-group-label.req .doc-group-line { background: rgba(180, 35, 24, 0.25); }
+
 .doc-group-label.cond { color: #926012; }
 .doc-group-label.cond .doc-group-dot { background: var(--amber); box-shadow: 0 0 0 2px rgba(183,121,31,.15); }
+.doc-group-label.cond .doc-group-line { background: rgba(183, 121, 31, 0.25); }
+
 .doc-group-label.opt { color: #94a3b8; }
 .doc-group-label.opt .doc-group-dot { background: #cbd5e1; }
+.doc-group-label.opt .doc-group-line { background: rgba(148, 163, 184, 0.35); }
 
 /* Card type variants — sin borde izquierdo, la agrupación visual la dan los headers */
 .doc-card.req-card.uploaded,
