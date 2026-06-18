@@ -1365,15 +1365,125 @@ label {
   background: white;
 }
 
-.doc-summary {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+/* Compact stat strip replacing old doc-summary boxes */
+.doc-stat-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  background: rgba(248, 250, 252, 0.85);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 11px 16px;
   margin-bottom: 14px;
+  backdrop-filter: blur(8px);
 }
 
-.doc-summary .info-box { text-align: center; }
-.doc-summary strong { font-size: 22px; color: var(--primary); }
+.doc-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.doc-stat strong {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.doc-stat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.doc-stat.req strong { color: var(--red); }
+.doc-stat.req .doc-stat-dot { background: var(--red); box-shadow: 0 0 0 2px rgba(180,35,24,.12); }
+.doc-stat.cond strong { color: var(--amber); }
+.doc-stat.cond .doc-stat-dot { background: var(--amber); box-shadow: 0 0 0 2px rgba(183,121,31,.12); }
+.doc-stat.ok strong { color: var(--green); }
+.doc-stat.ok .doc-stat-dot { background: var(--green); box-shadow: 0 0 0 2px rgba(21,128,61,.12); }
+
+.doc-stat-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--line);
+  flex-shrink: 0;
+}
+
+.doc-stat-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Group labels */
+.doc-group-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .09em;
+  margin: 18px 0 8px;
+  color: var(--muted);
+}
+
+.doc-group-label:first-child { margin-top: 0; }
+
+.doc-group-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.doc-group-line {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+  opacity: .6;
+}
+
+.doc-group-label.req { color: #9f2e26; }
+.doc-group-label.req .doc-group-dot { background: var(--red); box-shadow: 0 0 0 2px rgba(180,35,24,.15); }
+.doc-group-label.cond { color: #926012; }
+.doc-group-label.cond .doc-group-dot { background: var(--amber); box-shadow: 0 0 0 2px rgba(183,121,31,.15); }
+.doc-group-label.opt { color: #94a3b8; }
+.doc-group-label.opt .doc-group-dot { background: #cbd5e1; }
+
+/* Card type variants — sin borde izquierdo, la agrupación visual la dan los headers */
+.doc-card.req-card.uploaded,
+.doc-card.cond-card.uploaded,
+.doc-card.opt-card.uploaded  { /* hereda .doc-card.uploaded */ }
+
+/* Doc number bubble */
+.doc-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: rgba(20,92,158,.08);
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
+  letter-spacing: 0;
+}
+
+.doc-card.req-card .doc-num  { background: rgba(180,35,24,.08); color: #9f2e26; }
+.doc-card.cond-card .doc-num { background: rgba(183,121,31,.08); color: #926012; }
+.doc-card.opt-card .doc-num  { background: rgba(148,163,184,.12); color: #64748b; }
 
 /* =====================================================================
    FILE UPLOAD ZONE

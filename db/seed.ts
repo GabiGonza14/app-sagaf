@@ -158,7 +158,7 @@ linkSOPL.run('so_inmob_istmo', 'pl_realestate');
 
 const insertDocReq = db.prepare(`
   INSERT INTO documento_requerido (id, plantilla_id, nombre, tipo_requerimiento, obligatorio, orden)
-  VALUES (?, ?, ?, ?, 1, ?)
+  VALUES (?, ?, ?, ?, ?, ?)
 `);
 
 type DocEntry = string | { nombre: string; tipo: 'requerido' | 'condicional' | 'opcional' };
@@ -171,10 +171,10 @@ const bankNatural: DocEntry[] = [
   { nombre: 'Debida Diligencia del Cliente incluyendo actualizaciones',                   tipo: 'requerido' },
   { nombre: 'Perfil Transaccional del cliente',                                           tipo: 'requerido' },
   { nombre: 'Perfil de Ingresos y Egresos declarados',                                   tipo: 'requerido' },
-  { nombre: 'Tarjeta de Firmas',                                                          tipo: 'requerido' },
   { nombre: 'Comunicaciones internas y externas para descartar hechos inusuales',         tipo: 'requerido' },
   { nombre: 'Comunicaciones enviadas y recibidas sobre gestiones de descarte',            tipo: 'requerido' },
   // CONDICIONALES — dependen del perfil del cliente, generan advertencia si faltan
+  { nombre: 'Tarjeta de Firmas (si aplica según tipo de cuenta)',                         tipo: 'condicional' },
   { nombre: 'Constancia de Ingresos (Declaraciones, Ficha o Talonario de Cheque)',       tipo: 'condicional' },
   { nombre: 'Carta de Trabajo (si el cliente es empleado)',                               tipo: 'condicional' },
   { nombre: 'Historial de Crédito (si tiene productos crediticios)',                      tipo: 'condicional' },
@@ -208,7 +208,7 @@ const bankLegal: DocEntry[] = [
   { nombre: 'Copia de cheques con anversos y reversos (si hubo cheques involucrados)',                                       tipo: 'condicional' },
   { nombre: 'Copia completa de transferencias internacionales (mensaje Swift)',                                               tipo: 'condicional' },
   { nombre: 'Datos de ACH enviados y/o recibidos (si hay movimientos ACH)',                                                  tipo: 'condicional' },
-  { nombre: 'Volante de depósitos y retiros de cuenta',                                                                      tipo: 'condicional' },
+  { nombre: 'Volante de depósitos y retiros de cuenta',                                                                      tipo: 'requerido' },
   // OPCIONALES — complementarios, no generan bloqueo ni advertencia
   { nombre: 'Referencias Bancarias',                                                                                         tipo: 'opcional' },
   { nombre: 'Referencias Comerciales y/o Profesionales',                                                                     tipo: 'opcional' },
@@ -263,9 +263,10 @@ const realEstate: DocEntry[] = [
 
 function seedDocs(plantillaId: string, lista: DocEntry[], prefix: string) {
   lista.forEach((entry, i) => {
-    const nombre = typeof entry === 'string' ? entry : entry.nombre;
-    const tipo   = typeof entry === 'string' ? 'requerido' : entry.tipo;
-    insertDocReq.run(`${prefix}_${i + 1}`, plantillaId, nombre, tipo, i + 1);
+    const nombre      = typeof entry === 'string' ? entry : entry.nombre;
+    const tipo        = typeof entry === 'string' ? 'requerido' : entry.tipo;
+    const obligatorio = tipo === 'requerido' ? 1 : 0;
+    insertDocReq.run(`${prefix}_${i + 1}`, plantillaId, nombre, tipo, obligatorio, i + 1);
   });
 }
 seedDocs('pl_bank_natural', bankNatural, 'dr_bn');

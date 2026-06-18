@@ -141,7 +141,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
   }
 
   const docList    = docsByPlantilla[effectivePlantillaId] ?? [];
-  const docListReq = docList.filter((d) => d.tipo_requerimiento === 'requerido');
+  const docListReq  = docList.filter((d) => d.tipo_requerimiento === 'requerido');
+  const docListCond = docList.filter((d) => d.tipo_requerimiento === 'condicional');
+  const docListOpt  = docList.filter((d) => d.tipo_requerimiento === 'opcional');
   const cargados    = docList.filter((d) => files[d.id] || fileLabels[d.id]).length;
   const cargadosReq = docListReq.filter((d) => files[d.id] || fileLabels[d.id]).length;
   const pct = docListReq.length > 0 ? Math.round((cargadosReq / docListReq.length) * 100) : 100;
@@ -633,33 +635,47 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         </div>
 
         <div className="field full">
-          {/* KPI summary */}
-          <div className="doc-summary">
-            <div className="info-box" style={{ borderColor: '#dbe8f6', background: 'var(--primary-soft)' }}>
-              <span className="info-box-label" style={{ color: 'var(--primary)' }}>Obligatorios</span>
-              <strong style={{ color: 'var(--primary)' }}>{docListReq.length}</strong>
-            </div>
-            {docList.length > docListReq.length && (
-              <div className="info-box">
-                <span className="info-box-label">Opcionales</span>
-                <strong>{docList.length - docListReq.length}</strong>
-              </div>
+          {/* Stat strip compacto */}
+          <div className="doc-stat-strip">
+            <span className="doc-stat req">
+              <span className="doc-stat-dot" />
+              <strong>{docListReq.length}</strong> obligatorios
+            </span>
+            {docListCond.length > 0 && (
+              <>
+                <span className="doc-stat-divider" />
+                <span className="doc-stat cond">
+                  <span className="doc-stat-dot" />
+                  <strong>{docListCond.length}</strong> condicionales
+                </span>
+              </>
             )}
-            <div className="info-box" style={{ borderColor: cargados > 0 ? 'rgba(21,128,61,.3)' : undefined, background: cargados > 0 ? 'var(--green-soft)' : undefined }}>
-              <span className="info-box-label" style={{ color: cargados > 0 ? 'var(--green)' : undefined }}>Cargados</span>
-              <strong style={{ color: cargados > 0 ? 'var(--green)' : 'var(--primary)' }}>{cargados}</strong>
-            </div>
-            <div className="info-box" style={{ borderColor: docListReq.length - cargadosReq > 0 ? '#fedf89' : 'rgba(21,128,61,.3)', background: docListReq.length - cargadosReq > 0 ? 'var(--amber-soft)' : 'var(--green-soft)' }}>
-              <span className="info-box-label" style={{ color: docListReq.length - cargadosReq > 0 ? 'var(--amber)' : 'var(--green)' }}>Pendientes obligatorios</span>
-              <strong style={{ color: docListReq.length - cargadosReq > 0 ? 'var(--amber)' : 'var(--green)' }}>{docListReq.length - cargadosReq}</strong>
+            {docListOpt.length > 0 && (
+              <>
+                <span className="doc-stat-divider" />
+                <span className="doc-stat">
+                  <strong>{docListOpt.length}</strong> opcionales
+                </span>
+              </>
+            )}
+            <div className="doc-stat-right">
+              <span className="doc-stat-divider" />
+              <span className={`doc-stat${cargados > 0 ? ' ok' : ''}`}>
+                <span className="doc-stat-dot" style={{ background: cargados > 0 ? 'var(--green)' : '#cbd5e1' }} />
+                <strong>{cargados}</strong> cargados
+              </span>
+              <span className="doc-stat-divider" />
+              <span className={`doc-stat${docListReq.length - cargadosReq === 0 ? ' ok' : ' cond'}`}>
+                <strong>{docListReq.length - cargadosReq}</strong> pendientes oblig.
+              </span>
             </div>
           </div>
 
-          {/* Progress bar */}
+          {/* Barra de progreso */}
           {docList.length > 0 && (
             <div className="doc-progress">
               <div className="doc-progress-header">
-                <span className="doc-progress-label">Progreso de carga</span>
+                <span className="doc-progress-label">Progreso de carga obligatorios</span>
                 <span className="doc-progress-pct">{pct}%</span>
               </div>
               <div className="doc-progress-bar">
@@ -669,27 +685,23 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           )}
         </div>
 
-        {/* Document cards */}
+        {/* Tarjetas de documentos agrupadas por tipo */}
         <div className="field full">
-          <div className="doc-grid">
-            {docList.map((d, i) => {
+          {(() => {
+            const renderCard = (d: DocReq, typeClass: string) => {
               const file = files[d.id] ?? null;
               const uploaded = file || fileLabels[d.id];
+              const globalIdx = docList.findIndex(x => x.id === d.id) + 1;
               return (
-                <div key={d.id} className={`doc-card${file ? ' uploaded' : ''}`}>
+                <div key={d.id} className={`doc-card ${typeClass}${file ? ' uploaded' : ''}`}>
                   <div className="doc-top">
-                    <div className="doc-title">
-                      <FileText size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 5, opacity: .6 }} />
-                      {i + 1}. {d.nombre}
+                    <div className="doc-title" style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                      <span className="doc-num">{globalIdx}</span>
+                      {d.nombre}
                     </div>
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
-                      {d.tipo_requerimiento !== 'requerido' && (
-                        <span className="badge gray" style={{ fontSize: 10 }}>Opcional</span>
-                      )}
-                      <span className={`badge ${uploaded ? 'green' : d.tipo_requerimiento === 'requerido' ? 'amber' : 'gray'}`}>
-                        {file ? 'Listo para subir' : fileLabels[d.id] ? 'Adjunto guardado' : 'Pendiente'}
-                      </span>
-                    </div>
+                    <span className={`badge ${uploaded ? 'green' : d.tipo_requerimiento === 'requerido' ? 'amber' : 'gray'}`} style={{ flexShrink: 0, fontSize: 10 }}>
+                      {file ? 'Listo ✓' : fileLabels[d.id] ? 'Guardado' : 'Pendiente'}
+                    </span>
                   </div>
                   {fileLabels[d.id] && !file ? (
                     <div className="upload-zone has-file">
@@ -697,27 +709,55 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
                         <CheckCircle size={18} className="upload-zone-icon uploaded" />
                         <div>
                           <div className="upload-zone-filename">{fileLabels[d.id]}</div>
-                          <div className="upload-zone-size">Adjunto del borrador (reemplazar si se desea)</div>
+                          <div className="upload-zone-size">Adjunto guardado · reemplazar si se desea</div>
                         </div>
-                        <button
-                          type="button"
-                          className="upload-zone-remove"
+                        <button type="button" className="upload-zone-remove"
                           onClick={(e) => { e.stopPropagation(); setFileLabels({ ...fileLabels, [d.id]: '' }); }}
-                          aria-label="Quitar archivo"
-                        >×</button>
+                          aria-label="Quitar archivo">×</button>
                       </div>
                     </div>
                   ) : null}
                   {!fileLabels[d.id] && (
-                    <FileDropZone
-                      file={file}
-                      onChange={(f) => setFiles({ ...files, [d.id]: f })}
-                    />
+                    <FileDropZone file={file} onChange={(f) => setFiles({ ...files, [d.id]: f })} />
                   )}
                 </div>
               );
-            })}
-          </div>
+            };
+            return (
+              <>
+                {docListReq.length > 0 && (
+                  <>
+                    <div className="doc-group-label req">
+                      <span className="doc-group-dot" />
+                      Obligatorios — {docListReq.length} documentos
+                      <span className="doc-group-line" />
+                    </div>
+                    <div className="doc-grid">{docListReq.map(d => renderCard(d, 'req-card'))}</div>
+                  </>
+                )}
+                {docListCond.length > 0 && (
+                  <>
+                    <div className="doc-group-label cond">
+                      <span className="doc-group-dot" />
+                      Condicionales — {docListCond.length} documentos
+                      <span className="doc-group-line" />
+                    </div>
+                    <div className="doc-grid">{docListCond.map(d => renderCard(d, 'cond-card'))}</div>
+                  </>
+                )}
+                {docListOpt.length > 0 && (
+                  <>
+                    <div className="doc-group-label opt">
+                      <span className="doc-group-dot" />
+                      Opcionales — {docListOpt.length} documentos
+                      <span className="doc-group-line" />
+                    </div>
+                    <div className="doc-grid">{docListOpt.map(d => renderCard(d, 'opt-card'))}</div>
+                  </>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         {/* Observaciones adicionales — A3: permite enviar con docs faltantes si se justifica */}

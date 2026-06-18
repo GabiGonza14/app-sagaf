@@ -191,6 +191,23 @@ sagaf-app/
 
 ---
 
+## 📁 Carpeta `docs/` — Documentación del proyecto
+
+Toda la documentación técnica y de contexto del proyecto vive en la carpeta `docs/`. Es el punto de entrada para entender las decisiones de diseño, los criterios aplicados y el estado de la implementación.
+
+| Archivo | Contenido |
+| --- | --- |
+| `Parcial ISA 4 V2.0.docx` | Documento académico original entregado por el docente. Contiene la especificación del proyecto, requisitos funcionales y no funcionales, casos de uso, criterios de aceptación, plan de pruebas y matriz de defectos. Es la **fuente primaria** del sistema. |
+| `criterio_documental_ros.md` | Descripción de cada documento requerido en las tres plantillas activas (Banco · Persona Natural, Banco · Persona Jurídica, Inmobiliaria). Explica qué es cada documento, por qué se clasificó como **obligatorio**, **condicional** u **opcional**, y qué valor aporta al análisis de la UAF. Incluye notas de implementación sobre los campos `tipo_requerimiento` y `obligatorio` en la BD. |
+| `manual_usuario.md` | Manual de uso del sistema dirigido al usuario final: cómo registrar un ROS, cómo atender subsanaciones, cómo usar la bandeja UAF, etc. |
+| `planificacion_sagaf.md` | Plan de desarrollo por fases, decisiones de arquitectura y justificación de los 5 roles del sistema (incluyendo el Auditor Interno implícito en CU-03). |
+| `reporte_pruebas_fase3.md` | Resultados de las pruebas de la Fase 3: cobertura, casos ejecutados, defectos encontrados y estado de mitigación. |
+| `metricas_finales_sagaf.md` | Métricas finales del proyecto: líneas de código, cobertura de CUs/RFs/RNFs, defectos mitigados y estadísticas de implementación. |
+
+> La carpeta `Contexto/` en la raíz del proyecto contiene los archivos originales entregados por el docente: el PDF del parcial, los 4 diagramas UML de casos de uso, el diagrama de clases y el prototipo HTML semi-funcional de referencia.
+
+---
+
 ## ✅ Cumplimiento de requisitos del documento académico
 
 ### Requisitos funcionales
@@ -203,7 +220,7 @@ sagaf-app/
 | **RF-04** Reportes e inteligencia | `/uaf/reportes` con KPIs, agregados por sector, distribución de riesgo, tiempos, completitud documental. Exportación CSV con marca de agua y restricción de rol |
 | **RF-05** Control de acceso por roles | 5 roles, `middleware.ts` + assertions en backend. MFA obligatorio. Sujetos obligados solo ven sus propios ROS (previene **DEF-05** IDOR) |
 | **RF-06** Validación segura de identidad | `POST /api/personas/verify` retorna **únicamente** `{found, nombre}`. Mitiga **DEF-09**. En banco se valida ordenante y beneficiario **por separado** (mitiga **DEF-11**) |
-| **RF-07** Carga documental individualizada | `POST /api/documentos/upload` con `documento_requerido_id` por archivo. Estado `pendiente/cargado/observado/validado/no_aplica`. Mitiga **DEF-15** |
+| **RF-07** Carga documental individualizada | `POST /api/documentos/upload` con `documento_requerido_id` por archivo. Estado `pendiente/cargado/observado/validado/no_aplica`. Mitiga **DEF-15**. Clasificación de tres niveles por plantilla: **obligatorio** (bloquea el envío si falta), **condicional** (advertencia, depende de la operación) y **opcional** (complementario). Criterio y descripción de cada documento en `docs/criterio_documental_ros.md` |
 
 ### Requisitos no funcionales
 
@@ -212,7 +229,7 @@ sagaf-app/
 | **RNF-01** Seguridad y privacidad | bcrypt + JWT + TOTP real. Portal NO autocompleta datos sensibles. **DEF-01/02/03** mitigados (ventana TOTP estricta, expiración validada, MFA bloqueante) |
 | **RNF-02** Control de acceso por roles | RBAC backend + middleware. Admin NO tiene acceso libre a contenido sensible. |
 | **RNF-03** Trazabilidad | Auditoría completa con IP, UA, recurso, detalle JSON, criticidad. Hora del servidor (mitiga **DEF-30**). |
-| **RNF-04** Usabilidad | Diseño tomado 1:1 del `Prototipo.html` aprobado. Formularios solo con campos pertinentes según sector. |
+| **RNF-04** Usabilidad | Rediseño visual completo: glassmorphism, micro-animaciones, tipografía mejorada y paleta institucional extendida. Formularios solo con campos pertinentes según sector. |
 | **RNF-05** Gestión documental controlada | Un contenedor por requisito, hash SHA-256 del archivo, descarga auditada. |
 | **RNF-06** Integridad de datos | Zod en cada endpoint, normalización de identificadores (mitiga **DEF-10**). Monto como `REAL` (mitiga **DEF-35**). |
 | **RNF-07** Rendimiento | SQLite con WAL + PRAGMAs. Índices en `ros`, `parte_involucrada`, `documento_adjunto`, `evento_auditoria`. |
@@ -299,14 +316,14 @@ pnpm build       # Build de producción
 Este MVP académico **NO** está listo para producción tal cual. Para producción se requeriría:
 
 - `AUTH_SECRET` generado aleatoriamente y rotado (`openssl rand -base64 32`)
-- Cifrado at-rest del `mfa_secret` en BD (no en claro)
 - Reemplazar SQLite por PostgreSQL/MariaDB con replicación
 - Reemplazar storage local por S3/MinIO con cifrado del lado del servidor
 - Reverse proxy (Nginx/Caddy) + TLS forzado
-- Rate limiting en `/api/auth/*` y `/api/mfa/*`
 - Headers de seguridad (CSP, HSTS, X-Frame-Options)
 - Backup automatizado y plan de recuperación
 - Pen-testing externo
+
+> **Ya implementado en este MVP**: cifrado AES-256-CBC at-rest del `mfa_secret` en BD, rate limiting en `/api/auth/*` y `/api/mfa/*`.
 
 ---
 
