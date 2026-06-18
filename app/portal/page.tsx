@@ -209,7 +209,7 @@ export default async function PortalHome() {
                   <div className="report-top">
                     <strong>{r.numero_ros}</strong>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <Badge tone={estadoTone(r.estado)}>{estadoLabel(r.estado)}</Badge>
+                      <Badge tone={estadoTone(r.estado)}>{estadoLabel(r.estado, 'portal')}</Badge>
                       {r.nivel_riesgo && <Badge tone={riskTone(r.nivel_riesgo)}>{r.nivel_riesgo}</Badge>}
                     </div>
                   </div>

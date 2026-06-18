@@ -418,9 +418,9 @@ export function RosExpedienteTabs({
             </div>
           )}
           <div className="doc-summary">
-            <div className="info-box"><span>Recibidos</span><strong>{docsAdj.filter((d) => d.documento_requerido_id).length}</strong></div>
-            <div className="info-box"><span>Pendientes</span><strong>{docsReq.length - docsAdj.filter((d) => d.documento_requerido_id).length}</strong></div>
-            <div className="info-box"><span>Observados</span><strong>{docsAdj.filter((d) => d.estado === 'observado').length}</strong></div>
+            <div className="info-box"><span className="info-box-label">Recibidos</span><strong>{docsAdj.filter((d) => d.documento_requerido_id).length}</strong></div>
+            <div className="info-box"><span className="info-box-label">Pendientes</span><strong>{docsReq.length - docsAdj.filter((d) => d.documento_requerido_id).length}</strong></div>
+            <div className="info-box"><span className="info-box-label">Observados</span><strong>{docsAdj.filter((d) => d.estado === 'observado').length}</strong></div>
           </div>
 
           <div className="doc-grid">

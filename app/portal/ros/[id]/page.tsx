@@ -127,29 +127,32 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
 
   return (
     <>
-      <TopBar
-        eyebrow="Detalle del ROS"
-        title={`${ros.numero_ros} · ${estadoLabel(ros.estado)}`}
-        description="Visualiza el estado, completitud documental y solicitudes de subsanación de la UAF."
-      />
-
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 20 }}>
-        <BackButton href="/portal/ros" label="Mis ROS" />
-        {ros.estado === 'borrador' && (
-          <Link href={`/portal/ros/${ros.id}/editar`} className="btn primary" style={{ padding: '7px 12px', fontSize: 12 }}>
-            Continuar edición
-          </Link>
-        )}
-        <Badge tone={estadoTone(ros.estado)}>{estadoLabel(ros.estado)}</Badge>
+      <div style={{ marginBottom: 16 }}>
+        <BackButton href="/portal/ros" label="Volver a Mis ROS" />
       </div>
 
-      <div className="uaf-layout">
+      <TopBar
+        eyebrow="Detalle del ROS"
+        title={`${ros.numero_ros} · ${estadoLabel(ros.estado, 'portal')}`}
+        description="Visualiza el estado, completitud documental y solicitudes de subsanación de la UAF."
+        right={
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {ros.estado === 'borrador' && (
+              <Link href={`/portal/ros/${ros.id}/editar`} className="btn primary" style={{ padding: '7px 12px', fontSize: 12 }}>
+                Continuar edición
+              </Link>
+            )}
+          </div>
+        }
+      />
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
         <div className="card">
           <div className="panel-head"><div><h3>Resumen</h3><p>Datos generales del reporte.</p></div></div>
 
           <div className="summary-grid">
             <InfoBox label="Número" value={<strong>{ros.numero_ros}</strong>} />
-            <InfoBox label="Estado" value={<Badge tone={estadoTone(ros.estado)}>{estadoLabel(ros.estado)}</Badge>} />
+            <InfoBox label="Estado" value={<Badge tone={estadoTone(ros.estado)}>{estadoLabel(ros.estado, 'portal')}</Badge>} />
             <InfoBox label="Fecha detección" value={formatPanamaDate(ros.fecha_deteccion)} />
             <InfoBox label="Fecha recepción UAF" value={formatPanama(ros.fecha_recepcion)} />
             <InfoBox label="Oficial de cumplimiento" value={ros.oficial_cumplimiento} />
@@ -165,13 +168,13 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
           </div>
 
           <div className="info-box" style={{ marginTop: 12 }}>
-            <span>Resumen narrativo</span>
+            <span className="info-box-label">Resumen narrativo</span>
             <strong>{ros.descripcion}</strong>
           </div>
 
           {ros.observaciones && (
             <div className="info-box" style={{ marginTop: 8, borderColor: '#fedf89', background: 'var(--amber-soft)' }}>
-              <span style={{ color: 'var(--amber)' }}>Observaciones adicionales</span>
+              <span className="info-box-label" style={{ color: 'var(--amber)' }}>Observaciones adicionales</span>
               <strong>{ros.observaciones}</strong>
             </div>
           )}

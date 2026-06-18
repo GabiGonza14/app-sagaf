@@ -636,21 +636,21 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           {/* KPI summary */}
           <div className="doc-summary">
             <div className="info-box" style={{ borderColor: '#dbe8f6', background: 'var(--primary-soft)' }}>
-              <span style={{ color: 'var(--primary)' }}>Obligatorios</span>
+              <span className="info-box-label" style={{ color: 'var(--primary)' }}>Obligatorios</span>
               <strong style={{ color: 'var(--primary)' }}>{docListReq.length}</strong>
             </div>
             {docList.length > docListReq.length && (
               <div className="info-box">
-                <span>Opcionales</span>
+                <span className="info-box-label">Opcionales</span>
                 <strong>{docList.length - docListReq.length}</strong>
               </div>
             )}
             <div className="info-box" style={{ borderColor: cargados > 0 ? 'rgba(21,128,61,.3)' : undefined, background: cargados > 0 ? 'var(--green-soft)' : undefined }}>
-              <span style={{ color: cargados > 0 ? 'var(--green)' : undefined }}>Cargados</span>
+              <span className="info-box-label" style={{ color: cargados > 0 ? 'var(--green)' : undefined }}>Cargados</span>
               <strong style={{ color: cargados > 0 ? 'var(--green)' : 'var(--primary)' }}>{cargados}</strong>
             </div>
             <div className="info-box" style={{ borderColor: docListReq.length - cargadosReq > 0 ? '#fedf89' : 'rgba(21,128,61,.3)', background: docListReq.length - cargadosReq > 0 ? 'var(--amber-soft)' : 'var(--green-soft)' }}>
-              <span style={{ color: docListReq.length - cargadosReq > 0 ? 'var(--amber)' : 'var(--green)' }}>Pendientes obligatorios</span>
+              <span className="info-box-label" style={{ color: docListReq.length - cargadosReq > 0 ? 'var(--amber)' : 'var(--green)' }}>Pendientes obligatorios</span>
               <strong style={{ color: docListReq.length - cargadosReq > 0 ? 'var(--amber)' : 'var(--green)' }}>{docListReq.length - cargadosReq}</strong>
             </div>
           </div>

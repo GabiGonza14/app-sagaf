@@ -222,13 +222,16 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
 
   return (
     <>
+      <div style={{ marginBottom: 16 }}>
+        <BackButton href="/uaf" label="Volver a Bandeja" />
+      </div>
+
       <TopBar
         eyebrow="Expediente del ROS"
         title={`${ros.numero_ros} · ${ros.sujeto_tipo === 'bank' ? 'Banco' : ros.sujeto_tipo === 'realestate' ? 'Inmobiliaria' : ros.sujeto_tipo}`}
         description="Reporte recibido desde el portal público. Datos sensibles enmascarados por defecto."
         right={
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <BackButton href="/uaf" label="Bandeja" />
             {riesgoActual && <Badge tone={riskTone(riesgoActual.nivel)}>{`Riesgo ${riesgoActual.nivel}`}</Badge>}
             <Badge tone={estadoTone(ros.estado)}>{estadoLabel(ros.estado)}</Badge>
           </div>
@@ -252,7 +255,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
             </div>
 
             <div className="info-box" style={{ marginTop: 12 }}>
-              <span>Resumen narrativo</span>
+              <span className="info-box-label">Resumen narrativo</span>
               <strong>{ros.descripcion}</strong>
             </div>
 

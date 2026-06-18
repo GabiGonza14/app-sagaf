@@ -24,7 +24,7 @@ interface RosResumen {
 const ESTADOS_FILTRO = [
   { valor: '',                  label: 'Todos' },
   { valor: 'borrador',          label: 'Borradores' },
-  { valor: 'recibido',          label: 'Recibido' },
+  { valor: 'recibido',          label: 'Enviado' },
   { valor: 'en_analisis',       label: 'En análisis' },
   { valor: 'revision_documental', label: 'Revisión documental' },
   { valor: 'subsanacion',       label: 'Subsanación' },
@@ -89,7 +89,7 @@ export default async function MisROS({
             <h3>Reportes registrados</h3>
             <p>
               {filtroEstado
-                ? `${ros.length} reporte${ros.length !== 1 ? 's' : ''} con estado "${estadoLabel(filtroEstado)}" — de ${todos.length} en total`
+                ? `${ros.length} reporte${ros.length !== 1 ? 's' : ''} con estado "${estadoLabel(filtroEstado, 'portal')}" — de ${todos.length} en total`
                 : `${todos.length} reporte${todos.length !== 1 ? 's' : ''} en total`}
             </p>
           </div>
@@ -132,7 +132,7 @@ export default async function MisROS({
         {ros.length === 0 ? (
           <div className="notice">
             {filtroEstado
-              ? `No tienes reportes con estado "${estadoLabel(filtroEstado)}".`
+              ? `No tienes reportes con estado "${estadoLabel(filtroEstado, 'portal')}".`
               : 'Aún no has registrado ningún ROS.'}{' '}
             <Link href="/portal/ros/nuevo" style={{ color: 'var(--primary)', fontWeight: 700 }}>
               Registrar ahora
@@ -164,7 +164,7 @@ export default async function MisROS({
                     <td style={{ whiteSpace: 'nowrap' }}>
                       {formatPanamaShort(r.fecha_recepcion)}
                     </td>
-                    <td><Badge tone={estadoTone(r.estado)}>{estadoLabel(r.estado)}</Badge></td>
+                    <td><Badge tone={estadoTone(r.estado)}>{estadoLabel(r.estado, 'portal')}</Badge></td>
                     <td style={{ whiteSpace: 'nowrap' }}>USD {r.monto.toLocaleString('en-US')}</td>
                     <td>
                       {r.nivel_riesgo

@@ -33,6 +33,10 @@ export function estadoTone(estado: string): Tone {
   }
 }
 
-export function estadoLabel(estado: string): string {
+export type EstadoContexto = 'portal' | 'uaf';
+
+export function estadoLabel(estado: string, contexto?: EstadoContexto): string {
+  // Desde el portal del Sujeto Obligado, "recibido" → "Enviado"
+  if (estado === 'recibido' && contexto === 'portal') return 'Enviado';
   return estado.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 }
