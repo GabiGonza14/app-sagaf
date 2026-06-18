@@ -34,12 +34,10 @@ describe('maskIdentifier', () => {
   });
 
   it('devuelve *** para null', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(maskIdentifier(null as any)).toBe('***');
   });
 
   it('devuelve *** para undefined', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(maskIdentifier(undefined as any)).toBe('***');
   });
 
@@ -83,12 +81,10 @@ describe('maskEmail', () => {
   });
 
   it('devuelve ***@*** para null', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(maskEmail(null as any)).toBe('***@***');
   });
 
   it('devuelve ***@*** para undefined', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(maskEmail(undefined as any)).toBe('***@***');
   });
 
@@ -169,9 +165,7 @@ describe('maskDescriptionText', () => {
   });
 
   it('devuelve cadena vacía para null/undefined', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(maskDescriptionText(null as any)).toBe('');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(maskDescriptionText(undefined as any)).toBe('');
   });
 

@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 
@@ -38,6 +39,7 @@ export function SujetoActions({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [openEliminar, setOpenEliminar] = useState(false);
 
   // form state
   const [nombre, setNombre] = useState(sujeto.nombre);
@@ -110,32 +112,54 @@ export function SujetoActions({
     } finally { setBusy(false); }
   }
 
+  async function eliminarSujeto() {
+    setBusy(true);
+    setOpenEliminar(false);
+    setToggleError(null);
+    try {
+      const res = await fetch(`/api/sujetos-obligados/${sujeto.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setToggleError(data.error ?? 'No se pudo eliminar el sujeto obligado.');
+        return;
+      }
+      router.refresh();
+    } finally { setBusy(false); }
+  }
+
+  const desactivar = sujeto.estado === 'activo';
+
   return (
     <>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button
-            className="btn secondary"
-            onClick={() => { setOpen(true); setError(null); setToggleError(null); }}
-            disabled={busy}
-            title="Editar sujeto obligado"
-            style={{ fontSize: 13, padding: '6px 12px' }}
-          >
-            Editar
-          </button>
-          <button
-            className={`btn ${sujeto.estado === 'activo' ? 'red' : 'green'}`}
-            onClick={toggleEstado}
-            disabled={busy}
-            title={sujeto.estado === 'activo' ? 'Desactivar' : 'Activar'}
-            style={{ fontSize: 13, padding: '6px 12px' }}
-          >
-            {sujeto.estado === 'activo' ? 'Desactivar' : 'Activar'}
-          </button>
+      {toggleError && (
+        <div className="client-status error" role="alert" style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>
+          {toggleError}
+          <button onClick={() => setToggleError(null)} aria-label="Cerrar"
+            style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: 'inherit' }}>✕</button>
         </div>
-        {toggleError && (
-          <div className="client-status error" style={{ fontSize: 12, padding: '4px 8px' }}>{toggleError}</div>
-        )}
+      )}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button
+          className="btn primary"
+          onClick={() => { setOpen(true); setError(null); setToggleError(null); }}
+          disabled={busy}
+          title="Editar sujeto obligado"
+          style={{ padding: '5px 10px', fontSize: 12, minHeight: 32, borderRadius: 8 }}
+        >Editar</button>
+        <button
+          className="btn ghost"
+          onClick={toggleEstado}
+          disabled={busy}
+          title={desactivar ? 'Desactivar' : 'Activar'}
+          style={{ padding: '5px 10px', fontSize: 12, minHeight: 32, borderRadius: 8, color: desactivar ? 'var(--amber)' : 'var(--green)' }}
+        >{desactivar ? 'Desactivar' : 'Activar'}</button>
+        <button
+          className="btn ghost"
+          onClick={() => setOpenEliminar(true)}
+          disabled={busy}
+          title="Eliminar sujeto obligado"
+          style={{ padding: '5px 10px', fontSize: 12, minHeight: 32, borderRadius: 8, color: 'var(--red)' }}
+        >Eliminar</button>
       </div>
 
       {/* Native <dialog> — no ARIA roles needed, backdrop via ::backdrop CSS */}
@@ -224,6 +248,18 @@ export function SujetoActions({
           </div>
         </form>
       </dialog>
+
+      <ConfirmModal
+        isOpen={openEliminar}
+        variant="danger"
+        title="¿Eliminar sujeto obligado?"
+        message="Esta acción es irreversible. El sujeto obligado será eliminado permanentemente del sistema y quedará registrado en auditoría."
+        confirmLabel="Sí, eliminar"
+        cancelLabel="Cancelar"
+        busy={busy}
+        onConfirm={eliminarSujeto}
+        onCancel={() => setOpenEliminar(false)}
+      />
     </>
   );
 }

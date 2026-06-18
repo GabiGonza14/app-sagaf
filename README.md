@@ -111,7 +111,9 @@ Al primer login, cada cuenta deberá **enrolar MFA** escaneando el QR con su aut
 
 El portal público devuelve **únicamente el nombre** si la cédula/RUC/pasaporte existe — nunca dirección, teléfono, actividad u otros datos sensibles (RF-06 / DEF-09 mitigado).
 
-Los datos provienen de **`lib/directorio-nacional.json`**, un archivo JSON local con **20 registros ficticios** que simula una API gubernamental externa (Tribunal Electoral / Registro Público). Incluye cédulas panameñas, pasaportes extranjeros y RUC de empresas. En producción este archivo sería reemplazado por una llamada al servicio real.
+Los datos se almacenan en la **tabla `personas` de la base de datos SQLite**. Esta tabla asocia cada identificador (cédula, pasaporte o RUC) con su nombre. **La verificación del identificador es obligatoria** antes de enviar un ROS: el usuario debe hacer clic en *Verificar* para cada parte involucrada. Si el identificador existe, se muestra el nombre registrado; si no existe, el usuario debe ingresar el nombre manualmente tras verificar. Al enviar el ROS, si el identificador no estaba registrado, se guarda automáticamente en la tabla `personas` para que esté disponible en futuras verificaciones.
+
+En producción, este mecanismo podría integrarse con una API gubernamental real (Tribunal Electoral / Registro Público), pero para fines académicos el directorio se mantiene en la misma base de datos.
 
 Algunos identificadores de prueba:
 
@@ -173,8 +175,7 @@ sagaf-app/
 │   ├── audit.ts                Log inmutable; hora del servidor (DEF-30)
 │   ├── permissions.ts          RBAC + assertions; canAccessROS (DEF-05)
 │   ├── masking.ts              Enmascaramiento Ley 81
-│   ├── persons.ts              Lookup Ley 81: solo nombre en portal (fuente: directorio-nacional.json)
-│   ├── directorio-nacional.json  20 personas ficticias (cédulas PA, pasaportes, RUC)
+│   ├── persons.ts              Lookup Ley 81: solo nombre en portal (fuente: tabla personas en SQLite)
 │   └── ros-number.ts           Número único ROS-YYYY-NNNNNN (DEF-12 mitigado)
 ├── components/
 │   ├── Sidebar.tsx · TopBar.tsx · KpiCard.tsx · Badge.tsx
@@ -219,7 +220,7 @@ Toda la documentación técnica y de contexto del proyecto vive en la carpeta `d
 | **RF-03** Trazabilidad y auditoría | `lib/audit.ts` registra cada acción (usuario, rol, fecha servidor, IP, UA, recurso, criticidad). Trigger `ABORT` en BD evita UPDATE/DELETE del log |
 | **RF-04** Reportes e inteligencia | `/uaf/reportes` con KPIs, agregados por sector, distribución de riesgo, tiempos, completitud documental. Exportación CSV con marca de agua y restricción de rol |
 | **RF-05** Control de acceso por roles | 5 roles, `middleware.ts` + assertions en backend. MFA obligatorio. Sujetos obligados solo ven sus propios ROS (previene **DEF-05** IDOR) |
-| **RF-06** Validación segura de identidad | `POST /api/personas/verify` retorna **únicamente** `{found, nombre}`. Mitiga **DEF-09**. En banco se valida ordenante y beneficiario **por separado** (mitiga **DEF-11**) |
+| **RF-06** Validación segura de identidad | `POST /api/personas/verify` consulta la tabla `personas` de SQLite y retorna **únicamente** `{found, nombre}`. **La verificación es obligatoria** antes de enviar el ROS; si no existe, se crea al enviar. Mitiga **DEF-09**. En banco se valida ordenante y beneficiario **por separado** (mitiga **DEF-11**) |
 | **RF-07** Carga documental individualizada | `POST /api/documentos/upload` con `documento_requerido_id` por archivo. Estado `pendiente/cargado/observado/validado/no_aplica`. Mitiga **DEF-15**. Clasificación de tres niveles por plantilla: **obligatorio** (bloquea el envío si falta), **condicional** (advertencia, depende de la operación) y **opcional** (complementario). Criterio y descripción de cada documento en `docs/criterio_documental_ros.md` |
 
 ### Requisitos no funcionales
@@ -258,7 +259,7 @@ Toda la documentación técnica y de contexto del proyecto vive en la carpeta `d
 | **DEF-03** Login sin completar MFA | `auth.config.ts` redirige a `/mfa/verify` mientras `mfaVerified === false` |
 | **DEF-05** IDOR (acceso a ROS de otra entidad) | `canAccessROS()` en BD + middleware + verificación por endpoint |
 | **DEF-06** Validación de permisos solo en frontend | RBAC en backend con `requirePermission()` que arroja `ForbiddenError` |
-| **DEF-09** Autocompletado de datos sensibles | `POST /api/personas/verify` solo devuelve `{found, nombre}` |
+| **DEF-09** Autocompletado de datos sensibles | `POST /api/personas/verify` consulta la tabla `personas` de SQLite y solo devuelve `{found, nombre}` |
 | **DEF-10** Búsqueda falla por formato | `normalizeIdentifier()` + `tryVariants()` en `lib/persons.ts` |
 | **DEF-11** Ordenante/beneficiario comparten estado | Cada parte tiene su propio `useState` en `NuevoRosForm.tsx` |
 | **DEF-12** Números de ROS duplicados | `generateNumeroROS()` con transacción atómica |
@@ -274,7 +275,7 @@ Toda la documentación técnica y de contexto del proyecto vive en la carpeta `d
 1. **Login como Banco**: `cumplimiento@banconacional.com.pa` / `password123`
    - Enrola MFA con tu app autenticadora (escanea QR o pega la clave manual).
    - Verás `/portal` sin ROS precargados; registra el primero con *Registrar nuevo ROS*.
-   - Click en *”Registrar nuevo ROS”*. Verifica con cédula `8-888-888` → debería mostrar “María Elena González” y nada más (los datos sensibles como dirección y actividad económica están en el JSON pero nunca se exponen al portal).
+   - Click en *”Registrar nuevo ROS”*. **Verifica** con cédula `8-888-888` → debería mostrar “María Elena González” y nada más (la base de datos solo almacena nombre e identificador; otros datos sensibles nunca se exponen al portal). Si usas un identificador que no existe, ingresa el nombre manualmente tras verificar.
    - Sube archivos a cada requisito documental (mín. 5 para probar). Envía.
 
 2. **Login como Analista UAF**: `analista@uaf.gob.pa` / `password123`

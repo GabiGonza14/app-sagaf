@@ -1,7 +1,7 @@
 'use client';
 import { useRef, useMemo, useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle, FileText, AlertCircle, User, Building2, Shield, FileCheck, Save } from 'lucide-react';
+import { CheckCircle, FileText, AlertCircle, User, Building2, Shield, FileCheck, Save, Info, ClipboardList, UserCheck, FileWarning, DollarSign, MapPin, Calendar, Mail, FileDigit, Type } from 'lucide-react';
 import { FileDropZone, isAllowedFile, MAX_BYTES } from '@/components/FileDropZone';
 import { useNavigationGuard } from '@/lib/navigation-guard';
 
@@ -209,8 +209,56 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     docsOk,
   );
   function partyNameValid(p: PartyState): boolean {
-    return p.status !== 'not_found' || p.nombre.trim().length >= 2;
+    return p.status === 'verified' || (p.status === 'not_found' && p.nombre.trim().length >= 2);
   }
+
+  interface FaltaItem {
+    label: string;
+    icon: React.ReactNode;
+    categoria: 'verificacion' | 'datos' | 'documentos';
+  }
+
+  function getFaltantes(): FaltaItem[] {
+    const faltantes: FaltaItem[] = [];
+
+    if (isBank) {
+      if (ordenante.status === 'idle') faltantes.push({ label: 'Verificar la cédula del ordenante', icon: <UserCheck size={14} />, categoria: 'verificacion' });
+      else if (ordenante.status === 'not_found' && ordenante.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del ordenante', icon: <User size={14} />, categoria: 'verificacion' });
+      if (beneficiario.status === 'idle') faltantes.push({ label: 'Verificar la cédula del beneficiario', icon: <UserCheck size={14} />, categoria: 'verificacion' });
+      else if (beneficiario.status === 'not_found' && beneficiario.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del beneficiario', icon: <User size={14} />, categoria: 'verificacion' });
+      if (!jurisdiccion.trim()) faltantes.push({ label: 'Ingresar la jurisdicción relacionada', icon: <MapPin size={14} />, categoria: 'datos' });
+      if (!productoServicio.trim()) faltantes.push({ label: 'Ingresar el producto bancario involucrado', icon: <FileDigit size={14} />, categoria: 'datos' });
+    }
+
+    if (isRealEstate) {
+      if (comprador.status === 'idle') faltantes.push({ label: 'Verificar la cédula del comprador', icon: <UserCheck size={14} />, categoria: 'verificacion' });
+      else if (comprador.status === 'not_found' && comprador.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del comprador', icon: <User size={14} />, categoria: 'verificacion' });
+      if (!jurisdiccion.trim()) faltantes.push({ label: 'Ingresar la ubicación del bien inmueble', icon: <MapPin size={14} />, categoria: 'datos' });
+      if (!bienInmueble.trim()) faltantes.push({ label: 'Ingresar el bien inmueble involucrado', icon: <Building2 size={14} />, categoria: 'datos' });
+      if (!formaPago.trim()) faltantes.push({ label: 'Ingresar la forma de pago', icon: <DollarSign size={14} />, categoria: 'datos' });
+    }
+
+    if (isGeneric) {
+      if (cliente.status === 'idle') faltantes.push({ label: 'Verificar la cédula/RUC del cliente', icon: <UserCheck size={14} />, categoria: 'verificacion' });
+      else if (cliente.status === 'not_found' && cliente.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del cliente', icon: <User size={14} />, categoria: 'verificacion' });
+    }
+
+    if (!oficial.trim()) faltantes.push({ label: 'Ingresar el nombre del oficial de cumplimiento', icon: <User size={14} />, categoria: 'datos' });
+    if (!correoOficial.trim() || !isValidEmail(correoOficial)) faltantes.push({ label: 'Ingresar un correo institucional válido', icon: <Mail size={14} />, categoria: 'datos' });
+    if (!fechaDeteccion) faltantes.push({ label: 'Seleccionar la fecha de detección', icon: <Calendar size={14} />, categoria: 'datos' });
+    if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0) faltantes.push({ label: 'Ingresar un monto válido mayor a 0', icon: <DollarSign size={14} />, categoria: 'datos' });
+    if (!descripcion.trim() || descripcion.length < 30) faltantes.push({ label: `Ampliar la descripción narrativa (mín. 30 caracteres, actual: ${descripcion.length})`, icon: <Type size={14} />, categoria: 'datos' });
+
+    const campoFaltante = camposDinamicos.find((c) => c.obligatorio === 1 && !(camposValores[c.id] ?? '').trim());
+    if (campoFaltante) faltantes.push({ label: `Completar el campo "${campoFaltante.nombre}"`, icon: <FileText size={14} />, categoria: 'datos' });
+
+    if (!todosDocumentosCargados && observaciones.trim().length < 10) {
+      faltantes.push({ label: `Cargar ${docListReq.length - cargadosReq} documento(s) obligatorio(s) o justificar su ausencia`, icon: <FileWarning size={14} />, categoria: 'documentos' });
+    }
+
+    return faltantes;
+  }
+
   const camposBancoOk = !isBank || Boolean(
     ordenante.id.trim().length >= 3 && partyNameValid(ordenante) &&
     beneficiario.id.trim().length >= 3 && partyNameValid(beneficiario) &&
@@ -440,7 +488,13 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
   function validateBank(): string | null {
     if (!isBank) return null;
     if (ordenante.id.trim().length < 3) return 'La cédula del ordenante debe tener al menos 3 caracteres.';
+    if (ordenante.status === 'idle') return 'Debe verificar la cédula del ordenante antes de enviar.';
+    if (ordenante.status === 'error') return 'Error en la verificación del ordenante. Intente de nuevo.';
+    if (ordenante.status === 'not_found' && ordenante.nombre.trim().length < 2) return 'El ordenante no fue encontrado. Debe ingresar el nombre manualmente.';
     if (beneficiario.id.trim().length < 3) return 'La cédula del beneficiario debe tener al menos 3 caracteres.';
+    if (beneficiario.status === 'idle') return 'Debe verificar la cédula del beneficiario antes de enviar.';
+    if (beneficiario.status === 'error') return 'Error en la verificación del beneficiario. Intente de nuevo.';
+    if (beneficiario.status === 'not_found' && beneficiario.nombre.trim().length < 2) return 'El beneficiario no fue encontrado. Debe ingresar el nombre manualmente.';
     if (!jurisdiccion.trim()) return 'La jurisdicción relacionada es obligatoria.';
     if (!productoServicio.trim()) return 'El producto bancario involucrado es obligatorio.';
     return null;
@@ -449,6 +503,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
   function validateRealEstate(): string | null {
     if (!isRealEstate) return null;
     if (comprador.id.trim().length < 3) return 'La cédula del cliente / comprador debe tener al menos 3 caracteres.';
+    if (comprador.status === 'idle') return 'Debe verificar la cédula del comprador antes de enviar.';
+    if (comprador.status === 'error') return 'Error en la verificación del comprador. Intente de nuevo.';
+    if (comprador.status === 'not_found' && comprador.nombre.trim().length < 2) return 'El comprador no fue encontrado. Debe ingresar el nombre manualmente.';
     if (!jurisdiccion.trim()) return 'La ubicación del bien inmueble es obligatoria.';
     if (!bienInmueble.trim()) return 'El bien inmueble involucrado es obligatorio.';
     if (!formaPago.trim()) return 'La forma de pago es obligatoria.';
@@ -458,6 +515,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
   function validateGeneric(): string | null {
     if (!isGeneric) return null;
     if (cliente.id.trim().length < 3) return 'La cédula/RUC del cliente o parte involucrada debe tener al menos 3 caracteres.';
+    if (cliente.status === 'idle') return 'Debe verificar la cédula/RUC del cliente antes de enviar.';
+    if (cliente.status === 'error') return 'Error en la verificación del cliente. Intente de nuevo.';
+    if (cliente.status === 'not_found' && cliente.nombre.trim().length < 2) return 'El cliente no fue encontrado. Debe ingresar el nombre manualmente.';
     return null;
   }
 
@@ -564,11 +624,11 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         </div>
         <div className="field">
           <label htmlFor="oficial-cumplimiento">Oficial de cumplimiento <span className="req">*</span></label>
-          <input id="oficial-cumplimiento" value={oficial} onChange={(e) => setOficial(e.target.value)} required placeholder="Nombre completo" />
+          <input id="oficial-cumplimiento" value={oficial} disabled />
         </div>
         <div className="field">
           <label htmlFor="correo-oficial">Correo institucional <span className="req">*</span></label>
-          <input id="correo-oficial" type="email" value={correoOficial} onChange={(e) => setCorreoOficial(e.target.value)} required placeholder="correo@entidad.com" />
+          <input id="correo-oficial" type="email" value={correoOficial} disabled />
         </div>
 
         {/* ── Sección 2: Personas relacionadas ── */}
@@ -580,6 +640,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           <Shield size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
           <strong>Privacidad</strong>: si {isBank && tipoCliente === 'juridica' ? 'un RUC' : 'una cédula/RUC'} ya existe en nuestros registros,
           solo verás {isBank && tipoCliente === 'juridica' ? <strong>la razón social</strong> : <strong>el nombre</strong>} para corroboración. No se autocompletan datos sensibles.
+          {' '}<strong>La verificación es obligatoria</strong> antes de enviar el ROS. Si no existe el identificador, ingrese el nombre manualmente tras verificar.
         </div>
 
         {isBank && (
@@ -1015,7 +1076,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           </div>
         )}
 
-        <div className="action-row" style={{ gridColumn: '1 / -1' }}>
+        {/* ── Botones de acción ── */}
+        <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <button type="submit" className="btn primary" disabled={submitting || pending || !formListo} style={{ minWidth: 200, justifyContent: 'center' }}>
             {submitting ? (
               <>Enviando ROS a la UAF…</>
@@ -1036,12 +1098,85 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
             <Save size={16} />
             {esEdicion ? 'Guardar borrador' : 'Guardar borrador'}
           </button>
-          {!formListo && (
-            <div className="helper" style={{ margin: 0, alignSelf: 'center', color: 'var(--amber)' }}>
-              Complete todos los campos obligatorios para habilitar el envío.
-            </div>
-          )}
         </div>
+
+        {/* ── Indicador de pasos faltantes ── */}
+        {!formListo && (
+          <div style={{
+            gridColumn: '1 / -1',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '0.75rem',
+            padding: '1.25rem',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              marginBottom: '1rem',
+              color: '#991b1b',
+              fontSize: '0.875rem',
+              fontWeight: 700,
+            }}>
+              <ClipboardList size={16} />
+              Complete lo siguiente para habilitar el envío
+            </div>
+            {(() => {
+              const items = getFaltantes();
+              const cats: Record<string, FaltaItem[]> = {};
+              items.forEach((it) => { (cats[it.categoria] ??= []).push(it); });
+              const catMeta: Record<string, string> = {
+                verificacion: 'Verificación de identidad',
+                datos: 'Datos de la operación',
+                documentos: 'Documentación',
+              };
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {Object.entries(cats).map(([cat, catItems]) => (
+                    <div key={cat}>
+                      <div style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        color: '#b91c1c',
+                        marginBottom: '0.5rem',
+                      }}>
+                        {catMeta[cat]}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                        {catItems.map((it, idx) => (
+                          <div key={idx} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.625rem',
+                            fontSize: '0.8125rem',
+                            color: '#7f1d1d',
+                          }}>
+                            <span style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '1.25rem',
+                              height: '1.25rem',
+                              borderRadius: '50%',
+                              background: '#fee2e2',
+                              color: '#dc2626',
+                              flexShrink: 0,
+                            }}>
+                              {it.icon}
+                            </span>
+                            {it.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
       </div>
 
@@ -1077,7 +1212,7 @@ function PartyCard({
       </div>
       <div className="lookup-row">
         <input
-          placeholder={`${idLabel} del ${role.toLowerCase()}`}
+          placeholder={`Ingrese ${idLabel.toLowerCase()} y haga clic en Verificar`}
           value={state.id}
           onChange={(e) => setState({ ...state, id: e.target.value, status: 'idle', nombre: '' })}
           autoComplete="off"
@@ -1087,6 +1222,12 @@ function PartyCard({
           Verificar
         </button>
       </div>
+      {state.status === 'idle' && state.id.trim().length >= 3 && (
+        <div className="client-status" style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#e0f2fe', borderColor: '#7dd3fc', color: '#0369a1' }}>
+          <Info size={13} style={{ flexShrink: 0 }} />
+          Haga clic en <strong>Verificar</strong> para validar este {idLabel.toLowerCase()} antes de continuar.
+        </div>
+      )}
       {state.status === 'verified' && (
         <div className="client-status found" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <CheckCircle size={13} style={{ flexShrink: 0 }} />

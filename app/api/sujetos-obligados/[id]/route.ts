@@ -99,3 +99,35 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   return NextResponse.json({ ok: true });
 }
+
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  if (!['admin', 'supervisor'].includes(session.user.rol))
+    return NextResponse.json({ error: 'Solo admin/supervisor' }, { status: 403 });
+
+  const so = db.prepare<[string], { nombre: string }>(
+    'SELECT nombre FROM sujeto_obligado WHERE id = ?',
+  ).get(id);
+  if (!so) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+
+  const usuarios = db.prepare('SELECT COUNT(*) AS n FROM usuario WHERE sujeto_obligado_id = ?').get(id) as { n: number };
+  if (usuarios.n > 0) return NextResponse.json({ error: 'No se puede eliminar: tiene usuarios asociados.' }, { status: 409 });
+
+  const ros = db.prepare('SELECT COUNT(*) AS n FROM ros WHERE sujeto_obligado_id = ?').get(id) as { n: number };
+  if (ros.n > 0) return NextResponse.json({ error: 'No se puede eliminar: tiene reportes ROS asociados.' }, { status: 409 });
+
+  db.prepare('DELETE FROM sujeto_obligado WHERE id = ?').run(id);
+
+  const ctx = extractRequestContext(_req);
+  audit({
+    modulo: 'admin', accion: 'eliminar_sujeto_obligado', resultado: 'exito',
+    usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
+    ip: ctx.ip, user_agent: ctx.user_agent,
+    detalle: { id, nombre: so.nombre },
+    criticidad: 'normal',
+  });
+
+  return NextResponse.json({ ok: true });
+}

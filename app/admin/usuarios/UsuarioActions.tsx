@@ -2,28 +2,44 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { X } from 'lucide-react';
 
 interface Rol { id: string; nombre: string }
+interface Sujeto { id: string; nombre: string }
 
 interface Props {
   usuarioId: string;
+  nombreActual: string;
+  correoActual: string;
   estadoActual: string;
   rolActualId: string;
+  sujetoObligadoId: string | null;
   roles: Rol[];
+  sujetos: Sujeto[];
 }
 
-export function UsuarioActions({ usuarioId, estadoActual, rolActualId, roles }: Readonly<Props>) {
+export function UsuarioActions({
+  usuarioId, nombreActual, correoActual, estadoActual, rolActualId,
+  sujetoObligadoId, roles, sujetos,
+}: Readonly<Props>) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [openEstado, setOpenEstado] = useState(false);
-  const [openRol, setOpenRol] = useState(false);
+  const [openEditar, setOpenEditar] = useState(false);
+  const [openEliminar, setOpenEliminar] = useState(false);
+
+  const [nombre, setNombre] = useState(nombreActual);
+  const [correo, setCorreo] = useState(correoActual);
   const [rolId, setRolId] = useState(rolActualId);
+  const [sujetoId, setSujetoId] = useState(sujetoObligadoId ?? '');
+
   const [error, setError] = useState<string | null>(null);
 
   const desactivar = estadoActual === 'activo';
   const nuevoEstado = desactivar ? 'inactivo' : 'activo';
-  const rolNuevoNombre = roles.find((r) => r.id === rolId)?.nombre ?? rolId;
   const rolCambio = rolId !== rolActualId;
+  const rolName = roles.find((r) => r.id === rolId)?.nombre;
+  const requiresSujeto = rolName === 'sujeto_obligado';
 
   async function toggleEstado() {
     setBusy(true);
@@ -40,17 +56,34 @@ export function UsuarioActions({ usuarioId, estadoActual, rolActualId, roles }: 
     } finally { setBusy(false); }
   }
 
-  async function guardarRol() {
+  async function guardarEdicion(e: React.FormEvent) {
+    e.preventDefault();
     setBusy(true);
-    setOpenRol(false);
     setError(null);
     try {
+      const body: Record<string, unknown> = { nombre, correo };
+      if (rolCambio) {
+        body.rol_id = rolId;
+        body.sujeto_obligado_id = requiresSujeto ? (sujetoId || null) : null;
+      }
       const res = await fetch(`/api/usuarios/${usuarioId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rol_id: rolId }),
+        body: JSON.stringify(body),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'No se pudo cambiar el rol del usuario.'); return; }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'No se pudo actualizar el usuario.'); return; }
+      setOpenEditar(false);
+      router.refresh();
+    } finally { setBusy(false); }
+  }
+
+  async function eliminarUsuario() {
+    setBusy(true);
+    setOpenEliminar(false);
+    setError(null);
+    try {
+      const res = await fetch(`/api/usuarios/${usuarioId}`, { method: 'DELETE' });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'No se pudo eliminar el usuario.'); return; }
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -64,39 +97,68 @@ export function UsuarioActions({ usuarioId, estadoActual, rolActualId, roles }: 
             style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: 'inherit' }}>✕</button>
         </div>
       )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {/* Toggle estado */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <button
-          className={`btn ${desactivar ? 'amber' : 'green'}`}
+          className="btn primary"
+          onClick={() => setOpenEditar(true)}
+          disabled={busy}
+          style={{ padding: '5px 10px', fontSize: 12, minHeight: 32, borderRadius: 8 }}
+        >Editar</button>
+
+        <button
+          className="btn ghost"
           onClick={() => setOpenEstado(true)}
           disabled={busy}
-          style={{ padding: '6px 10px', fontSize: 12 }}
-        >
-          {desactivar ? 'Desactivar' : 'Activar'}
-        </button>
+          style={{ padding: '5px 10px', fontSize: 12, minHeight: 32, borderRadius: 8, color: desactivar ? 'var(--amber)' : 'var(--green)' }}
+        >{desactivar ? 'Desactivar' : 'Activar'}</button>
 
-        {/* Cambio de rol (A4) */}
-        <div style={{ display: 'flex', gap: 4 }}>
-          <select
-            value={rolId}
-            onChange={(e) => setRolId(e.target.value)}
-            disabled={busy}
-            style={{ fontSize: 12, padding: '4px 6px', flex: 1 }}
-          >
-            {roles.map((r) => (
-              <option key={r.id} value={r.id}>{r.nombre}</option>
-            ))}
-          </select>
-          <button
-            className="btn secondary"
-            onClick={() => setOpenRol(true)}
-            disabled={busy || !rolCambio}
-            style={{ padding: '4px 8px', fontSize: 12, whiteSpace: 'nowrap' }}
-          >
-            Cambiar rol
-          </button>
-        </div>
+        <button
+          className="btn ghost"
+          onClick={() => setOpenEliminar(true)}
+          disabled={busy}
+          style={{ padding: '5px 10px', fontSize: 12, minHeight: 32, borderRadius: 8, color: 'var(--red)' }}
+        >Eliminar</button>
       </div>
+
+      {/* Modal Editar */}
+      {openEditar && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setOpenEditar(false); setNombre(nombreActual); setCorreo(correoActual); setRolId(rolActualId); setSujetoId(sujetoObligadoId ?? ''); setError(null); } }} role="dialog" aria-modal="true">
+          <div className="modal-box" style={{ maxWidth: 480 }}>
+            <button type="button" className="modal-close" onClick={() => { setOpenEditar(false); setNombre(nombreActual); setCorreo(correoActual); setRolId(rolActualId); setSujetoId(sujetoObligadoId ?? ''); setError(null); }} aria-label="Cerrar"><X size={16} /></button>
+            <h3 className="modal-title">Editar usuario</h3>
+            <p className="modal-message">Modifique los datos del usuario. El correo debe ser único en el sistema.</p>
+            <form onSubmit={guardarEdicion} style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="field">
+                <label>Nombre completo</label>
+                <input value={nombre} onChange={(e) => setNombre(e.target.value)} required />
+              </div>
+              <div className="field">
+                <label>Correo institucional</label>
+                <input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} required />
+              </div>
+              <div className="field">
+                <label>Rol</label>
+                <select value={rolId} onChange={(e) => setRolId(e.target.value)} required>
+                  {roles.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                </select>
+              </div>
+              {requiresSujeto && (
+                <div className="field">
+                  <label>Sujeto obligado asociado</label>
+                  <select value={sujetoId} onChange={(e) => setSujetoId(e.target.value)} required>
+                    <option value="">— seleccione —</option>
+                    {sujetos.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                  </select>
+                </div>
+              )}
+              <div className="modal-actions" style={{ marginTop: 8 }}>
+                <button type="button" className="btn ghost" onClick={() => { setOpenEditar(false); setNombre(nombreActual); setCorreo(correoActual); setRolId(rolActualId); setSujetoId(sujetoObligadoId ?? ''); setError(null); }} disabled={busy}>Cancelar</button>
+                <button type="submit" className="btn primary" disabled={busy}>{busy ? 'Guardando…' : 'Guardar cambios'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         isOpen={openEstado}
@@ -115,15 +177,15 @@ export function UsuarioActions({ usuarioId, estadoActual, rolActualId, roles }: 
       />
 
       <ConfirmModal
-        isOpen={openRol}
-        variant="warning"
-        title="¿Cambiar rol del usuario?"
-        message={`El usuario recibirá el rol "${rolNuevoNombre}". Sus permisos cambiarán de inmediato y la acción quedará registrada en auditoría.`}
-        confirmLabel="Sí, cambiar rol"
+        isOpen={openEliminar}
+        variant="danger"
+        title="¿Eliminar usuario?"
+        message="Esta acción es irreversible. El usuario será eliminado permanentemente del sistema y quedará registrado en auditoría."
+        confirmLabel="Sí, eliminar"
         cancelLabel="Cancelar"
         busy={busy}
-        onConfirm={guardarRol}
-        onCancel={() => { setOpenRol(false); setRolId(rolActualId); }}
+        onConfirm={eliminarUsuario}
+        onCancel={() => setOpenEliminar(false)}
       />
     </>
   );

@@ -15,7 +15,8 @@ const store = new Map<string, RateLimitRecord>();
  * @param windowMs Tamaño de la ventana en milisegundos (ej. 60000 para 1 min)
  * @returns { ok: boolean, remaining: number }
  */
-export function checkRateLimit(ip: string, maxAttempts = 5, windowMs = 60000) {
+export function checkRateLimit(ip: string | null, maxAttempts = 5, windowMs = 60000) {
+  if (!ip) return { ok: true, remaining: maxAttempts };
   const now = Date.now();
   const record = store.get(ip);
 
@@ -42,6 +43,6 @@ export function checkRateLimit(ip: string, maxAttempts = 5, windowMs = 60000) {
 /**
  * Resetea el contador para una IP (útil después de un login exitoso).
  */
-export function clearRateLimit(ip: string) {
-  store.delete(ip);
+export function clearRateLimit(ip: string | null) {
+  if (ip) store.delete(ip);
 }

@@ -417,10 +417,30 @@ export function RosExpedienteTabs({
               Solicitud enviada al sujeto obligado. El ROS pasó a estado «subsanación».
             </div>
           )}
-          <div className="doc-summary">
-            <div className="info-box"><span className="info-box-label">Recibidos</span><strong>{docsAdj.filter((d) => d.documento_requerido_id).length}</strong></div>
-            <div className="info-box"><span className="info-box-label">Pendientes</span><strong>{docsReq.length - docsAdj.filter((d) => d.documento_requerido_id).length}</strong></div>
-            <div className="info-box"><span className="info-box-label">Observados</span><strong>{docsAdj.filter((d) => d.estado === 'observado').length}</strong></div>
+          <div className="doc-stat-strip">
+            <div className="doc-stat ok">
+              <span className="doc-stat-dot" />
+              <strong>{docsAdj.filter((d) => d.documento_requerido_id).length}</strong>
+              Recibidos
+            </div>
+            <div className="doc-stat-divider" />
+            <div className="doc-stat">
+              <span className="doc-stat-dot" style={{ background: '#94a3b8' }} />
+              <strong>{docsReq.length - docsAdj.filter((d) => d.documento_requerido_id).length}</strong>
+              Pendientes
+            </div>
+            <div className="doc-stat-divider" />
+            <div className="doc-stat req">
+              <span className="doc-stat-dot" />
+              <strong>{docsAdj.filter((d) => d.estado === 'observado').length}</strong>
+              Observados
+            </div>
+            <div className="doc-stat-right">
+              <div className="doc-stat">
+                <strong>{docsReq.length}</strong>
+                total
+              </div>
+            </div>
           </div>
 
           <div className="doc-grid">
@@ -440,67 +460,84 @@ export function RosExpedienteTabs({
               const klass = adj?.estado === 'observado' ? 'observed' : adj?.estado === 'validado' ? 'validated' : adj?.estado === 'cargado' ? 'uploaded' : '';
 
               return (
-                <div key={dr.id} className={`doc-card ${klass}`}>
-                  <div className="doc-top">
-                    <div className="doc-title">{i + 1}. {dr.nombre}</div>
+                <div key={dr.id} className={`doc-card uaf-doc-card ${klass}`}>
+                  <div className="uaf-doc-header">
+                    <div className="uaf-doc-index">{i + 1}</div>
+                    <div className="uaf-doc-meta">
+                      <div className="doc-title">{dr.nombre}</div>
+                      {adj && adj.estado !== 'no_aplica' && (
+                        <div className="uaf-doc-filename">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                          <a href={`/documentos/${adj.id}`} target="_blank" rel="noreferrer" className="uaf-doc-link">
+                            {adj.nombre_archivo}
+                          </a>
+                        </div>
+                      )}
+                    </div>
                     <Badge tone={tone as 'teal' | 'red' | 'green' | 'amber' | 'purple'}>{badgeLabel}</Badge>
                   </div>
+
                   {adj ? (
                     <>
                       {adj.estado === 'no_aplica' ? (
-                        <div className="client-status info">
-                          <strong>No aplica</strong> — {adj.observacion ?? 'Declarado como no aplicable.'}
+                        <div className="uaf-doc-body">
+                          <div className="uaf-doc-notice info">
+                            No aplica
+                            <span className="uaf-doc-sub">{adj.observacion ?? 'Declarado como no aplicable.'}</span>
+                          </div>
                         </div>
                       ) : (
                         <>
-                          <div className="file-name">Archivo: {adj.nombre_archivo}</div>
-                          <div className="small">Recibido: {formatPanama(adj.fecha_carga)}</div>
-                          {adj.observacion && (
-                            <div className="client-status warning">
-                              <strong>Observación:</strong> {adj.observacion}
+                          <div className="uaf-doc-body">
+                            <div className="uaf-doc-datestamp">Recibido {formatPanama(adj.fecha_carga)}</div>
+                            {adj.observacion && adj.estado === 'observado' && (
+                              <div className="uaf-doc-notice warning">
+                                <strong>Observación:</strong> {adj.observacion}
+                              </div>
+                            )}
+                            {adj.estado === 'validado' && (
+                              <div className="uaf-doc-notice success">Documento validado correctamente</div>
+                            )}
+                          </div>
+                          {adj.estado !== 'validado' && (
+                            <div className="uaf-doc-actions">
+                              <a href={`/documentos/${adj.id}`} target="_blank" className="btn ghost uaf-btn-sm" rel="noreferrer">Ver archivo</a>
+                              {hasPendingSubsOnAdj ? (
+                                <span className="uaf-waiting-label">Esperando corrección del sujeto…</span>
+                              ) : (
+                                <>
+                                  <button className="btn green uaf-btn-sm"
+                                    onClick={() => marcarDocumento(adj.id, 'validado')}
+                                    disabled={busy}>Validar</button>
+                                  {adj.estado !== 'no_aplica' && (
+                                    <>
+                                      <button className="btn amber uaf-btn-sm"
+                                        onClick={() => abrirObservar(adj.id)}
+                                        disabled={busy}>Observar</button>
+                                      <button className="btn ghost uaf-btn-sm"
+                                        onClick={() => abrirNoAplica(adj.id)}
+                                        disabled={busy}>No aplica</button>
+                                    </>
+                                  )}
+                                </>
+                              )}
                             </div>
                           )}
                         </>
                       )}
-                      {adj.estado !== 'validado' && (
-                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                          {adj.estado !== 'no_aplica' && (
-                            <a href={`/api/documentos/${adj.id}/file`} target="_blank" className="btn ghost" rel="noreferrer">Ver</a>
-                          )}
-                          {hasPendingSubsOnAdj ? (
-                            <span className="small" style={{ color: 'var(--amber)', fontStyle: 'italic' }}>
-                              Esperando corrección del sujeto obligado…
-                            </span>
-                          ) : (
-                            <>
-                              <button className="btn green"
-                                onClick={() => marcarDocumento(adj.id, 'validado')}
-                                disabled={busy}>Validar</button>
-                              {adj.estado !== 'no_aplica' && (
-                                <>
-                                  <button className="btn amber"
-                                    onClick={() => abrirObservar(adj.id)}
-                                    disabled={busy}>Observar</button>
-                                  <button className="btn ghost"
-                                    onClick={() => abrirNoAplica(adj.id)}
-                                    disabled={busy}>No aplica</button>
-                                </>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      )}
                     </>
                   ) : (
                     <>
-                      <div className="helper">
-                        {hasSolicitudPend
-                          ? 'Solicitud enviada. Esperando que el sujeto obligado cargue el documento.'
-                          : 'Pendiente. El sujeto obligado no ha cargado este documento.'}
+                      <div className="uaf-doc-body">
+                        <div className="uaf-doc-notice pending">
+                          {hasSolicitudPend
+                            ? 'Solicitud enviada — esperando carga del sujeto obligado'
+                            : 'Sin documento adjunto aún'}
+                        </div>
                       </div>
                       {canClassify && !hasSolicitudPend && (
-                        <div style={{ marginTop: 8 }}>
-                          <button className="btn amber"
+                        <div className="uaf-doc-actions">
+                          <button className="btn amber uaf-btn-sm"
                             onClick={() => abrirSolicitarPendiente(dr.id, dr.nombre)}
                             disabled={busy}>Solicitar documento</button>
                         </div>
@@ -523,7 +560,7 @@ export function RosExpedienteTabs({
                       <Badge tone="gray">extra</Badge>
                     </div>
                     <div className="small">Recibido: {formatPanama(e.fecha_carga)}</div>
-                    <a href={`/api/documentos/${e.id}/file`} target="_blank" className="btn ghost" rel="noreferrer">Ver</a>
+                    <a href={`/documentos/${e.id}`} target="_blank" className="btn ghost" rel="noreferrer">Ver</a>
                   </div>
                 ))}
               </div>

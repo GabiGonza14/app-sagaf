@@ -14,6 +14,7 @@ interface UserRow {
   correo: string;
   rol: string;
   rol_id: string;
+  sujeto_obligado_id: string | null;
   sujeto_nombre: string | null;
   estado: string;
   mfa_activo: number;
@@ -27,12 +28,12 @@ export default async function UsuariosAdmin() {
 
   const users = db.prepare<[], UserRow>(
     `
-    SELECT u.id, u.nombre, u.correo, r.nombre AS rol, u.rol_id,
+    SELECT u.id, u.nombre, u.correo, r.nombre AS rol, u.rol_id, u.sujeto_obligado_id,
            so.nombre AS sujeto_nombre, u.estado, u.mfa_activo, u.ultimo_acceso
-      FROM usuario u
-      JOIN rol r ON r.id = u.rol_id
-      LEFT JOIN sujeto_obligado so ON so.id = u.sujeto_obligado_id
-     ORDER BY u.nombre
+       FROM usuario u
+       JOIN rol r ON r.id = u.rol_id
+       LEFT JOIN sujeto_obligado so ON so.id = u.sujeto_obligado_id
+      ORDER BY u.nombre
     `,
   ).all();
 
@@ -79,7 +80,7 @@ export default async function UsuariosAdmin() {
                   </Badge>
                 </td>
                 <td className="small">{u.ultimo_acceso ? formatPanama(u.ultimo_acceso) : '—'}</td>
-                <td><UsuarioActions usuarioId={u.id} estadoActual={u.estado} rolActualId={u.rol_id} roles={roles} /></td>
+                <td><UsuarioActions usuarioId={u.id} nombreActual={u.nombre} correoActual={u.correo} estadoActual={u.estado} rolActualId={u.rol_id} sujetoObligadoId={u.sujeto_obligado_id} roles={roles} sujetos={sujetos} /></td>
               </tr>
             ))}
           </tbody>

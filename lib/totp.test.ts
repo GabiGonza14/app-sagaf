@@ -88,9 +88,7 @@ describe('TOTP — verifyCode (DEF-01 / DEF-02)', () => {
   });
 
   it('rechaza cuando el secret es undefined/null (cast)', () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(verifyCode(null as any, '123456')).toBe(false);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     expect(verifyCode(undefined as any, '123456')).toBe(false);
   });
 

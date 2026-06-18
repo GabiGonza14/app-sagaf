@@ -133,7 +133,7 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
             <CheckCircle size={18} className="upload-zone-icon uploaded" />
             <div>
               <a
-                href={`/api/documentos/${adjunto!.id}/file`}
+                href={`/documentos/${adjunto!.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="upload-zone-filename"

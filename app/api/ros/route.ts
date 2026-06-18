@@ -235,10 +235,18 @@ export async function GET() {
     rows = db.prepare(
       `SELECT id, numero_ros, estado, fecha_recepcion FROM ros WHERE sujeto_obligado_id = ? ORDER BY fecha_recepcion DESC`,
     ).all(session.user.sujetoObligadoId);
-  } else if (['analista', 'supervisor'].includes(session.user.rol)) {
+  } else if (session.user.rol === 'supervisor') {
     rows = db.prepare(
       `SELECT id, numero_ros, estado, fecha_recepcion FROM ros ORDER BY fecha_recepcion DESC`,
     ).all();
+  } else if (session.user.rol === 'analista') {
+    rows = db.prepare(
+      `SELECT r.id, r.numero_ros, r.estado, r.fecha_recepcion
+         FROM ros r
+         JOIN asignacion_ros ar ON ar.ros_id = r.id AND ar.activa = 1
+        WHERE ar.analista_id = ?
+        ORDER BY r.fecha_recepcion DESC`,
+    ).all(session.user.id);
   } else {
     return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
   }

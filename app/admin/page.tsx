@@ -71,8 +71,7 @@ export default async function AdminHome() {
       {/* Módulos administrativos */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
         {/* Usuarios */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: 'linear-gradient(180deg, var(--primary), var(--teal))' }} />
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg, var(--primary-soft), white)', border: '1px solid rgba(20,92,158,.1)', display: 'grid', placeItems: 'center', boxShadow: '0 4px 12px rgba(20,92,158,.08)' }}>
             <Users size={24} style={{ color: 'var(--primary)' }} />
           </div>
@@ -90,8 +89,7 @@ export default async function AdminHome() {
         </div>
 
         {/* Sujetos obligados */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: 'linear-gradient(180deg, var(--teal), var(--green))' }} />
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg, var(--teal-soft), white)', border: '1px solid rgba(15,118,110,.1)', display: 'grid', placeItems: 'center', boxShadow: '0 4px 12px rgba(15,118,110,.08)' }}>
             <Building2 size={24} style={{ color: 'var(--teal)' }} />
           </div>
@@ -109,8 +107,7 @@ export default async function AdminHome() {
         </div>
 
         {/* Plantillas */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: 4, height: '100%', background: 'linear-gradient(180deg, var(--green), var(--primary))' }} />
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ width: 48, height: 48, borderRadius: 14, background: 'linear-gradient(135deg, var(--green-soft), white)', border: '1px solid rgba(21,128,61,.1)', display: 'grid', placeItems: 'center', boxShadow: '0 4px 12px rgba(21,128,61,.08)' }}>
             <FileText size={24} style={{ color: 'var(--green)' }} />
           </div>

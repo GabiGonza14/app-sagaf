@@ -205,7 +205,7 @@ export default async function PortalHome() {
           ) : (
             <div className="report-list">
               {recientes.map((r) => (
-                <Link key={r.id} href={`/portal/ros/${r.id}`} className="report-item" style={r.nivel_riesgo ? { borderLeft: `4px solid var(--${riskTone(r.nivel_riesgo)})` } : undefined}>
+                <Link key={r.id} href={`/portal/ros/${r.id}`} className="report-item">
                   <div className="report-top">
                     <strong>{r.numero_ros}</strong>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>

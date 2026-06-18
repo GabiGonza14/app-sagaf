@@ -70,11 +70,11 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
   if (estado) { innerFilters.push(`r.estado = ?`); innerParams.push(estado); }
   if (sector) { innerFilters.push(`so.sector = ?`); innerParams.push(sector); }
 
-  // Analista ve los ROS asignados a él O los que no tienen asignación activa (pool general)
+  // Analista solo ve los ROS que le fueron asignados formalmente por un Supervisor
   const isAnalista = session?.user?.rol === 'analista';
   if (isAnalista) {
     innerFilters.push(
-      `(EXISTS (SELECT 1 FROM asignacion_ros ar WHERE ar.ros_id = r.id AND ar.analista_id = ? AND ar.activa = 1) OR NOT EXISTS (SELECT 1 FROM asignacion_ros ar WHERE ar.ros_id = r.id AND ar.activa = 1))`
+      `EXISTS (SELECT 1 FROM asignacion_ros ar WHERE ar.ros_id = r.id AND ar.analista_id = ? AND ar.activa = 1)`
     );
     innerParams.push(session!.user.id);
   }
@@ -216,7 +216,7 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
         ) : (
           <div className="report-list">
             {ros.map((r) => (
-              <Link key={r.id} href={`/uaf/ros/${r.id}`} className="report-item" style={r.nivel_riesgo ? { borderLeft: `4px solid var(--${riskTone(r.nivel_riesgo)})` } : undefined}>
+              <Link key={r.id} href={`/uaf/ros/${r.id}`} className="report-item">
                 <div className="report-top">
                   <strong>{r.numero_ros}</strong>
                   <div style={{ display: 'flex', gap: 6 }}>
