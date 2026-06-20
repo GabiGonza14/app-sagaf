@@ -1,6 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+
+function formatSector(s: string) {
+  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 import { useRouter } from 'next/navigation';
 import { Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import CustomSelect from '@/components/CustomSelect';
@@ -140,7 +144,7 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
             <label className="filter-label">Sector económico</label>
             <CustomSelect value={sector} onChange={(e) => { setSector(e.target.value); }}>
               <option value="">Todos los sectores</option>
-              {sectores.map((s) => <option key={s} value={s}>{s}</option>)}
+              {sectores.map((s) => <option key={s} value={s}>{formatSector(s)}</option>)}
             </CustomSelect>
           </div>
 
@@ -169,12 +173,12 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
           </div>
 
           <div className="filter-group">
-            <label className="filter-label">Monto mínimo (USD)</label>
+            <label className="filter-label">Monto mínimo ($)</label>
             <input type="number" placeholder="0" value={montoMin} onChange={(e) => setMontoMin(e.target.value)} min={0} />
           </div>
 
           <div className="filter-group">
-            <label className="filter-label">Monto máximo (USD)</label>
+            <label className="filter-label">Monto máximo ($)</label>
             <input type="number" placeholder="Sin límite" value={montoMax} onChange={(e) => setMontoMax(e.target.value)} min={0} />
           </div>
 

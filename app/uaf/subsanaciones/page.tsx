@@ -51,48 +51,56 @@ export default async function SubsanacionesUafPage() {
   const resto      = rows.filter((r) => !['atendida', 'pendiente', 'vencida'].includes(r.estado));
 
   const renderTable = (items: Row[]) => (
-    <table className="table">
-      <thead>
-        <tr>
-          <th>ROS</th>
-          <th>Sujeto obligado</th>
-          <th>Documento</th>
-          <th>Motivo</th>
-          <th>Estado</th>
-          <th>Fecha solicitud</th>
-          <th>Respuesta</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {items.map((r) => (
-          <tr key={r.id}>
-            <td><strong style={{ color: '#0f3e69' }}>{r.numero_ros}</strong></td>
-            <td style={{ fontSize: '0.85rem' }}>{r.sujeto_nombre}</td>
-            <td style={{ fontSize: '0.85rem' }}>{r.doc_req_nombre ?? r.doc_adj_nombre ?? '—'}</td>
-            <td style={{ fontSize: '0.85rem', maxWidth: 220 }}>{r.motivo}</td>
-            <td>
-              <Badge tone={
-                r.estado === 'atendida' ? 'green' :
-                r.estado === 'pendiente' ? 'amber' :
-                r.estado === 'vencida' ? 'red' : 'gray'
-              }>{r.estado}</Badge>
-            </td>
-            <td style={{ fontSize: '0.82rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-              {formatPanamaShort(r.fecha_solicitud)}
-            </td>
-            <td style={{ fontSize: '0.82rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
-              {r.fecha_respuesta ? formatPanamaShort(r.fecha_respuesta) : '—'}
-            </td>
-            <td>
-              <Link href={`/uaf/ros/${r.ros_id}?tab=documentos`} className="btn primary" style={{ padding: '6px 12px', fontSize: 12 }}>
-                Revisar
-              </Link>
-            </td>
+    <div style={{ overflowX: 'auto' }}>
+      <table className="table" style={{ minWidth: 800 }}>
+        <thead>
+          <tr>
+            <th style={{ whiteSpace: 'nowrap' }}>ROS</th>
+            <th style={{ whiteSpace: 'nowrap' }}>Sujeto obligado</th>
+            <th style={{ width: '22%' }}>Documento</th>
+            <th style={{ width: '22%' }}>Motivo</th>
+            <th style={{ whiteSpace: 'nowrap' }}>Estado</th>
+            <th style={{ whiteSpace: 'nowrap' }}>Fecha solicitud</th>
+            <th style={{ whiteSpace: 'nowrap' }}>Respuesta</th>
+            <th></th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {items.map((r) => (
+            <tr key={r.id}>
+              <td style={{ whiteSpace: 'nowrap' }}><strong style={{ color: '#0f3e69' }}>{r.numero_ros}</strong></td>
+              <td style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{r.sujeto_nombre}</td>
+              <td style={{ fontSize: '0.85rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  title={r.doc_req_nombre ?? r.doc_adj_nombre ?? ''}>
+                {r.doc_req_nombre ?? r.doc_adj_nombre ?? '—'}
+              </td>
+              <td style={{ fontSize: '0.85rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  title={r.motivo}>
+                {r.motivo}
+              </td>
+              <td>
+                <Badge tone={
+                  r.estado === 'atendida' ? 'green' :
+                  r.estado === 'pendiente' ? 'amber' :
+                  r.estado === 'vencida' ? 'red' : 'gray'
+                }>{r.estado}</Badge>
+              </td>
+              <td style={{ fontSize: '0.82rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                {formatPanamaShort(r.fecha_solicitud)}
+              </td>
+              <td style={{ fontSize: '0.82rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                {r.fecha_respuesta ? formatPanamaShort(r.fecha_respuesta) : '—'}
+              </td>
+              <td>
+                <Link href={`/uaf/ros/${r.ros_id}?tab=documentos`} className="btn primary" style={{ padding: '6px 12px', fontSize: 12, whiteSpace: 'nowrap' }}>
+                  Revisar
+                </Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 
   return (

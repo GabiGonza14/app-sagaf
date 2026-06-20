@@ -90,14 +90,17 @@ export async function POST(req: Request) {
   const hash = createHash('sha256').update(buffer).digest('hex');
 
   // Si existe un adjunto previo para este documento_requerido, lo reemplazamos
+  let prevSubsIds: string[] = [];
   if (docReqId) {
     const prev = db.prepare<[string, string], { id: string; ruta_archivo: string }>(
       'SELECT id, ruta_archivo FROM documento_adjunto WHERE ros_id = ? AND documento_requerido_id = ?',
     ).get(rosId, docReqId);
     if (prev) {
-      // Cerrar subsanaciones pendientes que apuntaban al adjunto reemplazado y
-      // liberar la FK (sin SET NULL en schema) para que el DELETE no falle.
-      // Liberar FK antes de eliminar el adjunto anterior
+      // Capturar subsanaciones pendientes antes de limpiar el link, para resolverlas luego
+      prevSubsIds = (db.prepare<[string], { id: string }>(
+        `SELECT id FROM solicitud_subsanacion WHERE documento_adjunto_id = ? AND estado = 'pendiente'`,
+      ).all(prev.id) as Array<{ id: string }>).map((r) => r.id);
+
       db.prepare(
         `UPDATE solicitud_subsanacion SET documento_adjunto_id = NULL WHERE documento_adjunto_id = ?`,
       ).run(prev.id);
@@ -115,13 +118,22 @@ export async function POST(req: Request) {
     mime || null, hash, buffer.byteLength, session.user.id,
   );
 
-  // Resolver solicitudes pendientes apuntando al nuevo adjunto
+  // Resolver solicitudes pendientes: por documento_requerido_id (nuevas) o por IDs capturados (antiguas)
   if (docReqId) {
     db.prepare(`
       UPDATE solicitud_subsanacion
          SET estado = 'atendida', documento_adjunto_id = ?, fecha_respuesta = CURRENT_TIMESTAMP
        WHERE ros_id = ? AND documento_requerido_id = ? AND estado = 'pendiente'
     `).run(docId, rosId, docReqId);
+  }
+  // Fallback: subsanaciones que apuntaban al adjunto anterior (sin documento_requerido_id)
+  if (prevSubsIds.length > 0) {
+    const placeholders = prevSubsIds.map(() => '?').join(',');
+    db.prepare(`
+      UPDATE solicitud_subsanacion
+         SET estado = 'atendida', documento_adjunto_id = ?, fecha_respuesta = CURRENT_TIMESTAMP
+       WHERE id IN (${placeholders}) AND estado = 'pendiente'
+    `).run(docId, ...prevSubsIds);
   }
 
   const ctx = extractRequestContext(req);

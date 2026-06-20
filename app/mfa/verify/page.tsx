@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { MfaVerifyForm } from './MfaVerifyForm';
 import { SignOutLink } from '@/components/SignOutLink';
 import { buildQrDataUrl } from '@/lib/totp';
+import { decryptString } from '@/lib/crypto';
 
 export default async function MfaVerifyPage() {
   const session = await auth();
@@ -19,10 +20,11 @@ export default async function MfaVerifyPage() {
     redirect('/mfa/setup');
   }
 
-  // Generar QR para mostrar en la verificación
+  // Generar QR para mostrar en la verificación (desencriptando el secret antes)
   let qr: string | null = null;
   if (row.mfa_secret) {
-    qr = await buildQrDataUrl(session.user.email ?? 'sagaf', row.mfa_secret);
+    const decryptedSecret = decryptString(row.mfa_secret);
+    qr = await buildQrDataUrl(session.user.email ?? 'sagaf', decryptedSecret);
   }
 
   return (

@@ -1,4 +1,8 @@
 import Link from 'next/link';
+
+function formatSector(s: string) {
+  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { formatPanamaMedium } from '@/lib/date';
@@ -60,12 +64,22 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
   const innerParams: unknown[] = [];
 
   if (q) {
-    innerFilters.push(`(r.numero_ros LIKE ? OR so.nombre LIKE ? OR EXISTS (
-      SELECT 1 FROM parte_involucrada pi WHERE pi.ros_id = r.id AND pi.identificador_enmascarado LIKE ?
-    ) OR EXISTS (
-      SELECT 1 FROM documento_adjunto da WHERE da.ros_id = r.id AND da.nombre_archivo LIKE ?
-    ))`);
-    innerParams.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+    innerFilters.push(`(
+      r.numero_ros LIKE ?
+      OR so.nombre LIKE ?
+      OR so.sector LIKE ?
+      OR r.estado LIKE ?
+      OR EXISTS (
+        SELECT 1 FROM parte_involucrada pi WHERE pi.ros_id = r.id AND pi.identificador_enmascarado LIKE ?
+      )
+      OR EXISTS (
+        SELECT 1 FROM operacion_sospechosa os WHERE os.ros_id = r.id AND os.jurisdiccion LIKE ?
+      )
+      OR EXISTS (
+        SELECT 1 FROM documento_adjunto da WHERE da.ros_id = r.id AND da.nombre_archivo LIKE ?
+      )
+    )`);
+    innerParams.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
   }
   if (tipo) { innerFilters.push(`so.tipo = ?`); innerParams.push(tipo); }
   if (estado) { innerFilters.push(`r.estado = ?`); innerParams.push(estado); }
@@ -229,7 +243,7 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
                     {r.sujeto_tipo === 'bank' ? <Landmark size={13} /> : r.sujeto_tipo === 'realestate' ? <Home size={13} /> : <MapPin size={13} />}
                     {r.sujeto_nombre}
                   </span>
-                  <span>Sector: {r.sujeto_sector}</span>
+                  <span>Sector: {formatSector(r.sujeto_sector)}</span>
                   <span>Cliente: <span className="masked" title="Identificador enmascarado">{r.cliente_enmascarado}</span></span>
                   <span>Sustento: {r.doc_cargados}/{r.doc_total} documentos · ${r.monto.toLocaleString('en-US')}</span>
                   {r.jurisdiccion && <span>Jurisdicción: {r.jurisdiccion}</span>}

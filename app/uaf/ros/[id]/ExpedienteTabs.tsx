@@ -85,6 +85,7 @@ export function RosExpedienteTabs({
     | 'revertirValidacion' | 'reabrirRos' | 'revertirRiesgo' | null;
   const [activeModal, setActiveModal] = useState<ModalKey>(null);
   const [pendingDocId, setPendingDocId] = useState<string>('');
+  const [pendingDocReqId, setPendingDocReqId] = useState<string>('');
   const [pendingDocNombre, setPendingDocNombre] = useState<string>('');
   const [observacionText, setObservacionText] = useState('');
   const [pendingVincId, setPendingVincId] = useState<string>('');
@@ -152,7 +153,7 @@ export function RosExpedienteTabs({
     } finally { setBusy(false); }
   }
 
-  async function observarYSubsanar(docId: string, motivo: string) {
+  async function observarYSubsanar(docId: string, docReqId: string, motivo: string) {
     setActiveModal(null);
     clearError();
     setBusy(true);
@@ -165,7 +166,7 @@ export function RosExpedienteTabs({
 
       const r2 = await fetch(`/api/ros/${rosId}/subsanacion`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documento_adjunto_id: docId, motivo }),
+        body: JSON.stringify({ documento_adjunto_id: docId, documento_requerido_id: docReqId || null, motivo }),
       });
       if (!r2.ok) { const d = await r2.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo crear la solicitud de subsanación.'); return; }
 
@@ -194,8 +195,9 @@ export function RosExpedienteTabs({
     } finally { setBusy(false); }
   }
 
-  function abrirObservar(docId: string) {
+  function abrirObservar(docId: string, docReqId: string) {
     setPendingDocId(docId);
+    setPendingDocReqId(docReqId);
     setObservacionText('');
     setActiveModal('observarDoc');
   }
@@ -730,7 +732,7 @@ export function RosExpedienteTabs({
                                     {adj.estado !== 'no_aplica' && (
                                       <>
                                         <button className="btn amber uaf-btn-sm"
-                                          onClick={() => abrirObservar(adj.id)}
+                                          onClick={() => abrirObservar(adj.id, dr.id)}
                                           disabled={busy}>Observar</button>
                                         <button className="btn ghost uaf-btn-sm"
                                           onClick={() => abrirNoAplica(adj.id)}
@@ -1071,7 +1073,7 @@ export function RosExpedienteTabs({
           value: observacionText,
           onChange: setObservacionText,
         }}
-        onConfirm={() => observarYSubsanar(pendingDocId, observacionText)}
+        onConfirm={() => observarYSubsanar(pendingDocId, pendingDocReqId, observacionText)}
         onCancel={() => setActiveModal(null)}
       />
 
