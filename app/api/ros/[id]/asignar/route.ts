@@ -1,4 +1,4 @@
-// POST /api/ros/[id]/asignar — Supervisor asigna ROS a un analista
+// POST /api/ros/[id]/asignar — Supervisor asigna o desasigna ROS a un analista
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
@@ -7,7 +7,7 @@ import { db } from '@/lib/db';
 import { audit, extractRequestContext } from '@/lib/audit';
 
 const schema = z.object({
-  analista_id: z.string().min(1),
+  analista_id: z.string().min(1).nullable(),
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -29,15 +29,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (ros.estado === 'borrador')
     return NextResponse.json({ error: 'No se puede asignar un ROS en estado borrador' }, { status: 400 });
 
+  const ctx = extractRequestContext(req);
+
+  if (parsed.data.analista_id === null) {
+    db.prepare(`UPDATE asignacion_ros SET activa = 0 WHERE ros_id = ? AND activa = 1`).run(id);
+
+    audit({
+      modulo: 'ros', accion: 'desasignar_analista', resultado: 'exito',
+      usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
+      recurso_afectado: ros.numero_ros,
+      ip: ctx.ip, user_agent: ctx.user_agent,
+      detalle: { analista_id: null },
+      criticidad: 'alta',
+    });
+
+    return NextResponse.json({ ok: true, analista_nombre: null });
+  }
+
   const analista = db.prepare<[string], { id: string; nombre: string }>(
     `SELECT u.id, u.nombre FROM usuario u
        JOIN rol r ON r.id = u.rol_id
-      WHERE u.id = ? AND r.nombre IN ('analista', 'supervisor') AND u.estado = 'activo'`,
+      WHERE u.id = ? AND r.nombre = 'analista' AND u.estado = 'activo'`,
   ).get(parsed.data.analista_id);
   if (!analista)
     return NextResponse.json({ error: 'Usuario no válido o inactivo' }, { status: 400 });
-
-  const ctx = extractRequestContext(req);
 
   db.transaction(() => {
     db.prepare(`UPDATE asignacion_ros SET activa = 0 WHERE ros_id = ? AND activa = 1`).run(id);

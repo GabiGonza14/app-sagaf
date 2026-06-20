@@ -20,7 +20,7 @@ export default async function PortalLayout({ children }: { children: React.React
     { href: '/portal',                label: 'Inicio',         icon: <Home size={16} /> },
     { href: '/portal/ros',            label: 'Mis ROS',        icon: <ClipboardList size={16} /> },
     { href: '/portal/ros/nuevo',      label: 'Registrar ROS',  icon: <FilePlus size={16} /> },
-    { href: '/portal/subsanaciones',  label: 'Subsanaciones',  icon: <RefreshCw size={16} />, badge: pendientes || undefined },
+    { href: '/portal/subsanaciones',  label: 'Subsanaciones',  icon: <RefreshCw size={16} />, badge: pendientes || undefined, badgeTone: 'amber' },
   ];
 
   const userInitials = (session.user.name ?? 'SO').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();

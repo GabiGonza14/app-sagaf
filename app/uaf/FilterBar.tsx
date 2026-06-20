@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, X, Filter, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import CustomSelect from '@/components/CustomSelect';
 
 interface Props {
@@ -12,13 +12,6 @@ interface Props {
     completitud: string; fechaDesde: string; fechaHasta: string; ordenar: string;
   };
   sectores: string[];
-}
-
-interface RosSuggestion {
-  id: string;
-  numero_ros: string;
-  sujeto_nombre: string;
-  estado: string;
 }
 
 export function FilterBar({ initial, sectores }: Readonly<Props>) {
@@ -36,11 +29,7 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
   const [fechaHasta, setFechaHasta] = useState(initial.fechaHasta);
   const [ordenar, setOrdenar] = useState(initial.ordenar);
 
-  const [suggestions, setSuggestions] = useState<RosSuggestion[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const buildQuery = useCallback(() => {
@@ -69,61 +58,31 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
     setQ(''); setTipo(''); setRiesgo(''); setEstado('');
     setSector(''); setMontoMin(''); setMontoMax(''); setJurisdiccion('');
     setCompletitud(''); setFechaDesde(''); setFechaHasta(''); setOrdenar('');
-    setSuggestions([]);
-    setShowDropdown(false);
     router.push('/uaf');
   }
 
-  // Autocomplete debounce
+  // Auto-filtrar la lista al escribir en el campo de búsqueda (debounce 350ms)
   useEffect(() => {
-    if (q.trim().length < 2) {
-      setSuggestions([]);
-      setShowDropdown(false);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`/api/ros/search?q=${encodeURIComponent(q)}`);
-        if (res.ok) {
-          const data = await res.json();
-          setSuggestions(data.results ?? []);
-          setShowDropdown((data.results ?? []).length > 0);
-        }
-      } catch {
-        // Silenciar errores de red
-      } finally {
-        setLoading(false);
-      }
-    }, 250);
-
+    const timer = setTimeout(() => {
+      const sp = new URLSearchParams();
+      if (q) sp.set('q', q);
+      if (tipo) sp.set('tipo', tipo);
+      if (riesgo) sp.set('riesgo', riesgo);
+      if (estado) sp.set('estado', estado);
+      if (sector) sp.set('sector', sector);
+      if (montoMin) sp.set('montoMin', montoMin);
+      if (montoMax) sp.set('montoMax', montoMax);
+      if (jurisdiccion) sp.set('jurisdiccion', jurisdiccion);
+      if (completitud) sp.set('completitud', completitud);
+      if (fechaDesde) sp.set('fechaDesde', fechaDesde);
+      if (fechaHasta) sp.set('fechaHasta', fechaHasta);
+      if (ordenar) sp.set('ordenar', ordenar);
+      router.push(`/uaf?${sp.toString()}`);
+    }, 350);
     return () => clearTimeout(timer);
+  // Solo reacciona a cambios en q para el auto-filtrado; los otros filtros usan "Aplicar filtros"
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
-
-  // Cerrar dropdown al hacer clic afuera
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  function handleSelectSuggestion(s: RosSuggestion) {
-    setShowDropdown(false);
-    setSuggestions([]);
-    router.push(`/uaf/ros/${s.id}`);
-  }
-
-  function handleSearchKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') {
-      setShowDropdown(false);
-      applyFilters();
-    }
-  }
 
   const hasActiveFilters =
     q || tipo || riesgo || estado || sector || montoMin || montoMax ||
@@ -131,9 +90,8 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
 
   return (
     <div className="filter-bar">
-      {/* Búsqueda principal con autocomplete */}
       <div className="filter-search-row">
-        <div className="filter-search-wrapper" ref={dropdownRef}>
+        <div className="filter-search-wrapper">
           <div className="filter-search-input-wrap">
             <Search size={16} className="filter-search-icon" />
             <input
@@ -142,47 +100,17 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
               placeholder="Buscar ROS, entidad…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              onFocus={() => q.trim().length >= 2 && suggestions.length > 0 && setShowDropdown(true)}
               className="filter-search-input"
             />
             {q && (
-              <button type="button" className="filter-clear-btn" onClick={() => { setQ(''); setSuggestions([]); setShowDropdown(false); searchRef.current?.focus(); }}>
+              <button type="button" className="filter-clear-btn" onClick={() => { setQ(''); searchRef.current?.focus(); }}>
                 <X size={14} />
               </button>
             )}
-            {loading && <span className="filter-loading" />}
           </div>
-
-          {showDropdown && (
-            <div className="filter-dropdown">
-              {suggestions.length === 0 ? (
-                <div className="filter-dropdown-empty">Sin coincidencias</div>
-              ) : (
-                suggestions.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    className="filter-dropdown-item"
-                    onClick={() => handleSelectSuggestion(s)}
-                  >
-                    <div className="filter-dropdown-item-main">
-                      <span className="filter-dropdown-ros">{s.numero_ros}</span>
-                      <span className="filter-dropdown-entity">{s.sujeto_nombre}</span>
-                    </div>
-                    <span className={`filter-dropdown-status ${s.estado}`}>{s.estado.replace('_', ' ')}</span>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
         </div>
 
         <div className="filter-actions">
-          <button type="button" className="btn primary" onClick={applyFilters}>
-            <Filter size={16} />
-            Filtrar
-          </button>
           <button
             type="button"
             className={`btn ghost filter-toggle ${showFilters ? 'active' : ''}`}
@@ -193,12 +121,6 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
             {hasActiveFilters && <span className="filter-badge-dot" />}
             <ChevronDown size={14} className={showFilters ? 'rotate-180' : ''} />
           </button>
-          {hasActiveFilters && (
-            <button type="button" className="btn ghost" onClick={clear}>
-              <X size={16} />
-              Limpiar
-            </button>
-          )}
         </div>
       </div>
 
@@ -294,7 +216,6 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
           </div>
 
           <div className="filter-group filter-group-actions">
-            <label className="filter-label">&nbsp;</label>
             <div className="filter-group-actions-row">
               <button type="button" className="btn primary" onClick={applyFilters}>
                 Aplicar filtros

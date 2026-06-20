@@ -239,7 +239,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
             <p className="small" style={{ marginBottom: 12 }}>Datos agregados por sector reportante — sin identificación individual.</p>
             {porSector.length === 0 ? EMPTY : (
               <table className="table">
-                <thead><tr><th>Sector</th><th>Total</th><th>Alto</th><th>Medio</th><th>Bajo</th><th>Monto (USD)</th></tr></thead>
+                <thead><tr><th>Sector</th><th>Total</th><th>Alto</th><th>Medio</th><th>Bajo</th><th>Monto ($)</th></tr></thead>
                 <tbody>
                   {porSector.map((s) => (
                     <tr key={s.sector}>
@@ -248,7 +248,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
                       <td><Badge tone="red">{s.alto}</Badge></td>
                       <td><Badge tone="amber">{s.medio}</Badge></td>
                       <td><Badge tone="green">{s.bajo}</Badge></td>
-                      <td>USD {s.monto.toLocaleString('en-US')}</td>
+                      <td>${s.monto.toLocaleString('en-US')}</td>
                     </tr>
                   ))}
                 </tbody>

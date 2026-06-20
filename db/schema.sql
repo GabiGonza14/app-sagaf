@@ -239,6 +239,10 @@ CREATE TABLE IF NOT EXISTS riesgo_caso (
   justificacion       TEXT NOT NULL,              -- obligatoria (RF-02)
   clasificado_por     TEXT NOT NULL,
   fecha_clasificacion TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  anulado             INTEGER NOT NULL DEFAULT 0, -- 1 = revertido
+  anulado_por         TEXT,                       -- quien revirtio
+  anulado_justificacion TEXT,                     -- por que se revirtio
+  fecha_anulacion     TEXT,                       -- cuando se anulo
   FOREIGN KEY (ros_id)          REFERENCES ros(id) ON DELETE CASCADE,
   FOREIGN KEY (clasificado_por) REFERENCES usuario(id)
 );

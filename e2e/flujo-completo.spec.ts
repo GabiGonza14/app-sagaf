@@ -93,18 +93,18 @@ test.describe('BL-060: Flujo completo ROS', () => {
       await page.fill('#producto-servicio', 'Cuenta de ahorros');
       await page.fill('#descripcion', 'Esta es una operación sospechosa de prueba E2E con suficientes caracteres para pasar la validación.');
       
-      // Documentos — el botón de subida tiene clase upload-zone
-      const fileChooserPromise = page.waitForEvent('filechooser');
-      // El primer botón upload-zone activo (que aún no tiene archivo) dentro de doc-grid
-      await page.locator('.doc-grid .upload-zone').first().click();
-      const fileChooser = await fileChooserPromise;
-      await fileChooser.setFiles(uploadFilePath);
+      // Documentos — subir a TODOS los upload-zone obligatorios (ya no hay bypass)
+      const uploadZones = page.locator('.doc-grid .upload-zone');
+      const zoneCount = await uploadZones.count();
+      for (let i = 0; i < zoneCount; i++) {
+        const fileChooserPromise = page.waitForEvent('filechooser');
+        await uploadZones.nth(i).click();
+        const fileChooser = await fileChooserPromise;
+        await fileChooser.setFiles(uploadFilePath);
+      }
       
-      // Esperar a que se muestre como Cargado
+      // Esperar a que al menos uno se muestre como Cargado
       await expect(page.locator('text=Cargado').first()).toBeVisible({ timeout: 10000 });
-
-      // Justificar documentos faltantes en observaciones para que permita enviar
-      await page.fill('#observaciones-adicionales', 'El resto de los documentos no aplican para este caso.');
 
       // Enviar a la UAF
       await page.click('button:has-text("Enviar ROS a la UAF")');

@@ -231,7 +231,7 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
                   </span>
                   <span>Sector: {r.sujeto_sector}</span>
                   <span>Cliente: <span className="masked" title="Identificador enmascarado">{r.cliente_enmascarado}</span></span>
-                  <span>Sustento: {r.doc_cargados}/{r.doc_total} documentos · USD {r.monto.toLocaleString('en-US')}</span>
+                  <span>Sustento: {r.doc_cargados}/{r.doc_total} documentos · ${r.monto.toLocaleString('en-US')}</span>
                   {r.jurisdiccion && <span>Jurisdicción: {r.jurisdiccion}</span>}
                 </div>
                 <span style={{ position: 'absolute', bottom: 14, right: 16, fontSize: 11, color: 'var(--muted)' }}>

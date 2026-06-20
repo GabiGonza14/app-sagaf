@@ -6,6 +6,7 @@ import { TopBar } from '@/components/TopBar';
 import { Badge, estadoTone, estadoLabel, riskTone } from '@/components/Badge';
 import { formatPanama, formatPanamaDate } from '@/lib/date';
 import { InfoBox } from '@/components/InfoBox';
+import { CheckCircle, FileText } from 'lucide-react';
 
 import { canAccessROS } from '@/lib/permissions';
 import { ResubmitDocCard } from './ResubmitDocCard';
@@ -157,7 +158,7 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
             <InfoBox label="Riesgo asignado" value={riesgo ? <Badge tone={riskTone(riesgo.nivel)}>{riesgo.nivel}</Badge> : <span className="small">Sin clasificar aún</span>} />
             {op && (
               <>
-                <InfoBox label="Monto" value={`USD ${op.monto.toLocaleString('en-US')}`} />
+                <InfoBox label="Monto" value={`$${op.monto.toLocaleString('en-US')}`} />
                 <InfoBox label="Jurisdicción" value={op.jurisdiccion ?? '—'} />
                 <InfoBox label="Señal de alerta" value={op.senal_alerta} />
                 <InfoBox label="Producto / Bien" value={op.producto_servicio ?? op.bien_inmueble ?? '—'} />
@@ -320,22 +321,43 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
         })()}
 
         {extras.length > 0 && (
-          <div style={{ marginTop: 18 }}>
-            <h4 style={{ margin: '0 0 10px', fontSize: 14 }}>Evidencia adicional no catalogada</h4>
+          <>
+            <div className="doc-group-label" style={{ marginTop: 18 }}>
+              <span className="doc-group-dot" style={{ background: 'var(--muted)' }} />
+              Evidencia adicional no catalogada — {extras.length} {extras.length === 1 ? 'archivo' : 'archivos'}
+              <span className="doc-group-line" />
+            </div>
             <div className="doc-grid">
               {extras.map((e) => (
-                <div key={e.id} className="doc-card">
+                <div key={e.id} className="doc-card uploaded">
                   <div className="doc-top">
-                    <div className="doc-title">{e.nombre_archivo}</div>
-                    <span className="badge gray">extra</span>
+                    <div className="doc-title">
+                      <FileText size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 5, opacity: 0.6 }} />
+                      {e.nombre_archivo}
+                    </div>
+                    <span className="badge green">Cargado</span>
                   </div>
-                  <div className="small" style={{ color: 'var(--muted)' }}>
-                    Cargado: {formatPanama(e.fecha_carga)}
+                  <div className="upload-zone has-file" style={{ marginBottom: 0 }}>
+                    <div className="upload-zone-content">
+                      <CheckCircle size={18} className="upload-zone-icon uploaded" />
+                      <div>
+                        <a
+                          href={`/documentos/${e.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="upload-zone-filename"
+                          style={{ color: 'var(--primary)', textDecoration: 'none' }}
+                        >
+                          {e.nombre_archivo}
+                        </a>
+                        <div className="upload-zone-size">Documento adjunto · {formatPanama(e.fecha_carga)}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </>
         )}
       </div>
     </>

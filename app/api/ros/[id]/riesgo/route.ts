@@ -23,10 +23,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: 'Datos inválidos', issues: parsed.error.flatten() }, { status: 400 });
 
-  const ros = db.prepare<[string], { numero_ros: string }>(
-    'SELECT numero_ros FROM ros WHERE id = ?',
+  const ros = db.prepare<[string], { numero_ros: string; plantilla_id: string }>(
+    'SELECT numero_ros, plantilla_id FROM ros WHERE id = ?',
   ).get(id);
   if (!ros) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+
+  // Workflow: no se puede clasificar riesgo si hay obligatorios sin resolver.
+  // Resuelto = validado o no aplica. Observado/cargado/pendiente siguen bloqueando.
+  const { total: reqTotal, validated: reqValid } = db.prepare<[string, string], { total: number; validated: number }>(
+    `SELECT
+      (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = ? AND tipo_requerimiento = 'requerido') AS total,
+      (SELECT COUNT(DISTINCT dr.id) FROM documento_adjunto da
+        JOIN documento_requerido dr ON dr.id = da.documento_requerido_id
+       WHERE da.ros_id = ? AND dr.tipo_requerimiento = 'requerido' AND da.estado IN ('validado', 'no_aplica')) AS validated`,
+  ).get(ros.plantilla_id, id) ?? { total: 0, validated: 0 };
+  if (reqTotal > 0 && reqValid < reqTotal) {
+    return NextResponse.json({
+      error: `No puede clasificar riesgo hasta validar o marcar como no aplica todos los documentos obligatorios (${reqValid}/${reqTotal}).`,
+    }, { status: 400 });
+  }
 
   db.prepare(`
     INSERT INTO riesgo_caso (id, ros_id, nivel, puntaje, justificacion, clasificado_por)

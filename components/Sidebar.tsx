@@ -14,6 +14,7 @@ export interface NavItem {
   label: string;
   icon: ReactNode;
   badge?: number;
+  badgeTone?: 'green' | 'amber';
 }
 
 interface Props {
@@ -89,7 +90,7 @@ export function Sidebar({ role, userName, navItems, note, mobileOpen, onClose }:
               <span style={{ display: 'flex', alignItems: 'center', marginRight: 4 }}>{item.icon}</span>
               {item.label}
               {item.badge ? (
-                <span className="nav-badge" aria-label={`${item.badge} pendiente(s)`}>{item.badge}</span>
+                <span className={`nav-badge nav-badge--${item.badgeTone ?? 'green'}`} aria-label={`${item.badge} pendiente(s)`}>{item.badge}</span>
               ) : null}
             </Link>
           );

@@ -160,7 +160,8 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
     `SELECT rc.id, rc.nivel, rc.puntaje, rc.justificacion, rc.fecha_clasificacion,
             u.nombre AS clasificado_por_nombre
        FROM riesgo_caso rc JOIN usuario u ON u.id = rc.clasificado_por
-      WHERE rc.ros_id = ? ORDER BY rc.fecha_clasificacion DESC`,
+      WHERE rc.ros_id = ? AND rc.anulado = 0
+      ORDER BY rc.fecha_clasificacion DESC`,
   ).all(id);
   const riesgoActual = riesgos[0] ?? null;
 
@@ -211,9 +212,21 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
 
   const canClassify = ['analista', 'supervisor'].includes(session.user.rol);
   const canClose = session.user.rol === 'supervisor';
+  const canReopen = session.user.rol === 'supervisor';
+  const canRevertRiesgo = ['analista', 'supervisor'].includes(session.user.rol);
+
+  // Workflow: docs obligatorios resueltos (validado o no aplica) para gatear Riesgo.
+  // Si un obligatorio queda observado/cargado/pendiente, se espera corrección o validación antes de clasificar.
+  const requiredValidados = docsReq.filter((r) =>
+    r.tipo_requerimiento === 'requerido' &&
+    docsAdj.some((d) => d.documento_requerido_id === r.id && ['validado', 'no_aplica'].includes(d.estado)),
+  ).length;
+  const requiredTotal = docsReq.filter((d) => d.tipo_requerimiento === 'requerido').length;
+  const allRequiredDocsValidated = requiredTotal === 0 || requiredValidados >= requiredTotal;
+  const riesgoClasificado = !!riesgoActual;
 
   const asignacion = db.prepare<[string], AsignacionRow>(
-    `SELECT ar.analista_id, u.nombre AS analista_nombre, ar.fecha_asignacion,
+    `SELECT ar.analista_id, rtrim(u.nombre, ', ') AS analista_nombre, ar.fecha_asignacion,
             us.nombre AS asignado_por_nombre
        FROM asignacion_ros ar
        JOIN usuario u  ON u.id  = ar.analista_id
@@ -223,9 +236,9 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
 
   const analistas = canClose
     ? db.prepare<[], AnalistaRow>(
-        `SELECT u.id, u.nombre FROM usuario u
+        `SELECT u.id, rtrim(u.nombre, ', ') AS nombre FROM usuario u
            JOIN rol r ON r.id = u.rol_id
-          WHERE r.nombre IN ('analista', 'supervisor') AND u.estado = 'activo'
+          WHERE r.nombre = 'analista' AND u.estado = 'activo'
           ORDER BY u.nombre`,
       ).all()
     : [];
@@ -237,41 +250,58 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
         eyebrow="Expediente del ROS"
         title={`${ros.numero_ros} · ${ros.sujeto_tipo === 'bank' ? 'Banco' : ros.sujeto_tipo === 'realestate' ? 'Inmobiliaria' : ros.sujeto_tipo}`}
         description="Reporte recibido desde el portal público. Datos sensibles enmascarados por defecto."
-        right={
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {riesgoActual && <Badge tone={riskTone(riesgoActual.nivel)}>{`Riesgo ${riesgoActual.nivel}`}</Badge>}
-            <Badge tone={estadoTone(ros.estado)}>{estadoLabel(ros.estado)}</Badge>
-          </div>
-        }
       />
 
       <RosExpedienteTabs
         rosId={ros.id}
         numeroRos={ros.numero_ros}
+        estadoActual={ros.estado}
         canClassify={canClassify}
         canClose={canClose}
+        canReopen={canReopen}
+        canRevertRiesgo={canRevertRiesgo}
+        allRequiredDocsValidated={allRequiredDocsValidated}
+        requiredDocTotal={requiredTotal}
+        requiredDocValidated={requiredValidados}
+        riesgoClasificado={riesgoClasificado}
         summary={
           <div>
             <div className="summary-grid">
               <InfoBox label="Sujeto obligado" value={ros.sujeto_nombre} />
               <InfoBox label="Tipo" value={ros.sujeto_tipo === 'bank' ? 'Banco · Persona Jurídica/Natural' : ros.sujeto_tipo === 'realestate' ? 'Inmobiliaria / Promotora' : ros.sujeto_tipo} />
               <InfoBox label="Cliente" value={partes[0] ? <span className="masked" title="Identificador enmascarado">{partes[0].identificador_enmascarado}</span> : '—'} />
-              <InfoBox label="Monto reportado" value={op ? `USD ${op.monto.toLocaleString('en-US')}` : '—'} />
+              <InfoBox label="Monto reportado" value={op ? `$${op.monto.toLocaleString('en-US')}` : '—'} />
               <InfoBox label="Estado" value={<Badge tone={estadoTone(ros.estado)}>{estadoLabel(ros.estado)}</Badge>} />
-              <InfoBox label="Completitud" value={`${docsAdj.filter((d) => d.documento_requerido_id).length} de ${docsReq.length} documentos (${completitud}%)`} />
+              <InfoBox label="Completitud documental" value={
+                <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ color: obligatoriosCargados === docsReqObligatorios.length ? '#16a34a' : '#dc2626', fontWeight: 600, fontSize: 13 }}>
+                    {obligatoriosCargados}/{docsReqObligatorios.length} obligatorios
+                  </span>
+                  {docsReqCondicionales.length > 0 && (
+                    <span style={{ color: '#d97706', fontWeight: 600, fontSize: 13 }}>
+                      {condicionalesCargados}/{docsReqCondicionales.length} condicionales
+                    </span>
+                  )}
+                  {docsReqOpcionales.length > 0 && (
+                    <span style={{ color: '#6b7280', fontWeight: 600, fontSize: 13 }}>
+                      {opcionalesCargados}/{docsReqOpcionales.length} opcionales
+                    </span>
+                  )}
+                </span>
+              } />
             </div>
 
             <div className="info-box" style={{ marginTop: 12 }}>
               <span className="info-box-label">Resumen narrativo</span>
-              <strong>{ros.descripcion}</strong>
+              <strong style={{ fontWeight: 500, fontSize: 14, lineHeight: 1.6 }}>{ros.descripcion}</strong>
             </div>
 
             {op && (
-              <div className="card" style={{ marginTop: 12, padding: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 16 }}>Operación sospechosa</h3>
-                <p className="small" style={{ marginBottom: 12 }}>Detalles reportados por el sujeto obligado.</p>
+              <div className="card" style={{ marginTop: 12, padding: '16px 18px' }}>
+                <h3>Operación sospechosa</h3>
+                <p className="small">Detalles reportados por el sujeto obligado.</p>
                 <div className="summary-grid">
-                  <InfoBox label="Monto" value={`${op.moneda} ${op.monto.toLocaleString('en-US')}`} />
+                  <InfoBox label="Monto" value={`$${op.monto.toLocaleString('en-US')}`} />
                   {op.jurisdiccion && <InfoBox label="Jurisdicción" value={op.jurisdiccion} />}
                   {op.producto_servicio && <InfoBox label="Producto / servicio" value={op.producto_servicio} />}
                   {op.bien_inmueble && <InfoBox label="Bien inmueble" value={op.bien_inmueble} />}
@@ -282,9 +312,9 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
             )}
 
             {camposDin.length > 0 && (
-              <div className="card" style={{ marginTop: 12, padding: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 16 }}>Información adicional de la plantilla</h3>
-                <p className="small" style={{ marginBottom: 12 }}>Campos definidos por la plantilla del sector.</p>
+              <div className="card" style={{ marginTop: 12, padding: '16px 18px' }}>
+                <h3>Información adicional de la plantilla</h3>
+                <p className="small">Campos definidos por la plantilla del sector.</p>
                 <div className="summary-grid">
                   {camposDin.map((c) => (
                     <InfoBox key={c.nombre} label={c.nombre} value={c.valor?.trim() ? c.valor : '—'} />
@@ -293,9 +323,9 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
               </div>
             )}
 
-            <div className="card" style={{ marginTop: 12, padding: 14 }}>
-              <h3 style={{ margin: 0, fontSize: 16 }}>Partes involucradas</h3>
-              <p className="small" style={{ marginBottom: 12 }}>Identificadores enmascarados por privacidad. Los datos completos requieren permisos de acceso UAF.</p>
+            <div className="card" style={{ marginTop: 12, padding: '16px 18px' }}>
+              <h3>Partes involucradas</h3>
+              <p className="small">Identificadores enmascarados por privacidad. Los datos completos requieren permisos de acceso UAF.</p>
               <div className="summary-grid">
                 {partes.map((p) => (
                   <InfoBox key={p.id} label={p.rol_en_operacion.replace(/_/g, ' ')}

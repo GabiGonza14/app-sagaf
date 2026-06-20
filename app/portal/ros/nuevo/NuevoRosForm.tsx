@@ -207,7 +207,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
   const pct = docListReq.length > 0 ? Math.round((cargadosReq / docListReq.length) * 100) : 100;
   const todosDocumentosCargados = cargadosReq >= docListReq.length;
 
-  const docsOk = todosDocumentosCargados || observaciones.trim().length >= 10;
+  const docsOk = todosDocumentosCargados;
   const camposBaseOk = Boolean(
     oficial.trim() &&
     isValidEmail(correoOficial) &&
@@ -267,8 +267,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     if (campoFaltante) faltantes.push({ label: `Completar el campo "${campoFaltante.nombre}"`, icon: <FileText size={14} />, categoria: 'adicional' });
 
     // 5. Sustento documental
-    if (!todosDocumentosCargados && observaciones.trim().length < 10) {
-      faltantes.push({ label: `Cargar ${docListReq.length - cargadosReq} documento(s) obligatorio(s) o justificar su ausencia`, icon: <FileWarning size={14} />, categoria: 'documentos' });
+    if (!todosDocumentosCargados) {
+      faltantes.push({ label: `Cargar ${docListReq.length - cargadosReq} documento(s) obligatorio(s)`, icon: <FileWarning size={14} />, categoria: 'documentos' });
     }
 
     return faltantes;
@@ -496,8 +496,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     if (!senalAlerta.trim()) return 'La tipología / señal de alerta es obligatoria.';
     if (!descripcion.trim() || descripcion.length < 30)
       return 'La descripción narrativa debe tener al menos 30 caracteres.';
-    if (!todosDocumentosCargados && observaciones.trim().length < 10)
-      return `Faltan ${docListReq.length - cargadosReq} documento(s) obligatorio(s). Cárguelos o justifique su ausencia en el campo Observaciones (mín. 10 caracteres).`;
+    if (!todosDocumentosCargados)
+      return `Debe cargar todos los documentos obligatorios antes de enviar. Faltan ${docListReq.length - cargadosReq}.`;
     return null;
   }
 
@@ -966,7 +966,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         <div className="field full">
           <label htmlFor="observaciones-adicionales">
             Observaciones adicionales
-            {!todosDocumentosCargados && <span className="req"> *</span>}
           </label>
           <textarea
             id="observaciones-adicionales"
@@ -974,13 +973,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
             onChange={(e) => setObservaciones(e.target.value)}
             placeholder="Explique cualquier documento faltante, aclaración o información adicional relevante."
           />
-          {!todosDocumentosCargados && (
-            <div className="helper" style={{ color: observaciones.trim().length >= 10 ? 'var(--green)' : 'var(--amber)' }}>
-              {observaciones.trim().length >= 10
-                ? `Justificación registrada (${observaciones.trim().length} caracteres). Puede enviar el ROS con documentos pendientes.`
-                : `Faltan documentos. Puede enviar el ROS si justifica la ausencia aquí (mín. 10 caracteres · ${observaciones.trim().length}/10).`}
-            </div>
-          )}
+          <div className="helper" style={{ color: 'var(--muted)' }}>
+            Información adicional o aclaraciones generales sobre el caso.
+          </div>
         </div>
 
         {/* Extra evidence */}

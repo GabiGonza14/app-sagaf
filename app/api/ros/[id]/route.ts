@@ -1,4 +1,4 @@
-// /api/ros/[id] — GET, PATCH (cambio de estado) y PUT (actualizar borrador)
+// /api/ros/[id] — GET, PATCH (cambio de estado + reversión) y PUT (actualizar borrador)
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
@@ -11,6 +11,19 @@ import { audit, extractRequestContext } from '@/lib/audit';
 import { canAccessROS } from '@/lib/permissions';
 import { maskIdentifier } from '@/lib/masking';
 import { UPLOADS_DIR } from '@/lib/uploads';
+
+// Mapa de transiciones válidas entre estados del ROS
+// Permite avances y retrocesos controlados
+const TRANSICIONES: Record<string, Set<string>> = {
+  borrador:             new Set(['recibido']),
+  recibido:             new Set(['en_analisis']),
+  en_analisis:          new Set(['revision_documental', 'subsanacion', 'escalado', 'vinculado']),
+  revision_documental:  new Set(['en_analisis', 'subsanacion', 'escalado', 'vinculado']),
+  subsanacion:          new Set(['en_analisis', 'revision_documental', 'escalado', 'vinculado']),
+  escalado:             new Set(['en_analisis', 'revision_documental', 'cerrado', 'vinculado']),
+  vinculado:            new Set(['en_analisis', 'revision_documental', 'escalado', 'cerrado']),
+  cerrado:              new Set(['en_analisis']),  // re-apertura solo supervisor
+};
 
 const patchSchema = z.object({
   estado: z.enum([
@@ -102,43 +115,63 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   ).get(id);
   if (!ros) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
 
+  const desde = ros.estado;
+  const hacia = parsed.data.estado;
+
+  // Validar transición
+  const permitidos = TRANSICIONES[desde];
+  if (!permitidos?.has(hacia)) {
+    return NextResponse.json({
+      error: `Transición no permitida: no puede ir de "${desde}" a "${hacia}".`,
+    }, { status: 400 });
+  }
+
   // Sujeto obligado solo puede enviar borrador → recibido
   if (session.user.rol === 'sujeto_obligado') {
-    if (ros.estado !== 'borrador' || parsed.data.estado !== 'recibido') {
+    if (desde !== 'borrador' || hacia !== 'recibido') {
       return NextResponse.json({ error: 'Solo puedes enviar un borrador a la UAF' }, { status: 403 });
     }
     if (session.user.sujetoObligadoId !== ros.sujeto_obligado_id) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
     }
     // Crear caso de análisis al recibir
-    const numeroRos = ros.numero_ros;
     const existing = db.prepare('SELECT 1 FROM caso_analisis WHERE ros_id = ?').get(id);
     if (!existing) {
       db.prepare(`
         INSERT INTO caso_analisis (id, codigo_caso, ros_id, estado)
         VALUES (?, ?, ?, 'abierto')
-      `).run(randomUUID(), `CASO-${numeroRos.replace('ROS-', '')}`, id);
+      `).run(randomUUID(), `CASO-${ros.numero_ros.replace('ROS-', '')}`, id);
     }
   } else if (!['analista', 'supervisor'].includes(session.user.rol)) {
     return NextResponse.json({ error: 'Permiso insuficiente' }, { status: 403 });
   }
 
-  // Solo Supervisor puede cerrar
-  if (parsed.data.estado === 'cerrado' && session.user.rol !== 'supervisor') {
+  // Solo Supervisor puede cerrar (hacia cerrado)
+  if (hacia === 'cerrado' && session.user.rol !== 'supervisor') {
     return NextResponse.json({ error: 'Solo Supervisor puede cerrar casos' }, { status: 403 });
   }
+  // Solo Supervisor puede reabrir (desde cerrado)
+  if (desde === 'cerrado' && session.user.rol !== 'supervisor') {
+    return NextResponse.json({ error: 'Solo Supervisor puede reabrir casos cerrados' }, { status: 403 });
+  }
 
-  db.prepare('UPDATE ros SET estado = ? WHERE id = ?').run(parsed.data.estado, id);
+  const esReversion = desde === 'cerrado' || desde === 'vinculado'
+    || (desde === 'escalado' && (hacia === 'en_analisis' || hacia === 'revision_documental'))
+    || (desde === 'subsanacion' && (hacia === 'en_analisis' || hacia === 'revision_documental'));
+
+  db.prepare('UPDATE ros SET estado = ? WHERE id = ?').run(hacia, id);
 
   const ctx = extractRequestContext(req);
+  const accion = esReversion ? 'reabrir_ros' : 'cambio_estado';
   audit({
-    modulo: 'ros', accion: 'cambio_estado', resultado: 'exito',
+    modulo: 'ros', accion, resultado: 'exito',
     usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
     recurso_afectado: ros.numero_ros, ip: ctx.ip, user_agent: ctx.user_agent,
-    detalle: { anterior: ros.estado, nuevo: parsed.data.estado },
+    detalle: { anterior: desde, nuevo: hacia },
+    criticidad: esReversion ? 'alta' : 'normal',
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, accion, desde, hacia });
 }
 
 function validateSubmitFields(data: z.infer<typeof putSchema>): string | null {
