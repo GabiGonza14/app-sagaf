@@ -6,11 +6,19 @@ import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { audit, extractRequestContext } from '@/lib/audit';
 
+const RANGO_RIESGO = { bajo: [0, 33], medio: [34, 66], alto: [67, 100] } as const;
+
 const schema = z.object({
   nivel: z.enum(['bajo', 'medio', 'alto']),
   puntaje: z.number().int().min(0).max(100),
   justificacion: z.string().min(15, 'La justificación debe tener al menos 15 caracteres'),
-});
+}).refine(
+  ({ nivel, puntaje }) => {
+    const [min, max] = RANGO_RIESGO[nivel];
+    return puntaje >= min && puntaje <= max;
+  },
+  { message: 'El puntaje no corresponde al nivel de riesgo seleccionado (bajo: 0–33, medio: 34–66, alto: 67–100)' },
+);
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,6 +26,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!session?.user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
   if (!['analista', 'supervisor'].includes(session.user.rol))
     return NextResponse.json({ error: 'Permiso insuficiente' }, { status: 403 });
+
+  // Si es analista, solo puede clasificar ROS que le hayan sido asignados
+  if (session.user.rol === 'analista') {
+    const asignado = db.prepare<[string, string], { id: string }>(
+      'SELECT id FROM asignacion_ros WHERE ros_id = ? AND analista_id = ? AND activa = 1',
+    ).get(id, session.user.id);
+    if (!asignado) {
+      return NextResponse.json({ error: 'Solo el analista asignado puede clasificar este ROS' }, { status: 403 });
+    }
+  }
 
   const payload = await req.json().catch(() => null);
   const parsed = schema.safeParse(payload);

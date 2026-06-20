@@ -48,14 +48,27 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   db.prepare('UPDATE documento_adjunto SET estado = ?, observacion = ? WHERE id = ?')
     .run(hacia, parsed.data.observacion ?? null, id);
 
-  const numero = db.prepare<[string], { numero_ros: string }>('SELECT numero_ros FROM ros WHERE id = ?').get(adj.ros_id)?.numero_ros;
+  const ros = db.prepare<[string], { numero_ros: string; estado: string }>(
+    'SELECT numero_ros, estado FROM ros WHERE id = ?',
+  ).get(adj.ros_id);
   const ctx = extractRequestContext(req);
   const accion = esReversion ? `revertir_${desde}` : `marcar_${hacia}`;
+
+  // Auto-transición: en_analisis → revision_documental al validar el primer documento
+  if (hacia === 'validado' && ros?.estado === 'en_analisis') {
+    db.prepare(`UPDATE ros SET estado = 'revision_documental' WHERE id = ?`).run(adj.ros_id);
+    audit({
+      modulo: 'ros', accion: 'cambio_estado', resultado: 'exito',
+      usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
+      recurso_afectado: ros.numero_ros, ip: ctx.ip, user_agent: ctx.user_agent,
+      detalle: { anterior: 'en_analisis', nuevo: 'revision_documental', automatico: true },
+    });
+  }
 
   audit({
     modulo: 'documentos', accion, resultado: 'exito',
     usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
-    recurso_afectado: numero ?? adj.ros_id, ip: ctx.ip, user_agent: ctx.user_agent,
+    recurso_afectado: ros?.numero_ros ?? adj.ros_id, ip: ctx.ip, user_agent: ctx.user_agent,
     detalle: { documento_adjunto_id: id, archivo: adj.nombre_archivo, desde, hacia, observacion: parsed.data.observacion ?? null },
     criticidad: esReversion ? 'alta' : 'normal',
   });

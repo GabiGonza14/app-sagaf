@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
@@ -134,18 +133,9 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
         eyebrow="Detalle del ROS"
         title={`${ros.numero_ros} · ${estadoLabel(ros.estado, 'portal')}`}
         description="Visualiza el estado, completitud documental y solicitudes de subsanación de la UAF."
-        right={
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {ros.estado === 'borrador' && (
-              <Link href={`/portal/ros/${ros.id}/editar`} className="btn primary" style={{ padding: '7px 12px', fontSize: 12 }}>
-                Continuar edición
-              </Link>
-            )}
-          </div>
-        }
       />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+<div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
         <div className="card">
           <div className="panel-head"><div><h3>Resumen</h3><p>Datos generales del reporte.</p></div></div>
 

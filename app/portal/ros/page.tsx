@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
-import { Badge, estadoTone, estadoLabel, riskTone } from '@/components/Badge';
-import { formatPanamaShort } from '@/lib/date';
+import { estadoLabel } from '@/components/Badge';
+import { RosListClient } from './RosListClient';
 
 export const revalidate = 0;
 
@@ -18,6 +18,12 @@ interface RosResumen {
   nivel_riesgo: string | null;
   doc_total: number;
   doc_cargados: number;
+  doc_obl_total: number;
+  doc_obl_cargados: number;
+  doc_cond_total: number;
+  doc_cond_cargados: number;
+  doc_opt_total: number;
+  doc_opt_cargados: number;
   pendientes_subsanacion: number;
 }
 
@@ -52,11 +58,14 @@ export default async function MisROS({
               COALESCE((SELECT monto FROM operacion_sospechosa WHERE ros_id = r.id), 0) AS monto,
               (SELECT nivel FROM riesgo_caso WHERE ros_id = r.id
                 ORDER BY fecha_clasificacion DESC LIMIT 1) AS nivel_riesgo,
-              (SELECT COUNT(*) FROM documento_requerido dr
-                JOIN plantilla_ros pl ON pl.id = dr.plantilla_id
-               WHERE pl.id = r.plantilla_id) AS doc_total,
-              (SELECT COUNT(*) FROM documento_adjunto da
-                WHERE da.ros_id = r.id AND da.documento_requerido_id IS NOT NULL) AS doc_cargados,
+              (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = r.plantilla_id) AS doc_total,
+              (SELECT COUNT(*) FROM documento_adjunto WHERE ros_id = r.id AND documento_requerido_id IS NOT NULL) AS doc_cargados,
+              (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = r.plantilla_id AND tipo_requerimiento = 'requerido') AS doc_obl_total,
+              (SELECT COUNT(*) FROM documento_adjunto da JOIN documento_requerido dr ON dr.id = da.documento_requerido_id WHERE da.ros_id = r.id AND dr.tipo_requerimiento = 'requerido') AS doc_obl_cargados,
+              (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = r.plantilla_id AND tipo_requerimiento = 'condicional') AS doc_cond_total,
+              (SELECT COUNT(*) FROM documento_adjunto da JOIN documento_requerido dr ON dr.id = da.documento_requerido_id WHERE da.ros_id = r.id AND dr.tipo_requerimiento = 'condicional') AS doc_cond_cargados,
+              (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = r.plantilla_id AND tipo_requerimiento = 'opcional') AS doc_opt_total,
+              (SELECT COUNT(*) FROM documento_adjunto da JOIN documento_requerido dr ON dr.id = da.documento_requerido_id WHERE da.ros_id = r.id AND dr.tipo_requerimiento = 'opcional') AS doc_opt_cargados,
               (SELECT COUNT(*) FROM solicitud_subsanacion s
                 WHERE s.ros_id = r.id AND s.estado = 'pendiente') AS pendientes_subsanacion
          FROM ros r
@@ -72,8 +81,6 @@ export default async function MisROS({
   for (const r of todos) {
     contadores[r.estado] = (contadores[r.estado] ?? 0) + 1;
   }
-
-  const tipoLabel = so?.tipo === 'bank' ? 'Banco' : so?.tipo === 'realestate' ? 'Inmobiliaria' : so?.tipo ?? '';
 
   return (
     <>
@@ -129,84 +136,7 @@ export default async function MisROS({
           })}
         </div>
 
-        {ros.length === 0 ? (
-          <div className="notice">
-            {filtroEstado
-              ? `No tienes reportes con estado "${estadoLabel(filtroEstado, 'portal')}".`
-              : 'Aún no has registrado ningún ROS.'}{' '}
-            <Link href="/portal/ros/nuevo" style={{ color: 'var(--primary)', fontWeight: 700 }}>
-              Registrar ahora
-            </Link>
-          </div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Número ROS</th>
-                  <th>Fecha recepción</th>
-                  <th>Estado</th>
-                  <th>Monto</th>
-                  <th>Riesgo UAF</th>
-                  <th>Documentos</th>
-                  <th>Subsanación</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {ros.map((r) => (
-                  <tr key={r.id}>
-                    <td>
-                      <strong style={{ color: '#0f3e69', fontFamily: 'Consolas, monospace' }}>
-                        {r.numero_ros}
-                      </strong>
-                    </td>
-                    <td style={{ whiteSpace: 'nowrap' }}>
-                      {formatPanamaShort(r.fecha_recepcion)}
-                    </td>
-                    <td><Badge tone={estadoTone(r.estado)}>{estadoLabel(r.estado, 'portal')}</Badge></td>
-                    <td style={{ whiteSpace: 'nowrap' }}>${r.monto.toLocaleString('en-US')}</td>
-                    <td>
-                      {r.nivel_riesgo
-                        ? <Badge tone={riskTone(r.nivel_riesgo)}>{r.nivel_riesgo}</Badge>
-                        : <span className="small">Sin clasificar</span>}
-                    </td>
-                    <td>
-                      <span style={{ fontWeight: 700, color: r.doc_cargados === r.doc_total && r.doc_total > 0 ? 'var(--green)' : r.doc_cargados === 0 ? 'var(--muted)' : 'var(--amber)' }}>
-                        {r.doc_cargados}
-                      </span>
-                      <span style={{ color: 'var(--muted)' }}> / {r.doc_total}</span>
-                    </td>
-                    <td>
-                      {r.pendientes_subsanacion > 0
-                        ? <Badge tone="amber">{r.pendientes_subsanacion} pendiente{r.pendientes_subsanacion > 1 ? 's' : ''}</Badge>
-                        : <span className="small">—</span>}
-                    </td>
-                    <td>
-                      {r.estado === 'borrador' ? (
-                        <Link
-                          href={`/portal/ros/${r.id}/editar`}
-                          className="btn primary"
-                          style={{ padding: '7px 12px', fontSize: 12 }}
-                        >
-                          Continuar
-                        </Link>
-                      ) : (
-                        <Link
-                          href={`/portal/ros/${r.id}`}
-                          className="btn ghost"
-                          style={{ padding: '7px 12px', fontSize: 12 }}
-                        >
-                          Ver detalle
-                        </Link>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <RosListClient ros={ros} filtroEstado={filtroEstado} />
       </div>
     </>
   );

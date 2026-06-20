@@ -25,7 +25,7 @@ export function estadoTone(estado: string): Tone {
     case 'recibido':            return 'blue';
     case 'en_analisis':         return 'blue';
     case 'revision_documental': return 'amber';
-    case 'subsanacion':         return 'amber';
+    case 'subsanacion':         return 'teal';
     case 'escalado':            return 'red';
     case 'vinculado':           return 'purple';
     case 'cerrado':             return 'green';

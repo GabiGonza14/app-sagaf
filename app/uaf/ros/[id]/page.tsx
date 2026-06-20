@@ -130,6 +130,22 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
     user_agent: h.get('user-agent'),
   });
 
+  // Auto-transición: recibido → en_analisis al abrir el expediente
+  let autoTransitioned = false;
+  if (ros.estado === 'recibido') {
+    db.prepare(`UPDATE ros SET estado = 'en_analisis' WHERE id = ?`).run(id);
+    ros.estado = 'en_analisis';
+    autoTransitioned = true;
+    audit({
+      modulo: 'ros', accion: 'cambio_estado', resultado: 'exito',
+      usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
+      recurso_afectado: ros.numero_ros,
+      ip: extractClientIp(h),
+      user_agent: h.get('user-agent'),
+      detalle: { anterior: 'recibido', nuevo: 'en_analisis', automatico: true },
+    });
+  }
+
   const partes = db.prepare<[string], ParteRow>(
     `SELECT id, rol_en_operacion, tipo_persona, identificador, identificador_enmascarado, nombre_visible
        FROM parte_involucrada WHERE ros_id = ?`,
@@ -177,6 +193,8 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
        WHERE (v.ros_origen_id = ? OR v.ros_destino_id = ?)
          AND (v.confirmado = 1 OR v.decidido_por IS NULL)`,
   ).all(id, id, id);
+  const vinculosConfirmados = vinculos.filter((v) => v.confirmado === 1).length;
+  const vinculosPendientes  = vinculos.filter((v) => v.confirmado === 0).length;
 
   const auditoria = db.prepare<[string, string], AuditoriaRow>(
     `SELECT fecha_hora_servidor, usuario_correo, rol, accion, modulo, resultado, criticidad, detalle
@@ -208,12 +226,23 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
   const opcionalesCargados = countCargados(docsReqOpcionales);
   const completitudObligatoria = docsReqObligatorios.length === 0
     ? 100
-    : Math.round((obligatoriosCargados / docsReqObligatorios.length) * 100);
+      : Math.round((obligatoriosCargados / docsReqObligatorios.length) * 100);
 
-  const canClassify = ['analista', 'supervisor'].includes(session.user.rol);
+  const asignacion = db.prepare<[string], AsignacionRow>(
+    `SELECT ar.analista_id, rtrim(u.nombre, ', ') AS analista_nombre, ar.fecha_asignacion,
+            us.nombre AS asignado_por_nombre
+       FROM asignacion_ros ar
+       JOIN usuario u  ON u.id  = ar.analista_id
+       JOIN usuario us ON us.id = ar.asignado_por
+      WHERE ar.ros_id = ? AND ar.activa = 1`,
+  ).get(id) ?? null;
+
+  const canClassify = session.user.rol === 'supervisor'
+    || (session.user.rol === 'analista' && asignacion?.analista_id === session.user.id);
   const canClose = session.user.rol === 'supervisor';
   const canReopen = session.user.rol === 'supervisor';
-  const canRevertRiesgo = ['analista', 'supervisor'].includes(session.user.rol);
+  const canRevertRiesgo = session.user.rol === 'supervisor'
+    || (session.user.rol === 'analista' && asignacion?.analista_id === session.user.id);
 
   // Workflow: docs obligatorios resueltos (validado o no aplica) para gatear Riesgo.
   // Si un obligatorio queda observado/cargado/pendiente, se espera corrección o validación antes de clasificar.
@@ -224,15 +253,6 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
   const requiredTotal = docsReq.filter((d) => d.tipo_requerimiento === 'requerido').length;
   const allRequiredDocsValidated = requiredTotal === 0 || requiredValidados >= requiredTotal;
   const riesgoClasificado = !!riesgoActual;
-
-  const asignacion = db.prepare<[string], AsignacionRow>(
-    `SELECT ar.analista_id, rtrim(u.nombre, ', ') AS analista_nombre, ar.fecha_asignacion,
-            us.nombre AS asignado_por_nombre
-       FROM asignacion_ros ar
-       JOIN usuario u  ON u.id  = ar.analista_id
-       JOIN usuario us ON us.id = ar.asignado_por
-      WHERE ar.ros_id = ? AND ar.activa = 1`,
-  ).get(id) ?? null;
 
   const analistas = canClose
     ? db.prepare<[], AnalistaRow>(
@@ -366,7 +386,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
                     },
                   ],
                 },
-                { label: 'Coincidencias con otros ROS', value: Math.min(vinculos.length * 25, 100), badge: `${vinculos.length} vínculo(s)`, tone: vinculos.length > 0 ? 'purple' : 'gray' },
+                { label: 'Coincidencias con otros ROS', value: Math.min(vinculosConfirmados * 25, 100), badge: `${vinculosConfirmados} confirmado(s)${vinculosPendientes > 0 ? ` · ${vinculosPendientes} pendiente(s)` : ''}`, tone: vinculosConfirmados > 0 ? 'purple' : vinculosPendientes > 0 ? 'amber' : 'gray' },
               ]}
             />
             {riesgos.length > 0 && (
@@ -385,19 +405,27 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
         docsReq={docsReq}
         docsAdj={docsAdj}
         vinculos={vinculos.map((v) => ({
-          id: v.id, numero_ros: v.numero_ros, tipo_vinculo: v.tipo_vinculo,
+          id: v.id, ros_destino_id: v.ros_destino_id, numero_ros: v.numero_ros, tipo_vinculo: v.tipo_vinculo,
           descripcion: v.descripcion, confirmado: v.confirmado === 1,
           alto_riesgo: (v as unknown as { alto_riesgo: number | null }).alto_riesgo === 1,
         }))}
         auditEvents={auditoria.map((a) => ({
-          title: `${a.accion} · ${a.usuario_correo ?? 'system'} (${a.rol ?? '—'})`,
-          description: `${formatPanama(a.fecha_hora_servidor)} · módulo ${a.modulo} · ${a.resultado}${a.detalle ? ` · ${a.detalle}` : ''}`,
-          tone: a.criticidad === 'critica' ? 'red' : a.criticidad === 'alta' ? 'amber' : 'default',
+          fecha: formatPanama(a.fecha_hora_servidor),
+          usuario: a.usuario_correo,
+          rol: a.rol,
+          accion: a.accion,
+          modulo: a.modulo,
+          resultado: a.resultado,
+          criticidad: a.criticidad,
+          detalle: a.detalle,
         }))}
         subs={subs}
         asignacion={asignacion}
         analistas={analistas}
         canAssign={canClose}
+        autoTransitioned={autoTransitioned}
+        vinculosConfirmados={vinculosConfirmados}
+        vinculosPendientes={vinculosPendientes}
       />
     </>
   );

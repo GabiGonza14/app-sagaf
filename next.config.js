@@ -29,6 +29,7 @@ const nextConfig = {
   reactStrictMode: true,
   experimental: {
     serverComponentsExternalPackages: ['better-sqlite3'],
+    staleTimes: { dynamic: 0 },
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];

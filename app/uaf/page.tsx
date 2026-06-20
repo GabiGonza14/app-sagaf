@@ -43,6 +43,8 @@ interface RosRow {
   doc_total: number;
   doc_cargados: number;
   doc_observados: number;
+  doc_obl_total: number;
+  doc_obl_cargados: number;
   cliente_enmascarado: string;
 }
 
@@ -135,6 +137,8 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
         (SELECT COUNT(*) FROM documento_requerido dr WHERE dr.plantilla_id = r.plantilla_id) AS doc_total,
         (SELECT COUNT(*) FROM documento_adjunto da WHERE da.ros_id = r.id AND da.documento_requerido_id IS NOT NULL) AS doc_cargados,
         (SELECT COUNT(*) FROM documento_adjunto da WHERE da.ros_id = r.id AND da.estado = 'observado') AS doc_observados,
+        (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = r.plantilla_id AND tipo_requerimiento = 'requerido') AS doc_obl_total,
+        (SELECT COUNT(*) FROM documento_adjunto da JOIN documento_requerido dr ON dr.id = da.documento_requerido_id WHERE da.ros_id = r.id AND dr.tipo_requerimiento = 'requerido') AS doc_obl_cargados,
         COALESCE((SELECT identificador_enmascarado FROM parte_involucrada WHERE ros_id = r.id LIMIT 1), '***') AS cliente_enmascarado
       FROM ros r
       JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
@@ -150,7 +154,7 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
 
   // KPIs (sec. 2.2 del documento)
   const nuevosHoy = db
-    .prepare<[], { c: number }>(`SELECT COUNT(*) AS c FROM ros WHERE date(fecha_recepcion, 'localtime') = date('now', 'localtime')`)
+    .prepare<[], { c: number }>(`SELECT COUNT(*) AS c FROM ros WHERE estado != 'borrador' AND date(fecha_recepcion, 'localtime') = date('now', 'localtime')`)
     .get()?.c ?? 0;
   const altoRiesgo = db
     .prepare<[], { c: number }>(
@@ -245,7 +249,18 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
                   </span>
                   <span>Sector: {formatSector(r.sujeto_sector)}</span>
                   <span>Cliente: <span className="masked" title="Identificador enmascarado">{r.cliente_enmascarado}</span></span>
-                  <span>Sustento: {r.doc_cargados}/{r.doc_total} documentos · ${r.monto.toLocaleString('en-US')}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    {r.doc_obl_total > 0 ? (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
+                        background: r.doc_obl_cargados >= r.doc_obl_total ? 'var(--green-soft)' : 'var(--red-soft)',
+                        color: r.doc_obl_cargados >= r.doc_obl_total ? 'var(--green)' : 'var(--red)',
+                      }}>
+                        {r.doc_obl_cargados}/{r.doc_obl_total} obl
+                      </span>
+                    ) : null}
+                    ${r.monto.toLocaleString('en-US')}
+                  </span>
                   {r.jurisdiccion && <span>Jurisdicción: {r.jurisdiccion}</span>}
                 </div>
                 <span style={{ position: 'absolute', bottom: 14, right: 16, fontSize: 11, color: 'var(--muted)' }}>

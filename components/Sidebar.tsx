@@ -14,7 +14,7 @@ export interface NavItem {
   label: string;
   icon: ReactNode;
   badge?: number;
-  badgeTone?: 'green' | 'amber';
+  badgeTone?: 'green' | 'amber' | 'blue';
 }
 
 interface Props {

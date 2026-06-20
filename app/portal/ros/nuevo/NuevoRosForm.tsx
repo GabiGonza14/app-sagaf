@@ -792,8 +792,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           <textarea id="descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required minLength={30}
             placeholder="Explique la operación, la inusualidad detectada, las gestiones realizadas y por qué se considera sospechosa." />
           <div className="helper">
-            Mínimo 30 caracteres ({descripcion.length} escritos).
-            Una narrativa insuficiente puede generar solicitud de subsanación.
+            Mínimo 30 caracteres ({descripcion.length} escritos)
           </div>
         </div>
 

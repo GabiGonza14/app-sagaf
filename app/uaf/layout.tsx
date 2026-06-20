@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { AppShell, type NavItem } from '@/components/AppShell';
 import { Inbox, Link2, BarChart2, FileCheck } from 'lucide-react';
 
+export const revalidate = 0;
+
 export default async function UafLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect('/login');
@@ -13,8 +15,12 @@ export default async function UafLayout({ children }: { children: React.ReactNod
     `SELECT COUNT(*) AS n FROM solicitud_subsanacion WHERE estado = 'atendida'`,
   ).get()?.n) ?? 0;
 
+  const rosRecibidos = (db.prepare<[], { n: number }>(
+    `SELECT COUNT(*) AS n FROM ros WHERE estado = 'recibido'`,
+  ).get()?.n) ?? 0;
+
   const navItems: NavItem[] = [
-    { href: '/uaf',                  label: 'Bandeja de ROS',          icon: <Inbox size={16} /> },
+    { href: '/uaf',                  label: 'Bandeja de ROS',          icon: <Inbox size={16} />, badge: rosRecibidos || undefined, badgeTone: 'amber' },
     { href: '/uaf/vinculos',         label: 'Vínculos detectados',     icon: <Link2 size={16} /> },
     { href: '/uaf/reportes',         label: 'Reportes e inteligencia', icon: <BarChart2 size={16} /> },
     { href: '/uaf/subsanaciones',    label: 'Subsanaciones',           icon: <FileCheck size={16} />, badge: subsAtendidas || undefined, badgeTone: 'green' },

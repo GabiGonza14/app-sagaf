@@ -16,6 +16,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!['analista', 'supervisor'].includes(session.user.rol))
     return NextResponse.json({ error: 'Permiso insuficiente' }, { status: 403 });
 
+  // Si es analista, solo puede revertir riesgo de ROS que le hayan sido asignados
+  if (session.user.rol === 'analista') {
+    const asignado = db.prepare<[string, string], { id: string }>(
+      'SELECT id FROM asignacion_ros WHERE ros_id = ? AND analista_id = ? AND activa = 1',
+    ).get(id, session.user.id);
+    if (!asignado) {
+      return NextResponse.json({ error: 'Solo el analista asignado puede revertir la clasificación' }, { status: 403 });
+    }
+  }
+
   const payload = await req.json().catch(() => null);
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: 'Datos inválidos', issues: parsed.error.flatten() }, { status: 400 });

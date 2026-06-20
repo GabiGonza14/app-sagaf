@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo, type ReactNode } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/Badge';
 import { Timeline } from '@/components/Timeline';
@@ -15,8 +15,17 @@ interface DocAdj  {
   id: string; documento_requerido_id: string | null; nombre_archivo: string;
   estado: string; observacion: string | null; fecha_carga: string;
 }
-interface Vinc    { id: string; numero_ros: string; tipo_vinculo: string; descripcion: string | null; confirmado: boolean; alto_riesgo?: boolean }
-interface AuditEv { title: string; description: string; tone?: 'default' | 'red' | 'amber' | 'green' }
+interface Vinc    { id: string; ros_destino_id: string; numero_ros: string; tipo_vinculo: string; descripcion: string | null; confirmado: boolean; alto_riesgo?: boolean }
+interface AuditEv {
+  fecha: string;
+  usuario: string | null;
+  rol: string | null;
+  accion: string;
+  modulo: string;
+  resultado: string;
+  criticidad: string;
+  detalle: string | null;
+}
 interface SubsRow { id: string; motivo: string; estado: string; fecha_solicitud: string; fecha_limite: string | null; documento_adjunto_id: string | null; documento_requerido_id: string | null }
 interface Asignacion { analista_id: string; analista_nombre: string; fecha_asignacion: string; asignado_por_nombre: string }
 interface Analista   { id: string; nombre: string }
@@ -43,6 +52,9 @@ interface Props {
   subs: SubsRow[];
   asignacion: Asignacion | null;
   analistas: Analista[];
+  autoTransitioned?: boolean;
+  vinculosConfirmados: number;
+  vinculosPendientes: number;
 }
 
 type Tab = 'resumen' | 'documentos' | 'riesgo' | 'vinculos' | 'auditoria';
@@ -55,12 +67,15 @@ interface StepDef {
 
 const WORKFLOW_STEPS: StepDef[] = [
   { key: 'resumen',    label: 'Resumen',    number: 1 },
-  { key: 'documentos', label: 'Documentos', number: 2 },
-  { key: 'riesgo',     label: 'Riesgo',     number: 3 },
+  { key: 'vinculos',   label: 'Vínculos',   number: 2 },
+  { key: 'documentos', label: 'Documentos', number: 3 },
+  { key: 'riesgo',     label: 'Riesgo',     number: 4 },
 ];
 
+const RANGO_RIESGO = { bajo: [0, 33], medio: [34, 66], alto: [67, 100] } as const;
+const DEFAULT_PUNTAJE = { bajo: 20, medio: 50, alto: 80 } as const;
+
 const EXTRA_TABS: { key: Tab; label: string; icon: ReactNode }[] = [
-  { key: 'vinculos',  label: 'Vínculos',  icon: <Link2 size={15} strokeWidth={2.4} /> },
   { key: 'auditoria', label: 'Auditoría', icon: <ClipboardList size={15} strokeWidth={2.4} /> },
 ];
 
@@ -68,10 +83,16 @@ export function RosExpedienteTabs({
   rosId, numeroRos, estadoActual, canClassify, canClose, canReopen, canRevertRiesgo, canAssign,
   allRequiredDocsValidated, requiredDocTotal, requiredDocValidated, riesgoClasificado,
   summary, riesgoNode, docsReq, docsAdj, vinculos, auditEvents, subs,
-  asignacion, analistas,
+  asignacion, analistas, autoTransitioned,
+  vinculosConfirmados, vinculosPendientes,
 }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('resumen');
+
+  useEffect(() => {
+    if (autoTransitioned) router.refresh();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [busy, setBusy] = useState(false);
 
@@ -79,10 +100,8 @@ export function RosExpedienteTabs({
   const [riesgoPuntaje, setRiesgoPuntaje] = useState(0);
   const [riesgoJustif, setRiesgoJustif] = useState('');
 
-  const [nuevoEstado, setNuevoEstado] = useState<string>('en_analisis');
-
-  type ModalKey = 'cerrarRos' | 'observarDoc' | 'noAplicaDoc' | 'solicitarDocPend' | 'confirmarVinc' | 'descartarVinc'
-    | 'revertirValidacion' | 'reabrirRos' | 'revertirRiesgo' | null;
+  type ModalKey = 'observarDoc' | 'noAplicaDoc' | 'solicitarDocPend' | 'confirmarVinc' | 'descartarVinc'
+    | 'revertirValidacion' | 'revertirRiesgo' | null;
   const [activeModal, setActiveModal] = useState<ModalKey>(null);
   const [pendingDocId, setPendingDocId] = useState<string>('');
   const [pendingDocReqId, setPendingDocReqId] = useState<string>('');
@@ -106,7 +125,7 @@ export function RosExpedienteTabs({
     return WORKFLOW_STEPS.map((_, i) => {
       if (i < wfIdx) return 'completed' as const;
       if (i === wfIdx) return 'current' as const;
-      if (i === 2 && riesgoLocked) return 'locked' as const;
+      if (i === 3 && riesgoLocked) return 'locked' as const;
       return 'pending' as const;
     });
   }, [wfIdx, allRequiredDocsValidated, riesgoClasificado]);
@@ -139,6 +158,11 @@ export function RosExpedienteTabs({
     e.preventDefault();
     clearError();
     if (!riesgoNivel) { setActionError('Debe seleccionar un nivel de riesgo.'); return; }
+    const [rMin, rMax] = RANGO_RIESGO[riesgoNivel];
+    if (riesgoPuntaje < rMin || riesgoPuntaje > rMax) {
+      setActionError(`Para nivel ${riesgoNivel.toUpperCase()}, el puntaje debe estar entre ${rMin} y ${rMax}.`);
+      return;
+    }
     if (riesgoJustif.trim().length < 15) { setActionError('La justificación debe tener al menos 15 caracteres.'); return; }
     setBusy(true);
     try {
@@ -170,27 +194,6 @@ export function RosExpedienteTabs({
       });
       if (!r2.ok) { const d = await r2.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo crear la solicitud de subsanación.'); return; }
 
-      router.refresh();
-    } finally { setBusy(false); }
-  }
-
-  async function cambiarEstado(e: React.FormEvent) {
-    e.preventDefault();
-    if (nuevoEstado === 'cerrado') { setActiveModal('cerrarRos'); return; }
-    if (estadoActual === 'cerrado' && nuevoEstado === 'en_analisis') { setActiveModal('reabrirRos'); return; }
-    await doCambiarEstado();
-  }
-
-  async function doCambiarEstado() {
-    setActiveModal(null);
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/ros/${rosId}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado: nuevoEstado }),
-      });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo actualizar el estado del ROS.'); return; }
-      setSuccessModal({ title: 'Estado actualizado', message: `El ROS ${numeroRos} fue cambiado a "${nuevoEstado.replace(/_/g, ' ')}" correctamente.` });
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -532,53 +535,6 @@ export function RosExpedienteTabs({
               </div>
             )}
 
-            {canClassify && (
-              <div className="card" style={{ marginTop: 12, padding: '16px 18px' }}>
-                <h3 style={{ marginBottom: 4 }}>Actualizar estado del ROS</h3>
-                <p className="small" style={{ marginBottom: 14 }}>
-                  Cambia el estado del expediente según el avance del análisis. La transición queda registrada en el log de auditoría.
-                </p>
-                <form onSubmit={cambiarEstado} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <CustomSelect value={nuevoEstado} onChange={(e) => setNuevoEstado(e.target.value)} style={{ minWidth: 220 }}>
-                    {(() => {
-                      const transiciones: Record<string, string[]> = {
-                        recibido:             ['en_analisis'],
-                        en_analisis:          ['revision_documental', 'subsanacion', 'escalado'],
-                        revision_documental:  ['en_analisis', 'subsanacion', 'escalado'],
-                        subsanacion:          ['en_analisis', 'revision_documental', 'escalado'],
-                        escalado:             ['en_analisis', 'revision_documental'],
-                        vinculado:            ['en_analisis', 'revision_documental', 'escalado'],
-                      };
-                      if (canClose) {
-                        transiciones.escalado?.push('cerrado');
-                        transiciones.vinculado?.push('cerrado');
-                      }
-                      if (canReopen && estadoActual === 'cerrado') {
-                        transiciones.cerrado = ['en_analisis'];
-                      }
-                      const opts = transiciones[estadoActual] ?? [];
-                      return opts.length > 0 ? (
-                        opts.map((v) => (
-                          <option key={v} value={v}>
-                            {v === 'en_analisis' ? 'En análisis' :
-                             v === 'revision_documental' ? 'Revisión documental' :
-                             v === 'subsanacion' ? 'Subsanación' :
-                             v === 'escalado' ? 'Escalado' :
-                             v === 'vinculado' ? 'Vinculado' :
-                             v === 'cerrado' ? 'Cerrar ROS' : v}
-                          </option>
-                        ))
-                      ) : (
-                        <option value="" disabled>No hay transiciones disponibles</option>
-                      );
-                    })()}
-                  </CustomSelect>
-                  <button className="btn primary" disabled={busy || nuevoEstado === ''}>
-                    Actualizar estado
-                  </button>
-                </form>
-              </div>
-            )}
 
           </div>
         )}
@@ -708,7 +664,7 @@ export function RosExpedienteTabs({
                                   <div className="uaf-doc-notice success">Documento validado correctamente</div>
                                 )}
                                 {adj.estado === 'cargado' && (
-                                  <div className="uaf-doc-notice success">Documento recibido correctamente</div>
+                                  <div className="uaf-doc-notice received">Documento recibido correctamente</div>
                                 )}
                               </div>
                             ) : null}
@@ -901,24 +857,61 @@ export function RosExpedienteTabs({
                       )}
                     </div>
                     <p className="small" style={{ marginBottom: 12 }}>La justificación es obligatoria y queda registrada en auditoría.</p>
+                    {vinculosConfirmados > 0 && (
+                      <div className="notice" style={{ marginBottom: 12 }}>
+                        Este ROS tiene <strong>{vinculosConfirmados} vínculo(s) confirmado(s)</strong> con otros ROS,
+                        aportando <strong>+{Math.min(vinculosConfirmados * 25, 100)} pts sugeridos</strong> al puntaje de riesgo.
+                        {vinculosPendientes > 0 && (
+                          <> También hay <strong>{vinculosPendientes} vínculo(s) pendiente(s)</strong> de validación que no impactan el puntaje hasta confirmarse.</>
+                        )}
+                      </div>
+                    )}
                     <form onSubmit={clasificar}>
                       <div className="form-grid">
                         <div className="field">
                           <label>Nivel</label>
-                          <CustomSelect value={riesgoNivel} onChange={(e) => setRiesgoNivel(e.target.value as 'alto' | 'medio' | 'bajo' | '')}>
+                          <CustomSelect value={riesgoNivel} onChange={(e) => {
+                            const nivel = e.target.value as 'alto' | 'medio' | 'bajo' | '';
+                            setRiesgoNivel(nivel);
+                            if (nivel) setRiesgoPuntaje(DEFAULT_PUNTAJE[nivel]);
+                          }}>
                             <option value="" disabled>Seleccione un nivel...</option>
-                            <option value="alto">Alto</option>
-                            <option value="medio">Medio</option>
-                            <option value="bajo">Bajo</option>
+                            <option value="alto">Alto (67–100)</option>
+                            <option value="medio">Medio (34–66)</option>
+                            <option value="bajo">Bajo (0–33)</option>
                           </CustomSelect>
                         </div>
                         <div className="field">
-                          <label>Puntaje (0-100)</label>
-                          <input type="number" min={0} max={100} value={riesgoPuntaje} onChange={(e) => setRiesgoPuntaje(Number(e.target.value))} />
+                          <label>
+                            Puntaje{riesgoNivel
+                              ? ` (${RANGO_RIESGO[riesgoNivel][0]}–${RANGO_RIESGO[riesgoNivel][1]})`
+                              : ' (0–100)'}
+                          </label>
+                          <input
+                            type="number"
+                            min={riesgoNivel ? RANGO_RIESGO[riesgoNivel][0] : 0}
+                            max={riesgoNivel ? RANGO_RIESGO[riesgoNivel][1] : 100}
+                            value={riesgoPuntaje}
+                            onChange={(e) => setRiesgoPuntaje(Number(e.target.value))}
+                          />
                         </div>
                         <div className="field full">
-                          <label>Justificación</label>
-                          <textarea value={riesgoJustif} onChange={(e) => setRiesgoJustif(e.target.value)} placeholder="Justifique los criterios de la clasificación…" required minLength={15} />
+                          <label>
+                            Justificación
+                            <span style={{
+                              marginLeft: 8, fontSize: 12, fontWeight: 400,
+                              color: riesgoJustif.trim().length >= 15 ? 'var(--teal)' : 'var(--muted)',
+                            }}>
+                              {riesgoJustif.trim().length}/15 caracteres mínimos
+                            </span>
+                          </label>
+                          <textarea
+                            value={riesgoJustif}
+                            onChange={(e) => setRiesgoJustif(e.target.value)}
+                            placeholder="Justifique los criterios de la clasificación (mínimo 15 caracteres)…"
+                            required
+                            minLength={15}
+                          />
                         </div>
                         <div className="field full">
                           <button className="btn primary" disabled={busy}>{busy ? 'Guardando…' : 'Registrar clasificación'}</button>
@@ -956,7 +949,11 @@ export function RosExpedienteTabs({
                     <div className="report-top">
                       <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                         <Link2 size={14} strokeWidth={2.4} />
-                        {v.numero_ros}
+                        <a href={`/uaf/ros/${v.ros_destino_id}`} target="_blank" rel="noopener noreferrer"
+                          style={{ color: 'var(--primary)', textDecoration: 'underline' }}
+                          title="Abrir ROS vinculado en otra pestaña">
+                          {v.numero_ros}
+                        </a>
                       </strong>
                       <div style={{ display: 'flex', gap: 6 }}>
                         {v.alto_riesgo && <Badge tone="red">Alto riesgo</Badge>}
@@ -991,7 +988,86 @@ export function RosExpedienteTabs({
             {auditEvents.length === 0 ? (
               <div className="notice">Sin eventos auditables para este ROS aún.</div>
             ) : (
-              <Timeline events={auditEvents} />
+              <div className="audit-log">
+                {auditEvents.map((ev, i) => {
+                  const accionLabel: Record<string, string> = {
+                    consulta_expediente: 'Consulta expediente',
+                    cambio_estado: 'Cambio de estado',
+                    marcar_validado: 'Documento validado',
+                    marcar_observado: 'Documento observado',
+                    marcar_no_aplica: 'Marcado no aplica',
+                    revertir_validado: 'Validación revertida',
+                    revertir_no_aplica: 'No aplica revertido',
+                    solicitar_subsanacion: 'Subsanación solicitada',
+                    clasificar_riesgo: 'Riesgo clasificado',
+                    revertir_riesgo: 'Riesgo revertido',
+                    asignar_analista: 'Analista asignado',
+                    desasignar_analista: 'Analista removido',
+                    confirmar_vinculo: 'Vínculo confirmado',
+                    descartar_vinculo: 'Vínculo descartado',
+                    detectar_vinculos: 'Vínculos detectados',
+                    subir_documento: 'Documento cargado',
+                    enviar_borrador: 'ROS enviado',
+                    actualizar_borrador: 'Borrador actualizado',
+                  };
+                  let detalleParsed: Record<string, unknown> | null = null;
+                  try { if (ev.detalle) detalleParsed = JSON.parse(ev.detalle); } catch { /* noop */ }
+
+                  const criticidadTone: Record<string, { bg: string; color: string }> = {
+                    critica: { bg: 'var(--red-soft)', color: 'var(--red)' },
+                    alta:    { bg: 'var(--amber-soft)', color: 'var(--amber)' },
+                    normal:  { bg: 'var(--green-soft)', color: 'var(--green)' },
+                  };
+                  const tone = criticidadTone[ev.criticidad] ?? criticidadTone.normal;
+
+                  return (
+                    <div key={i} className="audit-row">
+                      <div className="audit-left">
+                        <span className="audit-time">{ev.fecha}</span>
+                        <span className="audit-module">{ev.modulo}</span>
+                      </div>
+                      <div className="audit-center">
+                        <div className="audit-action-row">
+                          <span className="audit-action">{accionLabel[ev.accion] ?? ev.accion.replace(/_/g, ' ')}</span>
+                          <span className="audit-badge" style={{ background: tone.bg, color: tone.color }}>
+                            {ev.criticidad}
+                          </span>
+                          {ev.resultado !== 'exito' && (
+                            <span className="audit-badge" style={{ background: 'var(--red-soft)', color: 'var(--red)' }}>
+                              {ev.resultado}
+                            </span>
+                          )}
+                        </div>
+                        <div className="audit-user">
+                          {ev.usuario ?? 'sistema'}{ev.rol ? ` · ${ev.rol.replace(/_/g, ' ')}` : ''}
+                        </div>
+                        {detalleParsed && (
+                          <div className="audit-detail">
+                            {Object.entries(detalleParsed)
+                              .filter(([k, v]) =>
+                                k !== 'automatico' &&
+                                !k.endsWith('_id') &&
+                                !['hash_sha256', 'tamano', 'mime', 'ruta', 'size'].includes(k) &&
+                                v !== null && v !== 'null' && v !== ''
+                              )
+                              .map(([k, v]) => (
+                                <span key={k} className="audit-detail-chip">
+                                  <span className="audit-detail-key">{k.replace(/_/g, ' ')}:</span>{' '}
+                                  {String(v).replace(/_/g, ' ')}
+                                </span>
+                              ))}
+                            {detalleParsed.automatico && (
+                              <span className="audit-detail-chip" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>
+                                automático
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
             <div className="notice" style={{ marginTop: 12 }}>
               El log de auditoría es <strong>inmutable</strong>. La hora de cada evento es generada por el servidor.
@@ -1001,29 +1077,6 @@ export function RosExpedienteTabs({
       </div>
 
       {/* ── Modales ── */}
-      <ConfirmModal
-        isOpen={activeModal === 'cerrarRos'}
-        variant="danger"
-        title="¿Cerrar este ROS?"
-        message={`El ROS ${numeroRos} pasará a estado Cerrado. Un supervisor podrá reabrirlo después si es necesario. Queda registrado en auditoría.`}
-        confirmLabel="Sí, cerrar ROS"
-        cancelLabel="Cancelar"
-        busy={busy}
-        onConfirm={doCambiarEstado}
-        onCancel={() => setActiveModal(null)}
-      />
-
-      <ConfirmModal
-        isOpen={activeModal === 'reabrirRos'}
-        variant="warning"
-        title="¿Reabrir este ROS?"
-        message={`El ROS ${numeroRos} estaba en estado Cerrado. Pasara a "En análisis" y podra continuar la gestion. Solo un supervisor puede ejecutar esta accion y queda registrada en auditoria.`}
-        confirmLabel="Sí, reabrir ROS"
-        cancelLabel="Cancelar"
-        busy={busy}
-        onConfirm={doCambiarEstado}
-        onCancel={() => setActiveModal(null)}
-      />
 
       <ConfirmModal
         isOpen={activeModal === 'revertirValidacion'}
