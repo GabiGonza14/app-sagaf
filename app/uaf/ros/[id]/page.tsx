@@ -326,7 +326,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
                   {op.producto_servicio && <InfoBox label="Producto / servicio" value={op.producto_servicio} />}
                   {op.bien_inmueble && <InfoBox label="Bien inmueble" value={op.bien_inmueble} />}
                   {op.forma_pago && <InfoBox label="Forma de pago" value={op.forma_pago} />}
-                  <InfoBox label="Señal de alerta" value={op.senal_alerta} />
+                  <InfoBox label="Riesgo reportado" value={op.senal_alerta} />
                 </div>
               </div>
             )}
@@ -362,7 +362,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
           <div>
             <ProgressList
               items={[
-                { label: 'Señales de alerta', value: riesgoActual?.puntaje ?? 0, badge: riesgoActual ? riesgoActual.nivel : 'sin clasificar', tone: riesgoActual ? riskTone(riesgoActual.nivel) : 'gray' },
+                { label: 'Riesgo reportado', value: riesgoActual?.puntaje ?? 0, badge: riesgoActual ? riesgoActual.nivel : 'sin clasificar', tone: riesgoActual ? riskTone(riesgoActual.nivel) : 'gray' },
                 {
                   label: 'Completitud documental obligatoria',
                   value: completitudObligatoria,

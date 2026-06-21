@@ -256,7 +256,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     // 3. Datos de la operación (en orden del formulario)
     if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0) faltantes.push({ label: 'Ingresar un monto válido mayor a 0', icon: <DollarSign size={14} />, categoria: 'datos' });
     if (!jurisdiccion.trim()) faltantes.push({ label: isRealEstate ? 'Ingresar la ubicación del bien inmueble' : 'Ingresar la jurisdicción relacionada', icon: <MapPin size={14} />, categoria: 'datos' });
-    if (!senalAlerta.trim()) faltantes.push({ label: 'Seleccionar la tipología / señal de alerta', icon: <AlertCircle size={14} />, categoria: 'datos' });
+    if (!senalAlerta.trim()) faltantes.push({ label: 'Seleccionar el riesgo reportado', icon: <AlertCircle size={14} />, categoria: 'datos' });
     if (isBank && !productoServicio.trim()) faltantes.push({ label: 'Ingresar el producto bancario involucrado', icon: <FileDigit size={14} />, categoria: 'datos' });
     if (isRealEstate && !bienInmueble.trim()) faltantes.push({ label: 'Ingresar el bien inmueble involucrado', icon: <Building2 size={14} />, categoria: 'datos' });
     if (isRealEstate && !formaPago.trim()) faltantes.push({ label: 'Ingresar la forma de pago', icon: <DollarSign size={14} />, categoria: 'datos' });
@@ -493,7 +493,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     if (genericError) return genericError;
     const campoFaltante = camposDinamicos.find((c) => c.obligatorio === 1 && !(camposValores[c.id] ?? '').trim());
     if (campoFaltante) return `El campo "${campoFaltante.nombre}" es obligatorio.`;
-    if (!senalAlerta.trim()) return 'La tipología / señal de alerta es obligatoria.';
+    if (!senalAlerta.trim()) return 'El riesgo reportado es obligatorio.';
     if (!descripcion.trim() || descripcion.length < 30)
       return 'La descripción narrativa debe tener al menos 30 caracteres.';
     if (!todosDocumentosCargados)
@@ -666,11 +666,11 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           </div>
         </div>
         <div className="field">
-          <label htmlFor="oficial-cumplimiento">Oficial de cumplimiento <span className="req">*</span></label>
+          <label htmlFor="oficial-cumplimiento">Oficial de cumplimiento</label>
           <input id="oficial-cumplimiento" value={oficial} disabled />
         </div>
         <div className="field">
-          <label htmlFor="correo-oficial">Correo institucional <span className="req">*</span></label>
+          <label htmlFor="correo-oficial">Correo institucional</label>
           <input id="correo-oficial" type="email" value={correoOficial} disabled />
         </div>
 
@@ -760,7 +760,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           <input id="jurisdiccion" value={jurisdiccion} onChange={(e) => setJurisdiccion(e.target.value)} placeholder={isRealEstate ? 'Costa del Este, Panamá' : 'Panamá / Suiza'} />
         </div>
         <div className="field">
-          <label>Tipología / señal de alerta <span className="req">*</span></label>
+          <label>Riesgo reportado <span className="req">*</span></label>
           <CustomSelect value={senalAlerta} onChange={(e) => setSenalAlerta(e.target.value)} placeholder="Seleccione una tipología...">
             <option>Movimientos incompatibles con el perfil</option>
             <option>Uso de terceros o testaferros</option>

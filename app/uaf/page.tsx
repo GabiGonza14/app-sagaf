@@ -256,7 +256,7 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
                         background: r.doc_obl_cargados >= r.doc_obl_total ? 'var(--green-soft)' : 'var(--red-soft)',
                         color: r.doc_obl_cargados >= r.doc_obl_total ? 'var(--green)' : 'var(--red)',
                       }}>
-                        {r.doc_obl_cargados}/{r.doc_obl_total} obl
+                        {r.doc_obl_cargados}/{r.doc_obl_total}
                       </span>
                     ) : null}
                     ${r.monto.toLocaleString('en-US')}

@@ -189,7 +189,7 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
       )}
 
       {readOnly && !hasSolicitud && !adjunto && (
-        <div style={{ padding: '16px 20px', color: 'var(--muted)', fontSize: '0.85rem', opacity: 0.8, background: '#f8fafc', borderRadius: 8, marginTop: 8, border: '1px solid #e2e8f0' }}>
+        <div style={{ padding: '6px 10px', color: 'var(--muted)', fontSize: '0.72rem', opacity: 0.65, marginTop: 6 }}>
           Sin documento adjunto
         </div>
       )}

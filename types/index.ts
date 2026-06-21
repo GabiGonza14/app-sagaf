@@ -6,11 +6,11 @@ export type RosEstado =
   | 'borrador'
   | 'recibido'
   | 'en_analisis'
+  | 'en_revision_vinculo'
   | 'revision_documental'
   | 'subsanacion'
-  | 'escalado'
-  | 'cerrado'
-  | 'vinculado';
+  | 'riesgo_clasificado'
+  | 'cerrado';
 
 export type RiesgoNivel = 'bajo' | 'medio' | 'alto';
 

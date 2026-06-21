@@ -32,10 +32,10 @@ const ESTADOS_FILTRO = [
   { valor: 'borrador',          label: 'Borradores' },
   { valor: 'recibido',          label: 'Enviado' },
   { valor: 'en_analisis',       label: 'En análisis' },
+  { valor: 'en_revision_vinculo', label: 'En revisión de vínculo' },
   { valor: 'revision_documental', label: 'Revisión documental' },
   { valor: 'subsanacion',       label: 'Subsanación' },
-  { valor: 'escalado',          label: 'Escalado' },
-  { valor: 'vinculado',         label: 'Vinculado' },
+  { valor: 'riesgo_clasificado',  label: 'Riesgo clasificado' },
   { valor: 'cerrado',           label: 'Cerrado' },
 ];
 

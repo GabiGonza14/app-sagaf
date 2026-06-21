@@ -24,10 +24,10 @@ export function estadoTone(estado: string): Tone {
     case 'borrador':            return 'gray';
     case 'recibido':            return 'blue';
     case 'en_analisis':         return 'blue';
+    case 'en_revision_vinculo': return 'purple';
     case 'revision_documental': return 'amber';
     case 'subsanacion':         return 'teal';
-    case 'escalado':            return 'red';
-    case 'vinculado':           return 'purple';
+    case 'riesgo_clasificado':  return 'green';
     case 'cerrado':             return 'green';
     default:                    return 'gray';
   }

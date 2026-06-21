@@ -100,8 +100,8 @@ export function RosExpedienteTabs({
   const [riesgoPuntaje, setRiesgoPuntaje] = useState(0);
   const [riesgoJustif, setRiesgoJustif] = useState('');
 
-  type ModalKey = 'observarDoc' | 'noAplicaDoc' | 'solicitarDocPend' | 'confirmarVinc' | 'descartarVinc'
-    | 'revertirValidacion' | 'revertirRiesgo' | null;
+  type ModalKey = 'validarDoc' | 'observarDoc' | 'noAplicaDoc' | 'solicitarDocPend' | 'confirmarVinc' | 'descartarVinc'
+    | 'revertirValidacion' | 'revertirRiesgo' | 'cerrarCaso' | 'reabrirCaso' | null;
   const [activeModal, setActiveModal] = useState<ModalKey>(null);
   const [pendingDocId, setPendingDocId] = useState<string>('');
   const [pendingDocReqId, setPendingDocReqId] = useState<string>('');
@@ -118,6 +118,7 @@ export function RosExpedienteTabs({
   const [altoRiesgoMsg, setAltoRiesgoMsg] = useState<string | null>(null);
   const [successModal, setSuccessModal] = useState<{ title: string; message: string } | null>(null);
 
+  const readonly = estadoActual === 'cerrado';
   const isWorkflowTab = WORKFLOW_STEPS.some((s) => s.key === tab);
   const wfIdx = WORKFLOW_STEPS.findIndex((s) => s.key === tab);
   const stepStatus = useMemo(() => {
@@ -274,9 +275,42 @@ export function RosExpedienteTabs({
     } finally { setBusy(false); }
   }
 
+  function abrirValidarDoc(docId: string) {
+    setPendingDocId(docId);
+    setActiveModal('validarDoc');
+  }
+
   function abrirRevertirValidacion(docId: string) {
     setPendingDocId(docId);
     setActiveModal('revertirValidacion');
+  }
+
+  async function cerrarCaso() {
+    setActiveModal(null);
+    clearError();
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/ros/${rosId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'cerrado' }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo cerrar el caso.'); return; }
+      router.refresh();
+    } finally { setBusy(false); }
+  }
+
+  async function reabrirCaso() {
+    setActiveModal(null);
+    clearError();
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/ros/${rosId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'en_analisis' }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo reabrir el caso.'); return; }
+      router.refresh();
+    } finally { setBusy(false); }
   }
 
   async function revertirRiesgo() {
@@ -671,19 +705,21 @@ export function RosExpedienteTabs({
                             {adj.estado === 'validado' ? (
                               <div className="uaf-doc-actions">
                                 <span className="uaf-doc-ok-label" style={{ color: 'var(--teal)', fontSize: 12, marginRight: 8 }}>✓ Validado</span>
-                                <button className="btn ghost uaf-btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
-                                  onClick={() => abrirRevertirValidacion(adj.id)}
-                                  disabled={busy}>↩ Revertir</button>
+                                {!readonly && (
+                                  <button className="btn ghost uaf-btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
+                                    onClick={() => abrirRevertirValidacion(adj.id)}
+                                    disabled={busy}>↩ Revertir</button>
+                                )}
                                 <span className="uaf-doc-datestamp" style={{ marginLeft: 'auto' }}>{formatPanamaShort(adj.fecha_carga)}</span>
                               </div>
                             ) : (
                               <div className="uaf-doc-actions">
                                 {hasPendingSubsOnAdj ? (
                                   <span className="uaf-waiting-label">Esperando corrección del sujeto…</span>
-                                ) : (
+                                ) : !readonly ? (
                                   <>
                                     <button className="btn green uaf-btn-sm"
-                                      onClick={() => marcarDocumento(adj.id, 'validado')}
+                                      onClick={() => abrirValidarDoc(adj.id)}
                                       disabled={busy}>Validar</button>
                                     {adj.estado !== 'no_aplica' && (
                                       <>
@@ -696,7 +732,7 @@ export function RosExpedienteTabs({
                                       </>
                                     )}
                                   </>
-                                )}
+                                ) : null}
                                 <span className="uaf-doc-datestamp" style={{ marginLeft: 'auto' }}>{formatPanamaShort(adj.fecha_carga)}</span>
                               </div>
                             )}
@@ -712,7 +748,7 @@ export function RosExpedienteTabs({
                               : 'Sin documento adjunto aún'}
                           </div>
                         </div>
-                        {canClassify && !hasSolicitudPend && (
+                        {canClassify && !hasSolicitudPend && !readonly && (
                           <div className="uaf-doc-actions">
                             <button className="btn amber uaf-btn-sm"
                               onClick={() => abrirSolicitarPendiente(dr.id, dr.nombre)}
@@ -825,7 +861,7 @@ export function RosExpedienteTabs({
           <div role="tabpanel" aria-labelledby="step-riesgo" tabIndex={-1}>
             {riesgoNode}
 
-            {canClassify && (
+            {canClassify && !readonly && (
               <div className="card" style={{ marginTop: 14, padding: 14 }}>
                 {riesgoBloqueado ? (
                   <div className="wf-risk-blocked">
@@ -922,17 +958,43 @@ export function RosExpedienteTabs({
                 )}
               </div>
             )}
+
+            {canClose && estadoActual !== 'cerrado' && (
+              <div className="card" style={{ marginTop: 14, padding: 14 }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>Cierre del expediente</h3>
+                <p className="small" style={{ marginBottom: 12 }}>
+                  Una vez cerrado, el ROS pasará a estado «cerrado» y no se podrán realizar más cambios sin reapertura.
+                </p>
+                <button className="btn red" onClick={() => setActiveModal('cerrarCaso')} disabled={busy}>
+                  Cerrar caso
+                </button>
+              </div>
+            )}
+
+            {canClose && estadoActual === 'cerrado' && (
+              <div className="card" style={{ marginTop: 14, padding: 14 }}>
+                <h3 style={{ margin: '0 0 8px', fontSize: 16 }}>Expediente cerrado</h3>
+                <p className="small" style={{ marginBottom: 12 }}>
+                  Este caso está cerrado. Puede reabrirlo para continuar el análisis.
+                </p>
+                <button className="btn primary" onClick={() => setActiveModal('reabrirCaso')} disabled={busy}>
+                  Reabrir caso
+                </button>
+              </div>
+            )}
           </div>
         )}
 
         {/* ── Vínculos (tab libre) ── */}
         {tab === 'vinculos' && (
           <div role="tabpanel" aria-labelledby="step-vinculos" tabIndex={-1}>
-            <div className="action-row" style={{ marginBottom: 8 }}>
-              <button className="btn primary" onClick={detectarVinculos} disabled={detectando || busy}>
-                {detectando ? 'Detectando…' : 'Detectar vínculos automáticamente'}
-              </button>
-            </div>
+            {!readonly && (
+              <div className="action-row" style={{ marginBottom: 8 }}>
+                <button className="btn primary" onClick={detectarVinculos} disabled={detectando || busy}>
+                  {detectando ? 'Detectando…' : 'Detectar vínculos automáticamente'}
+                </button>
+              </div>
+            )}
 
             {detectMsg && (
               <div className={`notice${detectMsg.tipo === 'ok' ? ' green' : ''}`} style={{ marginBottom: 12 }}>
@@ -940,9 +1002,7 @@ export function RosExpedienteTabs({
               </div>
             )}
 
-            {vinculos.length === 0 ? (
-              <div className="notice">No se detectaron vínculos para este ROS.</div>
-            ) : (
+            {vinculos.length > 0 && (
               <div className="report-list">
                 {vinculos.map((v) => (
                   <div key={v.id} className="report-item" style={{ cursor: 'default' }}>
@@ -964,14 +1024,16 @@ export function RosExpedienteTabs({
                       <span><strong>Tipo:</strong> {v.tipo_vinculo}</span>
                       {v.descripcion && <span>{maskDescriptionText(v.descripcion)}</span>}
                     </div>
-                    <div className="action-row">
-                      {!v.confirmado && (
-                        <>
-                          <button className="btn green" onClick={() => abrirVinculo(v.id, true)}  disabled={busy}>Confirmar vínculo</button>
-                          <button className="btn red"   onClick={() => abrirVinculo(v.id, false)} disabled={busy}>Descartar</button>
-                        </>
-                      )}
-                    </div>
+                    {!readonly && (
+                      <div className="action-row">
+                        {!v.confirmado && (
+                          <>
+                            <button className="btn green" onClick={() => abrirVinculo(v.id, true)}  disabled={busy}>Confirmar vínculo</button>
+                            <button className="btn red"   onClick={() => abrirVinculo(v.id, false)} disabled={busy}>Descartar</button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1079,6 +1141,18 @@ export function RosExpedienteTabs({
       {/* ── Modales ── */}
 
       <ConfirmModal
+        isOpen={activeModal === 'validarDoc'}
+        variant="success"
+        title="¿Validar documento?"
+        message="El documento quedará marcado como validado. Esta acción queda registrada en auditoría."
+        confirmLabel="Sí, validar documento"
+        cancelLabel="Cancelar"
+        busy={busy}
+        onConfirm={() => marcarDocumento(pendingDocId, 'validado')}
+        onCancel={() => setActiveModal(null)}
+      />
+
+      <ConfirmModal
         isOpen={activeModal === 'revertirValidacion'}
         variant="warning"
         title="¿Revertir validación del documento?"
@@ -1183,6 +1257,30 @@ export function RosExpedienteTabs({
         cancelLabel="Cancelar"
         busy={busy}
         onConfirm={() => doVinculo(false)}
+        onCancel={() => setActiveModal(null)}
+      />
+
+      <ConfirmModal
+        isOpen={activeModal === 'cerrarCaso'}
+        variant="warning"
+        title="¿Cerrar el expediente?"
+        message="El ROS pasará a estado «cerrado» y no se podrán realizar más cambios sin una reapertura por parte del Supervisor. Esta acción queda registrada en auditoría."
+        confirmLabel="Sí, cerrar caso"
+        cancelLabel="Cancelar"
+        busy={busy}
+        onConfirm={cerrarCaso}
+        onCancel={() => setActiveModal(null)}
+      />
+
+      <ConfirmModal
+        isOpen={activeModal === 'reabrirCaso'}
+        variant="info"
+        title="¿Reabrir el expediente?"
+        message="El ROS volverá a estado «en análisis» y se podrán continuar las acciones sobre el expediente. Esta acción queda registrada en auditoría."
+        confirmLabel="Sí, reabrir caso"
+        cancelLabel="Cancelar"
+        busy={busy}
+        onConfirm={reabrirCaso}
         onCancel={() => setActiveModal(null)}
       />
 

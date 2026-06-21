@@ -66,6 +66,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(randomUUID(), id, parsed.data.nivel, parsed.data.puntaje, parsed.data.justificacion, session.user.id);
 
+  // Auto-transición: cualquier estado → riesgo_clasificado
+  db.prepare(`UPDATE ros SET estado = 'riesgo_clasificado' WHERE id = ?`).run(id);
+
   const ctx = extractRequestContext(req);
   audit({
     modulo: 'ros', accion: 'clasificar_riesgo', resultado: 'exito',

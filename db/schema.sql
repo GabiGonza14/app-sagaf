@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS ros (
   fecha_deteccion      TEXT NOT NULL,
   fecha_recepcion      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   estado               TEXT NOT NULL DEFAULT 'recibido',
-  -- borrador | recibido | en_analisis | revision_documental | subsanacion | escalado | cerrado | vinculado
+  -- borrador | recibido | en_analisis | en_revision_vinculo | revision_documental | subsanacion | riesgo_clasificado | cerrado
   descripcion          TEXT NOT NULL,
   observaciones        TEXT,                        -- A3: justificación de documentos pendientes (CU-01)
   canal_recepcion      TEXT NOT NULL DEFAULT 'portal_publico',

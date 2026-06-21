@@ -150,7 +150,7 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
               <>
                 <InfoBox label="Monto" value={`$${op.monto.toLocaleString('en-US')}`} />
                 <InfoBox label="Jurisdicción" value={op.jurisdiccion ?? '—'} />
-                <InfoBox label="Señal de alerta" value={op.senal_alerta} />
+                <InfoBox label="Riesgo reportado" value={op.senal_alerta} />
                 <InfoBox label="Producto / Bien" value={op.producto_servicio ?? op.bien_inmueble ?? '—'} />
               </>
             )}
@@ -261,7 +261,7 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
                 index={globalIdx}
                 nombre={dr.nombre}
                 tipoRequerimiento={dr.tipo_requerimiento}
-                readOnly={ros.estado !== 'borrador' && adj?.estado !== 'observado' && !solicitudMotivo}
+                readOnly={ros.estado === 'cerrado' || (ros.estado !== 'borrador' && adj?.estado !== 'observado' && !solicitudMotivo)}
                 solicitudMotivo={solicitudMotivo}
                 adjunto={adj ? {
                   id: adj.id,

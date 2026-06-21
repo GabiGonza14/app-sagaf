@@ -164,10 +164,10 @@ export function FilterBar({ initial, sectores }: Readonly<Props>) {
               <option value="">Cualquier estado</option>
               <option value="recibido">Recibido</option>
               <option value="en_analisis">En análisis</option>
+              <option value="en_revision_vinculo">En revisión de vínculo</option>
               <option value="revision_documental">Revisión documental</option>
               <option value="subsanacion">Subsanación</option>
-              <option value="escalado">Escalado</option>
-              <option value="vinculado">Vinculado</option>
+              <option value="riesgo_clasificado">Riesgo clasificado</option>
               <option value="cerrado">Cerrado</option>
             </CustomSelect>
           </div>

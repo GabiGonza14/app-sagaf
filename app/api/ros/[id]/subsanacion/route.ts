@@ -32,7 +32,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     VALUES (?, ?, ?, ?, ?, 'pendiente', ?, date('now', '+5 days'))
   `).run(subId, id, parsed.data.documento_adjunto_id ?? null, parsed.data.documento_requerido_id ?? null, parsed.data.motivo, session.user.id);
 
-  // El ROS pasa a estado 'subsanacion' (RF-02)
+  // El ROS pasa a estado 'subsanacion'
   db.prepare('UPDATE ros SET estado = ? WHERE id = ?').run('subsanacion', id);
 
   const ctx = extractRequestContext(req);

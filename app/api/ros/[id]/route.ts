@@ -17,17 +17,17 @@ import { UPLOADS_DIR } from '@/lib/uploads';
 const TRANSICIONES: Record<string, Set<string>> = {
   borrador:             new Set(['recibido']),
   recibido:             new Set(['en_analisis']),
-  en_analisis:          new Set(['revision_documental', 'subsanacion', 'escalado', 'vinculado']),
-  revision_documental:  new Set(['en_analisis', 'subsanacion', 'escalado', 'vinculado']),
-  subsanacion:          new Set(['en_analisis', 'revision_documental', 'escalado', 'vinculado']),
-  escalado:             new Set(['en_analisis', 'revision_documental', 'cerrado', 'vinculado']),
-  vinculado:            new Set(['en_analisis', 'revision_documental', 'escalado', 'cerrado']),
+  en_analisis:          new Set(['en_revision_vinculo', 'revision_documental', 'subsanacion', 'cerrado']),
+  en_revision_vinculo:  new Set(['en_analisis', 'revision_documental', 'subsanacion', 'riesgo_clasificado', 'cerrado']),
+  revision_documental:  new Set(['en_analisis', 'en_revision_vinculo', 'subsanacion', 'riesgo_clasificado', 'cerrado']),
+  subsanacion:          new Set(['en_analisis', 'revision_documental', 'en_revision_vinculo', 'riesgo_clasificado']),
+  riesgo_clasificado:   new Set(['en_analisis', 'en_revision_vinculo', 'revision_documental', 'subsanacion', 'cerrado']),
   cerrado:              new Set(['en_analisis']),  // re-apertura solo supervisor
 };
 
 const patchSchema = z.object({
   estado: z.enum([
-    'borrador', 'recibido', 'en_analisis', 'revision_documental', 'subsanacion', 'escalado', 'vinculado', 'cerrado',
+    'borrador', 'recibido', 'en_analisis', 'en_revision_vinculo', 'revision_documental', 'subsanacion', 'riesgo_clasificado', 'cerrado',
   ]),
 });
 
@@ -155,9 +155,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Solo Supervisor puede reabrir casos cerrados' }, { status: 403 });
   }
 
-  const esReversion = desde === 'cerrado' || desde === 'vinculado'
-    || (desde === 'escalado' && (hacia === 'en_analisis' || hacia === 'revision_documental'))
-    || (desde === 'subsanacion' && (hacia === 'en_analisis' || hacia === 'revision_documental'));
+  const esReversion = desde === 'cerrado'
+    || (desde === 'subsanacion' && (hacia === 'en_analisis' || hacia === 'revision_documental' || hacia === 'en_revision_vinculo'))
+    || (desde === 'en_revision_vinculo' && (hacia === 'en_analisis' || hacia === 'revision_documental'))
+    || (desde === 'riesgo_clasificado' && (hacia === 'en_analisis' || hacia === 'revision_documental' || hacia === 'en_revision_vinculo'));
 
   db.prepare('UPDATE ros SET estado = ? WHERE id = ?').run(hacia, id);
 
