@@ -1,7 +1,7 @@
-import { headers } from 'next/headers';
-import { auth } from '@/auth';
+﻿import { headers } from 'next/headers';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
-import { audit, extractClientIp } from '@/lib/audit';
+import { auditOnce, extractClientIp } from '@/lib/audit';
 import { TopBar } from '@/components/TopBar';
 import { KpiCard } from '@/components/KpiCard';
 import { Badge, estadoLabel } from '@/components/Badge';
@@ -47,7 +47,7 @@ const TIPO_LABEL: Record<string, string> = {
 };
 
 export default async function ReportesPage({ searchParams }: { searchParams: Promise<SP> }) {
-  const session = await auth();
+  const session = await getSession();
   const sp = await searchParams;
 
   const tipo   = sp.tipo        ?? 'operativo';
@@ -64,13 +64,13 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
   });
 
   const h = await headers();
-  audit({
+  auditOnce('generar_reporte', JSON.stringify({
     modulo: 'reportes', accion: 'generar_reporte', resultado: 'exito',
     usuario_id: session!.user.id, usuario_correo: session!.user.email, rol: session!.user.rol,
-    ip: extractClientIp(h) ?? undefined,
-    user_agent: h.get('user-agent') ?? undefined,
+    ip: extractClientIp(h) ?? null,
+    user_agent: h.get('user-agent') ?? null,
     detalle: { tipo, sector, estado, fecha_desde: fd, fecha_hasta: fh },
-  });
+  }));
 
   const totalROS  = db.prepare<[], { c: number }>('SELECT COUNT(*) AS c FROM ros').get()!.c;
   const totalAlto = db.prepare<[], { c: number }>(

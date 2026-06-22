@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
+﻿import { redirect } from 'next/navigation';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 
@@ -36,7 +36,7 @@ interface SujetoRow {
 }
 
 export default async function NuevoRosPage() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
   const soId = session.user.sujetoObligadoId!;
 

@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
+﻿import { redirect } from 'next/navigation';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { MfaVerifyForm } from './MfaVerifyForm';
 import { SignOutLink } from '@/components/SignOutLink';
@@ -7,7 +7,7 @@ import { buildQrDataUrl } from '@/lib/totp';
 import { decryptString } from '@/lib/crypto';
 
 export default async function MfaVerifyPage() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
   if (session.user.mfaVerified) redirect('/');
 

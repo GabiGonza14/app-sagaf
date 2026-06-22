@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
+﻿import { redirect } from 'next/navigation';
+import { getSession } from '@/lib/session';
 import { AppShell, type NavItem } from '@/components/AppShell';
 import { LayoutDashboard, Users, Building2, FileStack, ClipboardList } from 'lucide-react';
 
@@ -12,7 +12,7 @@ const navItems: NavItem[] = [
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
   if (session.user.rol !== 'admin') redirect('/');
 

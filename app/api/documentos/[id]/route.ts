@@ -54,14 +54,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const ctx = extractRequestContext(req);
   const accion = esReversion ? `revertir_${desde}` : `marcar_${hacia}`;
 
-  // Auto-transición: en_analisis → revision_documental al validar el primer documento
-  if (hacia === 'validado' && ros?.estado === 'en_analisis') {
+  // Auto-transición al validar el primer documento: en_revision_vinculo → revision_documental
+  if (hacia === 'validado' && ros && ['en_analisis', 'en_revision_vinculo'].includes(ros.estado)) {
+    const anterior = ros.estado;
     db.prepare(`UPDATE ros SET estado = 'revision_documental' WHERE id = ?`).run(adj.ros_id);
     audit({
       modulo: 'ros', accion: 'cambio_estado', resultado: 'exito',
       usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
       recurso_afectado: ros.numero_ros, ip: ctx.ip, user_agent: ctx.user_agent,
-      detalle: { anterior: 'en_analisis', nuevo: 'revision_documental', automatico: true },
+      detalle: { anterior, nuevo: 'revision_documental', automatico: true },
     });
   }
 

@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import { auth } from '@/auth';
+﻿import Link from 'next/link';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
@@ -23,7 +23,7 @@ interface Row {
 }
 
 export default async function SubsanacionesUafPage() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) return null;
 
   const rows = db.prepare<[], Row>(
@@ -112,9 +112,9 @@ export default async function SubsanacionesUafPage() {
       />
 
       {rows.length === 0 ? (
-        <div className="card">
-          <div className="notice green">No hay subsanaciones registradas.</div>
-        </div>
+          <div className="card" style={{ padding: 0, overflow: 'visible' }}>
+            <div className="notice green" style={{ margin: 20 }}>No hay subsanaciones registradas.</div>
+          </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 

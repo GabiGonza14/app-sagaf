@@ -1,12 +1,15 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMfaVerify } from '../useMfaVerify';
 
 export function MfaSetupClient() {
   const [qr, setQr] = useState<string | null>(null);
   const { code, setCode, loading, error, verify } = useMfaVerify();
+  const fetchedRef = useRef(false);
 
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     let cancelled = false;
     (async () => {
       const res = await fetch('/api/mfa/setup', { method: 'POST' });

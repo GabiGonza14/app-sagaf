@@ -52,7 +52,6 @@ interface Props {
   subs: SubsRow[];
   asignacion: Asignacion | null;
   analistas: Analista[];
-  autoTransitioned?: boolean;
   vinculosConfirmados: number;
   vinculosPendientes: number;
 }
@@ -83,16 +82,11 @@ export function RosExpedienteTabs({
   rosId, numeroRos, estadoActual, canClassify, canClose, canReopen, canRevertRiesgo, canAssign,
   allRequiredDocsValidated, requiredDocTotal, requiredDocValidated, riesgoClasificado,
   summary, riesgoNode, docsReq, docsAdj, vinculos, auditEvents, subs,
-  asignacion, analistas, autoTransitioned,
+  asignacion, analistas,
   vinculosConfirmados, vinculosPendientes,
 }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('resumen');
-
-  useEffect(() => {
-    if (autoTransitioned) router.refresh();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const [busy, setBusy] = useState(false);
 
@@ -100,7 +94,7 @@ export function RosExpedienteTabs({
   const [riesgoPuntaje, setRiesgoPuntaje] = useState(0);
   const [riesgoJustif, setRiesgoJustif] = useState('');
 
-  type ModalKey = 'validarDoc' | 'observarDoc' | 'noAplicaDoc' | 'solicitarDocPend' | 'confirmarVinc' | 'descartarVinc'
+  type ModalKey = 'iniciarAnalisis' | 'validarDoc' | 'observarDoc' | 'noAplicaDoc' | 'solicitarDocPend' | 'confirmarVinc' | 'descartarVinc'
     | 'revertirValidacion' | 'revertirRiesgo' | 'cerrarCaso' | 'reabrirCaso' | null;
   const [activeModal, setActiveModal] = useState<ModalKey>(null);
   const [pendingDocId, setPendingDocId] = useState<string>('');
@@ -121,24 +115,45 @@ export function RosExpedienteTabs({
   const readonly = estadoActual === 'cerrado';
   const isWorkflowTab = WORKFLOW_STEPS.some((s) => s.key === tab);
   const wfIdx = WORKFLOW_STEPS.findIndex((s) => s.key === tab);
+  const riesgoBloqueado = !allRequiredDocsValidated && !riesgoClasificado;
+
+  // Paso 1 (Resumen):    siempre accesible
+  // Paso 2 (Vínculos):   requiere estado != recibido
+  // Paso 3 (Documentos): requiere estado en_revision_vinculo o superior
+  // Paso 4 (Riesgo):     requiere docs obligatorios validados
+  const ESTADOS_DOCS_OK = new Set(['en_revision_vinculo', 'revision_documental', 'subsanacion', 'riesgo_clasificado', 'cerrado']);
+
+  function stepAccessible(i: number): boolean {
+    if (i === 0) return true;
+    if (i === 1) return estadoActual !== 'recibido';
+    if (i === 2) return ESTADOS_DOCS_OK.has(estadoActual);
+    if (i === 3) return !riesgoBloqueado;
+    return false;
+  }
+
   const stepStatus = useMemo(() => {
-    const riesgoLocked = !allRequiredDocsValidated && !riesgoClasificado;
     return WORKFLOW_STEPS.map((_, i) => {
       if (i < wfIdx) return 'completed' as const;
       if (i === wfIdx) return 'current' as const;
-      if (i === 3 && riesgoLocked) return 'locked' as const;
+      if (!stepAccessible(i)) return 'locked' as const;
       return 'pending' as const;
     });
-  }, [wfIdx, allRequiredDocsValidated, riesgoClasificado]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wfIdx, estadoActual, riesgoBloqueado]);
 
   const WF_SEQUENCE: Tab[] = WORKFLOW_STEPS.map((s) => s.key);
 
   function goToStep(key: Tab) {
     const idx = WORKFLOW_STEPS.findIndex((s) => s.key === key);
     if (idx === -1) { setTab(key); return; }
-    const status = stepStatus[idx];
-    if (status === 'locked') {
-      setActionError('Debe validar o marcar como no aplica todos los documentos obligatorios antes de clasificar el riesgo.');
+    if (!stepAccessible(idx)) {
+      if (idx === 1 && estadoActual === 'recibido') {
+        setActionError('Debe iniciar el análisis manualmente antes de avanzar al paso de Vínculos.');
+      } else if (idx === 2) {
+        setActionError('Debe completar el paso de Vínculos y avanzar manualmente antes de revisar Documentos.');
+      } else if (idx === 3 && riesgoBloqueado) {
+        setActionError('Debe validar o marcar como no aplica todos los documentos obligatorios antes de clasificar el riesgo.');
+      }
       return;
     }
     setTab(key);
@@ -257,6 +272,9 @@ export function RosExpedienteTabs({
         body: JSON.stringify({ estado, observacion: observacion ?? null }),
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? `No se pudo marcar el documento como ${estado}.`); return; }
+      if (estado === 'validado' && ['en_analisis', 'en_revision_vinculo'].includes(estadoActual)) {
+        setSuccessModal({ title: 'Estado actualizado', message: 'El primer documento fue validado. El expediente avanzó automáticamente a «Revisión documental».' });
+      }
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -285,6 +303,21 @@ export function RosExpedienteTabs({
     setActiveModal('revertirValidacion');
   }
 
+  async function iniciarAnalisis() {
+    setActiveModal(null);
+    clearError();
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/ros/${rosId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estado: 'en_analisis' }),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo iniciar el análisis.'); return; }
+      setSuccessModal({ title: 'Análisis iniciado', message: 'El estado del ROS cambió a «En análisis». Ya puede avanzar al paso de Vínculos.' });
+      router.refresh();
+    } finally { setBusy(false); }
+  }
+
   async function cerrarCaso() {
     setActiveModal(null);
     clearError();
@@ -295,6 +328,7 @@ export function RosExpedienteTabs({
         body: JSON.stringify({ estado: 'cerrado' }),
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); setActionError(d.error ?? 'No se pudo cerrar el caso.'); return; }
+      setSuccessModal({ title: 'Caso cerrado', message: `El expediente ${numeroRos} fue cerrado exitosamente. No se podrán realizar más cambios sin una reapertura.` });
       router.refresh();
     } finally { setBusy(false); }
   }
@@ -405,6 +439,14 @@ export function RosExpedienteTabs({
       } else {
         setDetectMsg({ text: `Se detectaron ${data.detectados} vínculo(s) nuevos.`, tipo: 'ok' });
       }
+      // Avanzar a en_revision_vinculo para desbloquear el paso de Documentos
+      if (estadoActual === 'en_analisis') {
+        await fetch(`/api/ros/${rosId}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estado: 'en_revision_vinculo' }),
+        });
+        setSuccessModal({ title: 'Estado actualizado', message: 'El expediente avanzó a «Revisión de vínculos». Ya puede acceder al paso de Documentos.' });
+      }
       router.refresh();
     } finally { setDetectando(false); }
   }
@@ -422,8 +464,6 @@ export function RosExpedienteTabs({
   const pendingSubsByDocReqId = new Set(
     subs.filter((s) => s.estado === 'pendiente' && s.documento_requerido_id && !s.documento_adjunto_id).map((s) => s.documento_requerido_id!),
   );
-
-  const riesgoBloqueado = !allRequiredDocsValidated && !riesgoClasificado;
 
   return (
     <div className="card" style={{ padding: 0, overflow: 'visible' }}>
@@ -569,6 +609,18 @@ export function RosExpedienteTabs({
               </div>
             )}
 
+            {estadoActual === 'recibido' && canClassify && (
+              <div className="card" style={{ marginTop: 16, padding: '16px 18px', borderColor: 'var(--primary)', background: 'var(--primary-soft)' }}>
+                <h3 style={{ marginBottom: 4, color: 'var(--primary)' }}>Iniciar análisis</h3>
+                <p className="small" style={{ marginBottom: 12 }}>
+                  Este ROS está en estado <strong>Recibido</strong>. Para desbloquear los pasos del flujo de análisis
+                  (Vínculos, Documentos, Riesgo), debe cambiar el estado manualmente a <strong>En análisis</strong>.
+                </p>
+                <button className="btn primary" onClick={() => setActiveModal('iniciarAnalisis')} disabled={busy}>
+                  Iniciar análisis
+                </button>
+              </div>
+            )}
 
           </div>
         )}
@@ -863,7 +915,18 @@ export function RosExpedienteTabs({
 
             {canClassify && !readonly && (
               <div className="card" style={{ marginTop: 14, padding: 14 }}>
-                {riesgoBloqueado ? (
+                {riesgoClasificado ? (
+                  <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                      <path d="m9 12 2 2 4-4" />
+                    </svg>
+                    <h3 style={{ margin: '8px 0 4px', fontSize: 16, color: 'var(--teal)' }}>Riesgo ya clasificado</h3>
+                    <p style={{ margin: 0, color: 'var(--muted)', fontSize: 13 }}>
+                      Este expediente ya tiene una clasificación de riesgo registrada. No se permite reclasificar.
+                    </p>
+                  </div>
+                ) : riesgoBloqueado ? (
                   <div className="wf-risk-blocked">
                     <div className="wf-risk-blocked-icon">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -883,15 +946,7 @@ export function RosExpedienteTabs({
                   </div>
                 ) : (
                   <>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                      <h3 style={{ margin: 0, fontSize: 16 }}>Clasificar riesgo</h3>
-                      {riesgoClasificado && canRevertRiesgo && (
-                        <button className="btn ghost" style={{ color: 'var(--red)', borderColor: 'var(--red)', fontSize: 12 }}
-                          onClick={abrirRevertirRiesgo} disabled={busy}>
-                          ↩ Revertir clasificación
-                        </button>
-                      )}
-                    </div>
+                    <h3 style={{ margin: '0 0 12px', fontSize: 16 }}>Clasificar riesgo</h3>
                     <p className="small" style={{ marginBottom: 12 }}>La justificación es obligatoria y queda registrada en auditoría.</p>
                     {vinculosConfirmados > 0 && (
                       <div className="notice" style={{ marginBottom: 12 }}>
@@ -965,7 +1020,12 @@ export function RosExpedienteTabs({
                 <p className="small" style={{ marginBottom: 12 }}>
                   Una vez cerrado, el ROS pasará a estado «cerrado» y no se podrán realizar más cambios sin reapertura.
                 </p>
-                <button className="btn red" onClick={() => setActiveModal('cerrarCaso')} disabled={busy}>
+                {!riesgoClasificado && (
+                  <div className="notice" style={{ marginBottom: 12, color: 'var(--red)', borderColor: 'var(--red)', background: 'var(--red-soft)' }}>
+                    Debe registrar la clasificación de riesgo antes de cerrar el caso.
+                  </div>
+                )}
+                <button className="btn red" onClick={() => setActiveModal('cerrarCaso')} disabled={busy || !riesgoClasificado}>
                   Cerrar caso
                 </button>
               </div>
@@ -989,10 +1049,22 @@ export function RosExpedienteTabs({
         {tab === 'vinculos' && (
           <div role="tabpanel" aria-labelledby="step-vinculos" tabIndex={-1}>
             {!readonly && (
-              <div className="action-row" style={{ marginBottom: 8 }}>
-                <button className="btn primary" onClick={detectarVinculos} disabled={detectando || busy}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+                padding: '12px 16px', marginBottom: 14,
+                background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 10,
+              }}>
+                <button className="btn primary" style={{ flexShrink: 0 }} onClick={detectarVinculos} disabled={detectando || busy}>
                   {detectando ? 'Detectando…' : 'Detectar vínculos automáticamente'}
                 </button>
+                <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.55 }}>
+                  {estadoActual === 'en_analisis' && (
+                    <span style={{ display: 'block', color: 'var(--amber)', fontWeight: 600, marginBottom: 3 }}>
+                      Debe ejecutar la detección para avanzar al paso de Documentos.
+                    </span>
+                  )}
+                  Las vinculaciones detectadas automáticamente <strong>no se consolidan</strong> sin revisión y validación humana.
+                </div>
               </div>
             )}
 
@@ -1038,9 +1110,6 @@ export function RosExpedienteTabs({
                 ))}
               </div>
             )}
-            <div className="notice" style={{ marginTop: 12 }}>
-              Las vinculaciones detectadas automáticamente <strong>no se consolidan sin revisión y validación humana</strong>.
-            </div>
           </div>
         )}
 
@@ -1118,7 +1187,7 @@ export function RosExpedienteTabs({
                                   {String(v).replace(/_/g, ' ')}
                                 </span>
                               ))}
-                            {detalleParsed.automatico && (
+                            {Boolean(detalleParsed.automatico) && (
                               <span className="audit-detail-chip" style={{ background: 'var(--primary-soft)', color: 'var(--primary)' }}>
                                 automático
                               </span>
@@ -1139,6 +1208,18 @@ export function RosExpedienteTabs({
       </div>
 
       {/* ── Modales ── */}
+
+      <ConfirmModal
+        isOpen={activeModal === 'iniciarAnalisis'}
+        variant="info"
+        title="¿Iniciar análisis?"
+        message="El estado del ROS cambiará a «En análisis». Esta acción queda registrada en auditoría y habilitará los pasos siguientes del flujo."
+        confirmLabel="Sí, iniciar análisis"
+        cancelLabel="Cancelar"
+        busy={busy}
+        onConfirm={iniciarAnalisis}
+        onCancel={() => setActiveModal(null)}
+      />
 
       <ConfirmModal
         isOpen={activeModal === 'validarDoc'}

@@ -1,9 +1,9 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 
 function formatSector(s: string) {
   return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
-import { auth } from '@/auth';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { formatPanamaMedium } from '@/lib/date';
 import { TopBar } from '@/components/TopBar';
@@ -45,11 +45,15 @@ interface RosRow {
   doc_observados: number;
   doc_obl_total: number;
   doc_obl_cargados: number;
+  doc_cond_total: number;
+  doc_cond_cargados: number;
+  doc_opt_total: number;
+  doc_opt_cargados: number;
   cliente_enmascarado: string;
 }
 
 export default async function UafBandeja({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const session = await auth();
+  const session = await getSession();
   const {
     q = '', tipo = '', riesgo = '', estado = '',
     sector = '', montoMin = '', montoMax = '', jurisdiccion = '',
@@ -139,6 +143,10 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
         (SELECT COUNT(*) FROM documento_adjunto da WHERE da.ros_id = r.id AND da.estado = 'observado') AS doc_observados,
         (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = r.plantilla_id AND tipo_requerimiento = 'requerido') AS doc_obl_total,
         (SELECT COUNT(*) FROM documento_adjunto da JOIN documento_requerido dr ON dr.id = da.documento_requerido_id WHERE da.ros_id = r.id AND dr.tipo_requerimiento = 'requerido') AS doc_obl_cargados,
+        (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = r.plantilla_id AND tipo_requerimiento = 'condicional') AS doc_cond_total,
+        (SELECT COUNT(*) FROM documento_adjunto da JOIN documento_requerido dr ON dr.id = da.documento_requerido_id WHERE da.ros_id = r.id AND dr.tipo_requerimiento = 'condicional') AS doc_cond_cargados,
+        (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = r.plantilla_id AND tipo_requerimiento = 'opcional') AS doc_opt_total,
+        (SELECT COUNT(*) FROM documento_adjunto da JOIN documento_requerido dr ON dr.id = da.documento_requerido_id WHERE da.ros_id = r.id AND dr.tipo_requerimiento = 'opcional') AS doc_opt_cargados,
         COALESCE((SELECT identificador_enmascarado FROM parte_involucrada WHERE ros_id = r.id LIMIT 1), '***') AS cliente_enmascarado
       FROM ros r
       JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
@@ -165,8 +173,8 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
   const conSubs = db
     .prepare<[], { c: number }>(`SELECT COUNT(DISTINCT ros_id) AS c FROM solicitud_subsanacion WHERE estado = 'pendiente'`)
     .get()?.c ?? 0;
-  const vinculos = db
-    .prepare<[], { c: number }>(`SELECT COUNT(*) AS c FROM vinculo_intersectorial WHERE confirmado = 0`)
+  const enAnalisis = db
+    .prepare<[], { c: number }>(`SELECT COUNT(*) AS c FROM ros WHERE estado = 'en_analisis'`)
     .get()?.c ?? 0;
 
   // BL-021 (CU-08 A4) — Marca como vencidas las subsanaciones que superaron su plazo y alerta a la UAF
@@ -190,7 +198,7 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
         <KpiCard label="Nuevos ROS" value={nuevosHoy} badge="Hoy" tone="blue" />
         <KpiCard label="Alto riesgo" value={altoRiesgo} badge="Atención prioritaria" tone="red" />
         <KpiCard label="Con sustento incompleto" value={conSubs} badge="Subsanación" tone="amber" />
-        <KpiCard label="Vínculos detectados" value={vinculos} badge="Validar relación" tone="purple" />
+        <KpiCard label="ROS en análisis" value={enAnalisis} badge="Pendientes de clasificar" tone="purple" />
       </div>
 
       {/* BL-021 — Alerta de subsanaciones vencidas (CU-08 A4) */}
@@ -249,18 +257,34 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
                   </span>
                   <span>Sector: {formatSector(r.sujeto_sector)}</span>
                   <span>Cliente: <span className="masked" title="Identificador enmascarado">{r.cliente_enmascarado}</span></span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    {r.doc_obl_total > 0 ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    {r.doc_obl_total > 0 && (
                       <span style={{
                         fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
                         background: r.doc_obl_cargados >= r.doc_obl_total ? 'var(--green-soft)' : 'var(--red-soft)',
                         color: r.doc_obl_cargados >= r.doc_obl_total ? 'var(--green)' : 'var(--red)',
-                      }}>
-                        {r.doc_obl_cargados}/{r.doc_obl_total}
+                      }} title="Obligatorios">
+                        {r.doc_obl_cargados}/{r.doc_obl_total} obl.
                       </span>
-                    ) : null}
-                    ${r.monto.toLocaleString('en-US')}
+                    )}
+                    {r.doc_cond_total > 0 && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
+                        background: 'var(--amber-soft)', color: 'var(--amber)',
+                      }} title="Condicionales">
+                        {r.doc_cond_cargados}/{r.doc_cond_total} cond.
+                      </span>
+                    )}
+                    {r.doc_opt_total > 0 && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
+                        background: '#f1f5f9', color: '#64748b',
+                      }} title="Opcionales">
+                        {r.doc_opt_cargados}/{r.doc_opt_total} opc.
+                      </span>
+                    )}
                   </span>
+                  <span>Monto: ${r.monto.toLocaleString('en-US')}</span>
                   {r.jurisdiccion && <span>Jurisdicción: {r.jurisdiccion}</span>}
                 </div>
                 <span style={{ position: 'absolute', bottom: 14, right: 16, fontSize: 11, color: 'var(--muted)' }}>

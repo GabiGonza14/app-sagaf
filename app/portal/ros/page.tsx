@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import { auth } from '@/auth';
+﻿import Link from 'next/link';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { estadoLabel } from '@/components/Badge';
@@ -44,7 +44,7 @@ export default async function MisROS({
 }: {
   searchParams: Promise<{ estado?: string }>;
 }) {
-  const session = await auth();
+  const session = await getSession();
   const soId = session!.user.sujetoObligadoId!;
   const { estado: filtroEstado = '' } = await searchParams;
 

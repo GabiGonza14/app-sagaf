@@ -182,17 +182,36 @@ export function RosListClient({ ros, filtroEstado }: Props) {
                       : <span className="small">Sin clasificar</span>}
                   </td>
                   <td>
-                    {r.doc_obl_total > 0 ? (
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                        background: r.doc_obl_cargados >= r.doc_obl_total ? 'var(--green-soft)' : 'var(--red-soft)',
-                        color: r.doc_obl_cargados >= r.doc_obl_total ? 'var(--green)' : 'var(--red)',
-                      }}>
-                        {r.doc_obl_cargados}/{r.doc_obl_total}
-                      </span>
-                    ) : (
-                      <span className="small">—</span>
-                    )}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
+                      {r.doc_obl_total > 0 && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                          background: r.doc_obl_cargados >= r.doc_obl_total ? 'var(--green-soft)' : 'var(--red-soft)',
+                          color: r.doc_obl_cargados >= r.doc_obl_total ? 'var(--green)' : 'var(--red)',
+                        }} title="Obligatorios">
+                          {r.doc_obl_cargados}/{r.doc_obl_total} obl.
+                        </span>
+                      )}
+                      {r.doc_cond_total > 0 && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                          background: 'var(--amber-soft)', color: 'var(--amber)',
+                        }} title="Condicionales">
+                          {r.doc_cond_cargados}/{r.doc_cond_total} cond.
+                        </span>
+                      )}
+                      {r.doc_opt_total > 0 && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                          background: '#f1f5f9', color: '#64748b',
+                        }} title="Opcionales">
+                          {r.doc_opt_cargados}/{r.doc_opt_total} opc.
+                        </span>
+                      )}
+                      {r.doc_obl_total === 0 && r.doc_cond_total === 0 && r.doc_opt_total === 0 && (
+                        <span className="small">—</span>
+                      )}
+                    </div>
                   </td>
                   <td>
                     {r.pendientes_subsanacion > 0

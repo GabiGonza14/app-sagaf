@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import { auth } from '@/auth';
+﻿import Link from 'next/link';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
@@ -70,7 +70,7 @@ interface PlantillaAsig {
 }
 
 export default async function SujetosAdmin() {
-  const session = await auth();
+  const session = await getSession();
 
   const rows = db.prepare<[], Row>(
     `

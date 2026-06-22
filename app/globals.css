@@ -129,6 +129,34 @@ body {
 button, input, textarea, select { font: inherit; }
 
 /* =====================================================================
+   LOADING SCREEN — RSC Navigation Fallback
+   ===================================================================== */
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 80px 24px;
+  animation: fadeIn 0.2s ease;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e4e9f2;
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.loading-text {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* =====================================================================
    LAYOUT — App Shell
    ===================================================================== */
 .app {

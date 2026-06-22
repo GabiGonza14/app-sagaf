@@ -1,8 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-import { auth } from '@/auth';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
-import { audit, extractClientIp } from '@/lib/audit';
+import { auditOnce, extractClientIp } from '@/lib/audit';
 import { TopBar } from '@/components/TopBar';
 import { Badge, riskTone, estadoTone, estadoLabel } from '@/components/Badge';
 import { formatPanama } from '@/lib/date';
@@ -83,7 +83,7 @@ interface SubsRow {
 
 export default async function ExpedienteUaf({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
 
   const ros = db.prepare<[string], RosRow>(
@@ -100,14 +100,14 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
     ).get(id, session.user.id);
     if (!asignado) {
       const h2 = await headers();
-      audit({
+      auditOnce('consulta_expediente_bloqueado', JSON.stringify({
         modulo: 'expediente', accion: 'consulta_expediente', resultado: 'bloqueado',
         usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
         recurso_afectado: ros.numero_ros,
         ip: extractClientIp(h2),
         user_agent: h2.get('user-agent'),
         criticidad: 'alta',
-      });
+      }));
       return (
         <>
           <TopBar eyebrow="Expediente del ROS" title={ros.numero_ros}
@@ -122,29 +122,13 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
   }
 
   const h = await headers();
-  audit({
+  auditOnce('consulta_expediente_exito', JSON.stringify({
     modulo: 'expediente', accion: 'consulta_expediente', resultado: 'exito',
     usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
     recurso_afectado: ros.numero_ros,
     ip: extractClientIp(h),
     user_agent: h.get('user-agent'),
-  });
-
-  // Auto-transición: recibido → en_analisis al abrir el expediente
-  let autoTransitioned = false;
-  if (ros.estado === 'recibido') {
-    db.prepare(`UPDATE ros SET estado = 'en_analisis' WHERE id = ?`).run(id);
-    ros.estado = 'en_analisis';
-    autoTransitioned = true;
-    audit({
-      modulo: 'ros', accion: 'cambio_estado', resultado: 'exito',
-      usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
-      recurso_afectado: ros.numero_ros,
-      ip: extractClientIp(h),
-      user_agent: h.get('user-agent'),
-      detalle: { anterior: 'recibido', nuevo: 'en_analisis', automatico: true },
-    });
-  }
+  }));
 
   const partes = db.prepare<[string], ParteRow>(
     `SELECT id, rol_en_operacion, tipo_persona, identificador, identificador_enmascarado, nombre_visible
@@ -423,7 +407,6 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
         asignacion={asignacion}
         analistas={analistas}
         canAssign={canClose}
-        autoTransitioned={autoTransitioned}
         vinculosConfirmados={vinculosConfirmados}
         vinculosPendientes={vinculosPendientes}
       />

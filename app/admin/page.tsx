@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import { auth } from '@/auth';
+﻿import Link from 'next/link';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { KpiCard } from '@/components/KpiCard';
@@ -14,7 +14,7 @@ interface UsuarioSinMFA {
 }
 
 export default async function AdminHome() {
-  const session = await auth();
+  const session = await getSession();
 
   const usuarios    = db.prepare<[], { c: number }>(`SELECT COUNT(*) AS c FROM usuario`).get()!.c;
   const sujetos     = db.prepare<[], { c: number }>(`SELECT COUNT(*) AS c FROM sujeto_obligado WHERE estado = 'activo'`).get()!.c;

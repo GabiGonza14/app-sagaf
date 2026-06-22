@@ -1,11 +1,11 @@
-import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
+﻿import { redirect } from 'next/navigation';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { AppShell, type NavItem } from '@/components/AppShell';
 import { Home, ClipboardList, FilePlus, RefreshCw } from 'lucide-react';
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
   if (session.user.rol !== 'sujeto_obligado') redirect('/');
 

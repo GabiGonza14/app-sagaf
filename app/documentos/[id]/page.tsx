@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db';
-import { auth } from '@/auth';
+import { getSession } from '@/lib/session';
 import { canAccessROS } from '@/lib/permissions';
 import { Metadata } from 'next';
 
@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function DocumentViewer({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) return notFound();
 
   // Validate access

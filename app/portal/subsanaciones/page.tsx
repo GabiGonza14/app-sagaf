@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import { auth } from '@/auth';
+﻿import Link from 'next/link';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
@@ -18,7 +18,7 @@ interface Row {
 }
 
 export default async function SubsanacionesPage() {
-  const session = await auth();
+  const session = await getSession();
   const soId = session!.user.sujetoObligadoId!;
 
   const rows = db.prepare<[string], Row>(

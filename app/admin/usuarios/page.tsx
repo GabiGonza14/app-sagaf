@@ -1,4 +1,4 @@
-import { auth } from '@/auth';
+﻿import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
@@ -24,7 +24,7 @@ interface UserRow {
 interface SujetoRow { id: string; nombre: string }
 
 export default async function UsuariosAdmin() {
-  const session = await auth();
+  const session = await getSession();
 
   const users = db.prepare<[], UserRow>(
     `

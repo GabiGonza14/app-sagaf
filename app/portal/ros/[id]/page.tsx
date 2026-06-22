@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
-import { auth } from '@/auth';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge, estadoTone, estadoLabel, riskTone } from '@/components/Badge';
@@ -70,7 +70,7 @@ interface RiesgoRow { nivel: string; justificacion: string }
 
 export default async function RosDetailPortal({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
 
   const ros = db.prepare<[string], RosRow>(

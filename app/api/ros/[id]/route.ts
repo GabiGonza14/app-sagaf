@@ -150,6 +150,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (hacia === 'cerrado' && session.user.rol !== 'supervisor') {
     return NextResponse.json({ error: 'Solo Supervisor puede cerrar casos' }, { status: 403 });
   }
+  // No se puede cerrar sin clasificación de riesgo registrada
+  if (hacia === 'cerrado') {
+    const tieneRiesgo = db.prepare<[string], { c: number }>(
+      `SELECT COUNT(*) AS c FROM riesgo_caso WHERE ros_id = ? AND anulado = 0`,
+    ).get(id);
+    if (!tieneRiesgo || tieneRiesgo.c === 0) {
+      return NextResponse.json({
+        error: 'No se puede cerrar el caso sin antes registrar la clasificación de riesgo.',
+      }, { status: 400 });
+    }
+  }
   // Solo Supervisor puede reabrir (desde cerrado)
   if (desde === 'cerrado' && session.user.rol !== 'supervisor') {
     return NextResponse.json({ error: 'Solo Supervisor puede reabrir casos cerrados' }, { status: 403 });

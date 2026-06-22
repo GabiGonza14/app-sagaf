@@ -1,6 +1,6 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 import Link from 'next/link';
-import { auth } from '@/auth';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
@@ -71,7 +71,7 @@ interface PlantillaAsig {
 }
 
 export default async function SujetosObligadosSupervisor() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
   // Solo admin gestiona sujetos obligados desde /admin/sujetos-obligados
   if (session.user.rol !== 'admin') redirect('/uaf');

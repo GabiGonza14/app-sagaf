@@ -27,39 +27,105 @@ interface Props {
   page?: number;
 }
 
+const ROL_LABEL: Record<string, string> = {
+  sujeto_obligado: 'Sujeto Obligado',
+  analista:        'Analista',
+  supervisor:      'Supervisor',
+  auditor:         'Auditor',
+  admin:           'Admin',
+};
+
 const ACCION_LABEL: Record<string, string> = {
+  // Autenticación
   login_password_ok:   'Inicio de sesión exitoso',
-  login_failed:        'Intento de inicio de sesión fallido',
+  login_failed:        'Inicio de sesión fallido',
   mfa_setup_iniciado:  'Configuración MFA iniciada',
   mfa_verify_ok:       'Verificación MFA exitosa',
   mfa_verify_failed:   'Verificación MFA fallida',
+  // ROS
   crear_ros:           'Crear ROS',
   guardar_borrador:    'Guardar borrador ROS',
+  actualizar_borrador: 'Actualizar borrador ROS',
+  enviar_borrador:     'Enviar ROS',
+  descartar_borrador:  'Descartar borrador ROS',
+  acceso_ros:          'Acceso al ROS bloqueado',
+  cambio_estado:       'Cambio de estado',
+  reabrir_ros:         'Reapertura de ROS',
+  asignar_analista:    'Asignación de analista',
+  desasignar_analista: 'Desasignación de analista',
+  clasificar_riesgo:   'Clasificar riesgo',
+  revertir_riesgo:     'Revertir clasificación de riesgo',
+  // Expediente
+  consulta_expediente: 'Consulta de expediente',
+  // Identidad
   verificar_identidad: 'Verificar identidad de parte',
+  // Sujetos obligados
   crear_sujeto_obligado:      'Crear sujeto obligado',
   actualizar_sujeto_obligado: 'Modificar sujeto obligado',
   desactivar_sujeto_obligado: 'Desactivar sujeto obligado',
   activar_sujeto_obligado:    'Activar sujeto obligado',
-  crear_plantilla_ros:        'Crear plantilla ROS',
-  actualizar_plantilla_ros:   'Modificar plantilla ROS',
-  crear_usuario:              'Crear usuario',
-  actualizar_usuario:         'Modificar usuario',
-  desactivar_usuario:         'Desactivar usuario',
-  cargar_documento:           'Cargar documento',
-  generar_reporte:            'Generar reporte',
-  consulta_log:               'Consulta del log de auditoría',
-  seed_inicial:               'Inicialización del sistema',
+  eliminar_sujeto_obligado:   'Eliminar sujeto obligado',
+  // Plantillas
+  crear_plantilla_ros:         'Crear plantilla ROS',
+  actualizar_plantilla_ros:    'Modificar plantilla ROS',
+  eliminar_plantilla_ros:      'Eliminar plantilla ROS',
+  agregar_campo_plantilla:     'Agregar campo a plantilla',
+  eliminar_campo_plantilla:    'Eliminar campo de plantilla',
+  agregar_documento_requerido: 'Agregar documento requerido',
+  eliminar_documento_requerido:'Eliminar documento requerido',
+  // Usuarios
+  crear_usuario:      'Crear usuario',
+  actualizar_usuario: 'Modificar usuario',
+  desactivar_usuario: 'Desactivar usuario',
+  eliminar_usuario:   'Eliminar usuario',
+  // Documentos
+  cargar_documento:      'Cargar documento',
+  descarga_documento:    'Descarga de documento',
+  declarar_no_aplica:    'Documento declarado no aplica',
+  solicitar_subsanacion: 'Solicitar subsanación',
+  marcar_validado:       'Documento validado',
+  marcar_observado:      'Documento observado',
+  marcar_no_aplica:      'Documento marcado no aplica',
+  revertir_validado:     'Validación revertida',
+  revertir_observado:    'Observación revertida',
+  revertir_no_aplica:    'No aplica revertido',
+  // Reportes
+  generar_reporte:  'Generar reporte',
+  exportar_reporte: 'Exportar reporte',
+  // Vínculos
+  detectar_vinculos:  'Detección de vínculos',
+  crear_vinculo:      'Crear vínculo',
+  confirmar_vinculo:  'Confirmar vínculo',
+  descartar_vinculo:  'Descartar vínculo',
+  // Auditoría
+  consulta_log:     'Consulta del log de auditoría',
+  consulta_log_api: 'Consulta del log (API)',
+  // Sistema
+  seed_inicial: 'Inicialización del sistema',
 };
 
 const MODULO_LABEL: Record<string, string> = {
   autenticacion: 'Autenticación',
   ros:           'ROS',
+  expediente:    'Expediente',
   admin:         'Administración',
   documentos:    'Documentos',
   reportes:      'Reportes',
   vinculos:      'Vínculos',
   auditoria:     'Auditoría',
   system:        'Sistema',
+};
+
+const RESULTADO_LABEL: Record<string, string> = {
+  exito:     'Éxito',
+  fallo:     'Fallo',
+  bloqueado: 'Bloqueado',
+};
+
+const CRITICIDAD_LABEL: Record<string, string> = {
+  normal:  'Normal',
+  alta:    'Alta',
+  critica: 'Crítica',
 };
 
 function parsearEntidad(accion: string, recurso: string | null, detalle: string | null): string {
@@ -101,8 +167,11 @@ const TONO_CRITICIDAD: Record<string, 'gray' | 'amber' | 'red'> = {
 const TONO_MODULO: Record<string, 'blue' | 'teal' | 'amber' | 'red' | 'gray' | 'green'> = {
   autenticacion: 'blue',
   ros:           'teal',
+  expediente:    'teal',
   admin:         'amber',
   documentos:    'gray',
+  reportes:      'amber',
+  vinculos:      'blue',
   auditoria:     'green',
   system:        'gray',
 };
@@ -191,7 +260,7 @@ export function AuditTable({ filters, modulosDisponibles, page = 1 }: Readonly<P
                         ? r.usuario_correo
                         : <span className="small" style={{ color: 'var(--muted)' }}>sistema</span>}
                     </td>
-                    <td><span className="small">{r.rol ?? '—'}</span></td>
+                    <td><span className="small">{r.rol ? (ROL_LABEL[r.rol] ?? r.rol) : '—'}</span></td>
                     <td>
                       <Badge tone={TONO_MODULO[r.modulo] ?? 'gray'}>
                         {MODULO_LABEL[r.modulo] ?? r.modulo}
@@ -205,10 +274,10 @@ export function AuditTable({ filters, modulosDisponibles, page = 1 }: Readonly<P
                     <td style={{ fontSize: 13 }}>{entidad}</td>
                     <td style={{ fontSize: 12, color: 'var(--muted)' }}>{cambios || '—'}</td>
                     <td>
-                      <Badge tone={TONO_RESULTADO[r.resultado] ?? 'gray'}>{r.resultado}</Badge>
+                      <Badge tone={TONO_RESULTADO[r.resultado] ?? 'gray'}>{RESULTADO_LABEL[r.resultado] ?? r.resultado}</Badge>
                     </td>
                     <td>
-                      <Badge tone={TONO_CRITICIDAD[r.criticidad] ?? 'gray'}>{r.criticidad}</Badge>
+                      <Badge tone={TONO_CRITICIDAD[r.criticidad] ?? 'gray'}>{CRITICIDAD_LABEL[r.criticidad] ?? r.criticidad}</Badge>
                     </td>
                     <td style={{ fontSize: 11, color: 'var(--muted)' }}>{r.ip ?? '—'}</td>
                     <td style={{ fontSize: 11, color: 'var(--muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}

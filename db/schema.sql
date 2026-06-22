@@ -215,7 +215,13 @@ CREATE TABLE IF NOT EXISTS documento_adjunto (
   FOREIGN KEY (cargado_por)            REFERENCES usuario(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_doc_ros ON documento_adjunto(ros_id);
+CREATE INDEX IF NOT EXISTS idx_doc_ros          ON documento_adjunto(ros_id);
+CREATE INDEX IF NOT EXISTS idx_doc_req_id       ON documento_adjunto(documento_requerido_id);
+CREATE INDEX IF NOT EXISTS idx_doc_req_plantilla ON documento_requerido(plantilla_id, tipo_requerimiento);
+CREATE INDEX IF NOT EXISTS idx_parte_ros        ON parte_involucrada(ros_id);
+CREATE INDEX IF NOT EXISTS idx_op_ros           ON operacion_sospechosa(ros_id);
+CREATE INDEX IF NOT EXISTS idx_subs_estado      ON solicitud_subsanacion(estado);
+CREATE INDEX IF NOT EXISTS idx_subs_ros         ON solicitud_subsanacion(ros_id);
 
 -- ------------------------------------------------------------------
 -- Análisis y clasificación (CU-02)

@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
-import { auth } from '@/auth';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 
@@ -41,7 +41,7 @@ function partyStatus(row: ParteRow): 'verified' | 'not_found' {
 
 export default async function EditarBorradorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
   const soId = session.user.sujetoObligadoId!;
 
