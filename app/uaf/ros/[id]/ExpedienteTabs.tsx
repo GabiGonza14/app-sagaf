@@ -10,6 +10,14 @@ import { formatPanama, formatPanamaShort } from '@/lib/date';
 import CustomSelect from '@/components/CustomSelect';
 import { ClipboardList, Link2, CheckCircle, FileText } from 'lucide-react';
 
+const ROL_LABEL: Record<string, string> = {
+  sujeto_obligado: 'Sujeto Obligado',
+  analista: 'Analista',
+  supervisor: 'Supervisor',
+  auditor: 'Auditor',
+  admin: 'Administrador',
+};
+
 interface DocReq  { id: string; nombre: string; orden: number; tipo_requerimiento: string }
 interface DocAdj  {
   id: string; documento_requerido_id: string | null; nombre_archivo: string;
@@ -1170,7 +1178,7 @@ export function RosExpedienteTabs({
                           )}
                         </div>
                         <div className="audit-user">
-                          {ev.usuario ?? 'sistema'}{ev.rol ? ` · ${ev.rol.replace(/_/g, ' ')}` : ''}
+                          {ev.usuario ?? 'sistema'}{ev.rol ? ` · ${ROL_LABEL[ev.rol] ?? ev.rol}` : ''}
                         </div>
                         {detalleParsed && (
                           <div className="audit-detail">

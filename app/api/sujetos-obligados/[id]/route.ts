@@ -13,7 +13,6 @@ const schema = z.object({
   organismo_supervisor: z.string().min(1).optional(),
   responsable_cumpl: z.string().min(1).optional(),
   estado: z.enum(['activo', 'inactivo']).optional(),
-  plantillas: z.array(z.string()).min(1).optional(),
 });
 
 type Data = z.infer<typeof schema>;
@@ -48,8 +47,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: 'Datos inválidos', issues: parsed.error.flatten() }, { status: 400 });
 
-  const so = db.prepare<[string], { nombre: string; ruc: string | null }>(
-    'SELECT nombre, ruc FROM sujeto_obligado WHERE id = ?',
+  const so = db.prepare<[string], { nombre: string; ruc: string | null; tipo: string; sector: string; organismo_supervisor: string | null; responsable_cumpl: string | null; estado: string }>(
+    'SELECT nombre, ruc, tipo, sector, organismo_supervisor, responsable_cumpl, estado FROM sujeto_obligado WHERE id = ?',
   ).get(id);
   if (!so) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
 
@@ -76,12 +75,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (fields.length > 0) {
       db.prepare(`UPDATE sujeto_obligado SET ${fields.join(', ')} WHERE id = ?`).run(...vals, id);
     }
-    if (d.plantillas) {
+    // Auto-reasignar plantillas si cambió tipo o sector
+    if (d.tipo !== undefined || d.sector !== undefined) {
+      const nuevoTipo = d.tipo ?? db.prepare<[string], string>('SELECT tipo FROM sujeto_obligado WHERE id = ?').pluck().get(id) as string;
+      const nuevoSector = d.sector ?? db.prepare<[string], string>('SELECT sector FROM sujeto_obligado WHERE id = ?').pluck().get(id) as string;
+      const nuevas = db.prepare<[string, string], { id: string }>(
+        'SELECT id FROM plantilla_ros WHERE tipo_sujeto_obligado = ? AND sector = ? AND activa = 1',
+      ).all(nuevoTipo, nuevoSector);
       db.prepare('DELETE FROM sujeto_obligado_plantilla WHERE sujeto_obligado_id = ?').run(id);
-      for (const plId of d.plantillas) {
+      for (const pl of nuevas) {
         db.prepare(
           'INSERT INTO sujeto_obligado_plantilla (sujeto_obligado_id, plantilla_id) VALUES (?, ?)',
-        ).run(id, plId);
+        ).run(id, pl.id);
       }
     }
   });
@@ -93,7 +98,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     modulo: 'admin', accion: accionAudit, resultado: 'exito',
     usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
     ip: ctx.ip, user_agent: ctx.user_agent,
-    detalle: { id, nombre: d.nombre ?? so.nombre, cambios: d },
+    detalle: { id, nombre: d.nombre ?? so.nombre, cambios: Object.fromEntries(
+      Object.entries(d).filter(([k, v]) => v !== undefined && String(v ?? '') !== String(so[k as keyof typeof so] ?? ''))
+    ) },
     criticidad: 'normal',
   });
 

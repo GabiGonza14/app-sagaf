@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS documento_requerido (
   descripcion         TEXT,
   obligatorio         INTEGER NOT NULL DEFAULT 1,
   tipo_requerimiento  TEXT NOT NULL DEFAULT 'requerido',  -- requerido | condicional | opcional
-  formatos_permitidos TEXT NOT NULL DEFAULT 'pdf,jpg,png,doc,docx,xls,xlsx',
+  formatos_permitidos TEXT NOT NULL DEFAULT 'pdf,jpg,png',
   tamano_maximo_mb    INTEGER NOT NULL DEFAULT 10,
   orden               INTEGER NOT NULL,
   FOREIGN KEY (plantilla_id) REFERENCES plantilla_ros(id) ON DELETE CASCADE
@@ -220,9 +220,6 @@ CREATE INDEX IF NOT EXISTS idx_doc_req_id       ON documento_adjunto(documento_r
 CREATE INDEX IF NOT EXISTS idx_doc_req_plantilla ON documento_requerido(plantilla_id, tipo_requerimiento);
 CREATE INDEX IF NOT EXISTS idx_parte_ros        ON parte_involucrada(ros_id);
 CREATE INDEX IF NOT EXISTS idx_op_ros           ON operacion_sospechosa(ros_id);
-CREATE INDEX IF NOT EXISTS idx_subs_estado      ON solicitud_subsanacion(estado);
-CREATE INDEX IF NOT EXISTS idx_subs_ros         ON solicitud_subsanacion(ros_id);
-
 -- ------------------------------------------------------------------
 -- Análisis y clasificación (CU-02)
 -- ------------------------------------------------------------------
@@ -289,6 +286,9 @@ CREATE TABLE IF NOT EXISTS solicitud_subsanacion (
   FOREIGN KEY (documento_requerido_id) REFERENCES documento_requerido(id),
   FOREIGN KEY (solicitada_por)       REFERENCES usuario(id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_subs_estado      ON solicitud_subsanacion(estado);
+CREATE INDEX IF NOT EXISTS idx_subs_ros         ON solicitud_subsanacion(ros_id);
 
 -- ------------------------------------------------------------------
 -- Reportes (CU-04)

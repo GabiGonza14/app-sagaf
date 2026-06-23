@@ -21,6 +21,8 @@ interface Props {
   readOnly?: boolean;
   solicitudMotivo?: string | null;
   tipoRequerimiento?: string;
+  formatos?: string;
+  maxMb?: number;
 }
 
 const CARD_CLASS: Record<string, string> = {
@@ -44,7 +46,7 @@ const BADGE_LABEL: Record<string, string> = {
   no_aplica: 'No aplica',
 };
 
-export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readOnly = false, solicitudMotivo, tipoRequerimiento = 'requerido' }: Readonly<Props>) {
+export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readOnly = false, solicitudMotivo, tipoRequerimiento = 'requerido', formatos, maxMb }: Readonly<Props>) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -145,7 +147,7 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
           {/* Dropzone directo */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#92400e' }}>Sube el documento corregido</span>
-            <FileDropZone file={null} onChange={(f) => { if (f) onUpload(f); }} />
+            <FileDropZone file={null} onChange={(f) => { if (f) onUpload(f); }} formatos={formatos} maxMb={maxMb} />
             {uploading && <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Subiendo…</div>}
             {err && <div style={{ color: 'var(--red,#dc2626)', fontSize: '0.75rem' }}>{err}</div>}
           </div>
@@ -180,7 +182,7 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
 
           {canUpload && (
             <>
-              <FileDropZone file={null} onChange={(f) => { if (f) onUpload(f); }} />
+              <FileDropZone file={null} onChange={(f) => { if (f) onUpload(f); }} formatos={formatos} maxMb={maxMb} />
               {uploading && <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: 4 }}>Subiendo…</div>}
               {err && <div style={{ color: 'var(--red,#dc2626)', fontSize: '0.75rem', marginTop: 4 }}>{err}</div>}
             </>

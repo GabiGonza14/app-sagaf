@@ -12,7 +12,9 @@ export default async function MfaVerifyPage() {
   if (session.user.mfaVerified) redirect('/');
 
   const row = db
-    .prepare<[string], { mfa_activo: number; mfa_secret: string | null }>('SELECT mfa_activo, mfa_secret FROM usuario WHERE id = ?')
+    .prepare<[string], { mfa_activo: number; mfa_secret: string | null }>(
+      'SELECT mfa_activo, mfa_secret FROM usuario WHERE id = ?',
+    )
     .get(session.user.id);
 
   // Primer login: si MFA no está activo, ofrecer enrolamiento
@@ -20,11 +22,10 @@ export default async function MfaVerifyPage() {
     redirect('/mfa/setup');
   }
 
-  // Generar QR para mostrar en la verificación (desencriptando el secret antes)
   let qr: string | null = null;
   if (row.mfa_secret) {
-    const decryptedSecret = decryptString(row.mfa_secret);
-    qr = await buildQrDataUrl(session.user.email ?? 'sagaf', decryptedSecret);
+    const secret = decryptString(row.mfa_secret);
+    qr = await buildQrDataUrl(session.user.email ?? 'sagaf', secret);
   }
 
   return (
@@ -41,8 +42,8 @@ export default async function MfaVerifyPage() {
 
         <h1 style={{ fontSize: 22, marginBottom: 4 }}>Verificación MFA</h1>
         <p className="lead" style={{ marginBottom: 18 }}>
-          Ingrese el código de 6 dígitos generado por su aplicación autenticadora
-          (Google Authenticator, Microsoft Authenticator, Authy).
+          Ingrese el código de 6 dígitos generado por su aplicación autenticadora.
+          Si borró la entrada, escanee el QR nuevamente.
         </p>
 
         <MfaVerifyForm qr={qr} />

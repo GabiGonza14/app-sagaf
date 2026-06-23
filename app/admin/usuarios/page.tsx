@@ -8,6 +8,14 @@ import { UsuarioActions } from './UsuarioActions';
 
 export const revalidate = 0;
 
+const ROL_LABEL: Record<string, string> = {
+  sujeto_obligado: 'Sujeto Obligado',
+  analista: 'Analista',
+  supervisor: 'Supervisor',
+  auditor: 'Auditor',
+  admin: 'Administrador',
+};
+
 interface UserRow {
   id: string;
   nombre: string;
@@ -71,7 +79,7 @@ export default async function UsuariosAdmin() {
               <tr key={u.id}>
                 <td>{u.nombre}</td>
                 <td>{u.correo}</td>
-                <td><Badge tone="blue">{u.rol}</Badge></td>
+                <td><Badge tone="blue">{ROL_LABEL[u.rol] ?? u.rol}</Badge></td>
                 <td>{u.sujeto_nombre ?? '—'}</td>
                 <td><Badge tone={u.estado === 'activo' ? 'green' : 'red'}>{u.estado}</Badge></td>
                 <td>

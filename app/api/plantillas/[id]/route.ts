@@ -56,9 +56,28 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const { fields, vals } = buildUpdate(d);
-  if (fields.length > 0) {
-    db.prepare(`UPDATE plantilla_ros SET ${fields.join(', ')} WHERE id = ?`).run(...vals, id);
-  }
+
+  const tx = db.transaction(() => {
+    if (fields.length > 0) {
+      db.prepare(`UPDATE plantilla_ros SET ${fields.join(', ')} WHERE id = ?`).run(...vals, id);
+    }
+    // Auto-reasignar sujetos si cambió tipo_sujeto_obligado o sector
+    if (d.tipo_sujeto_obligado !== undefined || d.sector !== undefined) {
+      const nuevoTipo = d.tipo_sujeto_obligado ?? pl.tipo_sujeto_obligado;
+      const dbTmp = db;
+      const nuevoSector = d.sector ?? (dbTmp.prepare<[string], string>('SELECT sector FROM plantilla_ros WHERE id = ?').pluck().get(id) as string);
+      const sujetos = dbTmp.prepare<[string, string, string], { id: string }>(
+        'SELECT id FROM sujeto_obligado WHERE tipo = ? AND sector = ? AND estado = ?',
+      ).all(nuevoTipo, nuevoSector, 'activo');
+      dbTmp.prepare('DELETE FROM sujeto_obligado_plantilla WHERE plantilla_id = ?').run(id);
+      for (const s of sujetos) {
+        dbTmp.prepare(
+          'INSERT OR IGNORE INTO sujeto_obligado_plantilla (sujeto_obligado_id, plantilla_id) VALUES (?, ?)',
+        ).run(s.id, id);
+      }
+    }
+  });
+  tx();
 
   const ctx = extractRequestContext(req);
   const accion = isToggle ? (d.activa ? 'activar_plantilla_ros' : 'desactivar_plantilla_ros') : 'actualizar_plantilla_ros';

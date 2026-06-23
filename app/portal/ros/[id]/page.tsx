@@ -46,6 +46,8 @@ interface DocReqRow {
   nombre: string;
   orden: number;
   tipo_requerimiento: string;
+  formatos_permitidos: string;
+  tamano_maximo_mb: number;
 }
 
 interface DocAdjRow {
@@ -101,7 +103,7 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
   ).all(id);
 
   const docsReq = db.prepare<[string], DocReqRow>(
-    'SELECT id, nombre, orden, tipo_requerimiento FROM documento_requerido WHERE plantilla_id = ? ORDER BY orden',
+    'SELECT id, nombre, orden, tipo_requerimiento, formatos_permitidos, tamano_maximo_mb FROM documento_requerido WHERE plantilla_id = ? ORDER BY orden',
   ).all(ros.plantilla_id);
 
   const docsAdj = db.prepare<[string], DocAdjRow>(
@@ -261,6 +263,8 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
                 index={globalIdx}
                 nombre={dr.nombre}
                 tipoRequerimiento={dr.tipo_requerimiento}
+                formatos={dr.formatos_permitidos}
+                maxMb={dr.tamano_maximo_mb}
                 readOnly={ros.estado === 'cerrado' || (ros.estado !== 'borrador' && adj?.estado !== 'observado' && !solicitudMotivo)}
                 solicitudMotivo={solicitudMotivo}
                 adjunto={adj ? {

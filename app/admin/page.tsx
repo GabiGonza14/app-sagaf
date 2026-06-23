@@ -7,6 +7,14 @@ import { Users, Building2, FileText, AlertTriangle, ArrowRight, ShieldCheck } fr
 
 export const revalidate = 0;
 
+const ROL_LABEL: Record<string, string> = {
+  sujeto_obligado: 'Sujeto Obligado',
+  analista: 'Analista',
+  supervisor: 'Supervisor',
+  auditor: 'Auditor',
+  admin: 'Administrador',
+};
+
 interface UsuarioSinMFA {
   nombre: string;
   correo: string;
@@ -61,7 +69,7 @@ export default async function AdminHome() {
           <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 7, background: '#fffdf7' }}>
             {usuariosSinMFA.map((u) => {
               const initials = u.nombre.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((n: string) => n[0]).join('').toUpperCase();
-              const rolLabel = u.rol_nombre.replace(/_/g, ' ');
+              const rolLabel = ROL_LABEL[u.rol_nombre] ?? u.rol_nombre;
               return (
                 <div key={u.correo} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 8, background: 'white', border: '1px solid rgba(217,119,6,.14)' }}>
                   <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--primary-soft)', color: 'var(--primary)', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>

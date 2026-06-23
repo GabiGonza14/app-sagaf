@@ -2,28 +2,65 @@
 import { useRef, useState } from 'react';
 import { CheckCircle, Upload } from 'lucide-react';
 
+export const MAX_BYTES = 10 * 1024 * 1024;
+
+const MIME_MAP: Record<string, string> = {
+  pdf:  'application/pdf',
+  jpg:  'image/jpeg',
+  jpeg: 'image/jpeg',
+  png:  'image/png',
+  doc:  'application/msword',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  xls:  'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  ppt:  'application/vnd.ms-powerpoint',
+  pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  csv:  'text/csv',
+};
+
 export const ALLOWED_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 export const ALLOWED_EXT = /\.(pdf|jpg|jpeg|png)$/i;
-export const MAX_BYTES = 10 * 1024 * 1024;
 
 export function isAllowedFile(f: File) {
   return ALLOWED_TYPES.has(f.type) || ALLOWED_EXT.test(f.name);
 }
 
+function buildFromFormatos(formatos: string): { accept: string; mimes: Set<string>; extRe: RegExp; label: string } {
+  const exts = formatos.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  const mimes = new Set(exts.flatMap(e => MIME_MAP[e] ? [MIME_MAP[e]] : []));
+  const accept = exts.map(e => `.${e}`).join(',');
+  const extRe = new RegExp(`\\.(${exts.join('|')})$`, 'i');
+  const label = exts.map(e => e.toUpperCase()).join(', ');
+  return { accept, mimes, extRe, label };
+}
+
 export function FileDropZone({
   file,
   onChange,
+  formatos,
+  maxMb,
 }: Readonly<{
   file: File | null;
   onChange: (f: File | null) => void;
+  formatos?: string;
+  maxMb?: number;
 }>) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
 
+  const maxBytes = (maxMb ?? 10) * 1024 * 1024;
+  const fmt = formatos ? buildFromFormatos(formatos) : null;
+  const acceptAttr = fmt ? fmt.accept : '.pdf,.jpg,.jpeg,.png';
+  const formatLabel = fmt ? fmt.label : 'PDF, JPG, PNG';
+  const maxLabel = `${maxMb ?? 10} MB`;
+
   function validate(f: File): string | null {
-    if (!isAllowedFile(f)) return 'Solo se permiten archivos PDF, JPG o PNG.';
-    if (f.size > MAX_BYTES) return 'El archivo supera el límite de 10 MB.';
+    const allowed = fmt
+      ? fmt.mimes.has(f.type) || fmt.extRe.test(f.name)
+      : isAllowedFile(f);
+    if (!allowed) return `Solo se permiten: ${formatLabel}.`;
+    if (f.size > maxBytes) return `El archivo supera el límite de ${maxLabel}.`;
     return null;
   }
 
@@ -73,7 +110,7 @@ export function FileDropZone({
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.jpg,.jpeg,.png"
+        accept={acceptAttr}
         style={{ display: 'none' }}
         onChange={handleChange}
       />
@@ -89,7 +126,7 @@ export function FileDropZone({
           <Upload size={16} className="upload-zone-icon" />
           <div className="upload-zone-empty">
             <div className="upload-zone-hint">Arrastra o haz clic para subir</div>
-            <div className="upload-zone-types">PDF, JPG, PNG — máx. 10 MB</div>
+            <div className="upload-zone-types">{formatLabel} — máx. {maxLabel}</div>
           </div>
         </div>
         {fileError && (

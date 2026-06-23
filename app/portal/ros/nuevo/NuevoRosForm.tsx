@@ -23,7 +23,7 @@ function clearDraft() {
 }
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
-interface DocReq    { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string }
+interface DocReq    { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string; formatos_permitidos: string; tamano_maximo_mb: number }
 interface CampoDin  { id: string; plantilla_id: string; nombre: string; tipo_dato: string; obligatorio: number; orden: number }
 
 interface PartyState {
@@ -919,7 +919,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
                     </div>
                   ) : null}
                   {!fileLabels[d.id] && (
-                    <FileDropZone file={file} onChange={(f) => setFiles({ ...files, [d.id]: f })} />
+                    <FileDropZone file={file} onChange={(f) => setFiles({ ...files, [d.id]: f })}
+                      formatos={d.formatos_permitidos} maxMb={d.tamano_maximo_mb} />
                   )}
                 </div>
               );

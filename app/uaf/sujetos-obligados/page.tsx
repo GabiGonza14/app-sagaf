@@ -65,11 +65,6 @@ interface Row {
   plantillas: number;
 }
 
-interface PlantillaAsig {
-  sujeto_obligado_id: string;
-  plantilla_id: string;
-}
-
 export default async function SujetosObligadosSupervisor() {
   const session = await getSession();
   if (!session?.user) redirect('/login');
@@ -84,23 +79,9 @@ export default async function SujetosObligadosSupervisor() {
       ORDER BY so.nombre`,
   ).all();
 
-  const plantillas = db.prepare<[], { id: string; nombre: string; tipo_sujeto_obligado: string }>(
-    `SELECT id, nombre, tipo_sujeto_obligado FROM plantilla_ros WHERE activa = 1 ORDER BY nombre`,
-  ).all();
-
   const tiposDisponibles = db.prepare<[], { tipo: string }>(
     `SELECT DISTINCT tipo_sujeto_obligado AS tipo FROM plantilla_ros WHERE activa = 1 ORDER BY tipo`,
   ).all().map((r) => r.tipo);
-
-  const asignaciones = db.prepare<[], PlantillaAsig>(
-    `SELECT sujeto_obligado_id, plantilla_id FROM sujeto_obligado_plantilla`,
-  ).all();
-
-  const plantillasPorSujeto: Record<string, string[]> = {};
-  for (const a of asignaciones) {
-    if (!plantillasPorSujeto[a.sujeto_obligado_id]) plantillasPorSujeto[a.sujeto_obligado_id] = [];
-    plantillasPorSujeto[a.sujeto_obligado_id].push(a.plantilla_id);
-  }
 
   const ultimasAcciones = db.prepare<[], AuditRow>(`
     SELECT id, fecha_hora_servidor, usuario_correo, accion, detalle, resultado
@@ -155,9 +136,7 @@ export default async function SujetosObligadosSupervisor() {
                       organismo_supervisor: r.organismo_supervisor,
                       responsable_cumpl: r.responsable_cumpl,
                       estado: r.estado,
-                      plantillasAsignadas: plantillasPorSujeto[r.id] ?? [],
                     }}
-                    todasPlantillas={plantillas}
                     tiposDisponibles={tiposDisponibles}
                   />
                 </td>
@@ -210,9 +189,9 @@ export default async function SujetosObligadosSupervisor() {
       <div className="card" style={{ marginTop: 18 }}>
         <h3 style={{ margin: 0 }}>Registrar nuevo sujeto obligado</h3>
         <p className="small" style={{ marginBottom: 14 }}>
-          Campos obligatorios: nombre, tipo, sector, estado y al menos una plantilla ROS.
+          Campos obligatorios: nombre, tipo, sector y estado. Las plantillas ROS se asignan automáticamente según el tipo y sector.
         </p>
-        <NuevoSujetoForm plantillas={plantillas} tiposDisponibles={tiposDisponibles} />
+        <NuevoSujetoForm tiposDisponibles={tiposDisponibles} />
       </div>
     </>
   );

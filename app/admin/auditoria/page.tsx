@@ -10,6 +10,14 @@ export const revalidate = 0;
 
 const PER_PAGE = 25;
 
+const ROL_LABEL: Record<string, string> = {
+  sujeto_obligado: 'Sujeto Obligado',
+  analista: 'Analista',
+  supervisor: 'Supervisor',
+  auditor: 'Auditor',
+  admin: 'Administrador',
+};
+
 interface EventRow {
   id: string;
   fecha_hora_servidor: string;
@@ -22,39 +30,67 @@ interface EventRow {
 }
 
 const ACCION_LABEL: Record<string, string> = {
-  crear_sujeto_obligado:       'Crear sujeto obligado',
-  actualizar_sujeto_obligado:  'Modificar sujeto obligado',
-  desactivar_sujeto_obligado:  'Desactivar sujeto obligado',
-  activar_sujeto_obligado:     'Activar sujeto obligado',
-  crear_plantilla_ros:         'Crear plantilla ROS',
-  actualizar_plantilla_ros:    'Modificar plantilla ROS',
-  crear_usuario:               'Crear usuario',
-  actualizar_usuario:          'Modificar usuario',
-  desactivar_usuario:          'Desactivar usuario',
+  crear_sujeto_obligado:         'Crear sujeto obligado',
+  actualizar_sujeto_obligado:    'Modificar sujeto obligado',
+  desactivar_sujeto_obligado:    'Desactivar sujeto obligado',
+  activar_sujeto_obligado:       'Activar sujeto obligado',
+  eliminar_sujeto_obligado:      'Eliminar sujeto obligado',
+  crear_plantilla_ros:           'Crear plantilla ROS',
+  actualizar_plantilla_ros:      'Modificar plantilla ROS',
+  activar_plantilla_ros:         'Activar plantilla ROS',
+  desactivar_plantilla_ros:      'Desactivar plantilla ROS',
+  eliminar_plantilla_ros:        'Eliminar plantilla ROS',
+  agregar_campo_plantilla:       'Agregar campo a plantilla',
+  eliminar_campo_plantilla:      'Eliminar campo de plantilla',
+  agregar_documento_requerido:   'Agregar documento requerido',
+  eliminar_documento_requerido:  'Eliminar documento requerido',
+  crear_usuario:                 'Crear usuario',
+  actualizar_usuario:            'Modificar usuario',
+  desactivar_usuario:            'Desactivar usuario',
+  eliminar_usuario:              'Eliminar usuario',
 };
 
-const ACCION_TONE: Record<string, 'green' | 'blue' | 'amber' | 'red' | 'gray'> = {
-  crear_sujeto_obligado:       'green',
-  actualizar_sujeto_obligado:  'blue',
-  desactivar_sujeto_obligado:  'red',
-  activar_sujeto_obligado:     'green',
-  crear_plantilla_ros:         'green',
-  actualizar_plantilla_ros:    'blue',
-  crear_usuario:               'green',
-  actualizar_usuario:          'blue',
-  desactivar_usuario:          'red',
-};
-
-function parsearEntidad(accion: string, detalle: string | null): string {
+function parsearEntidad(_accion: string, detalle: string | null): string {
   if (!detalle) return '—';
   try {
     const d = JSON.parse(detalle);
-    if (d.nombre) return d.nombre;
+    if (d.nombre)          return d.nombre;
     if (d.correo_afectado) return d.correo_afectado;
+    if (d.plantilla)       return d.plantilla;
+    if (d.campo)           return d.campo;
+    if (d.documento)       return d.documento;
     return '—';
   } catch {
     return '—';
   }
+}
+
+const CAMPO_LABEL: Record<string, string> = {
+  nombre: 'Nombre',
+  ruc: 'RUC',
+  tipo: 'Tipo',
+  sector: 'Sector',
+  estado: 'Estado',
+  organismo_supervisor: 'Organismo supervisor',
+  responsable_cumpl: 'Responsable cumplimiento',
+  plantillas: 'Plantillas',
+  version: 'Versión',
+  activa: 'Activa',
+  tipo_sujeto_obligado: 'Tipo de sujeto obligado',
+  correo: 'Correo',
+  rol_id: 'Rol',
+  rol_asignado: 'Rol asignado',
+  tipo_dato: 'Tipo de dato',
+  tipo_requerimiento: 'Tipo de requerimiento',
+  formatos_permitidos: 'Formatos',
+  tamano_maximo_mb: 'Tamaño máx.',
+};
+
+function formatValor(v: unknown): string {
+  if (Array.isArray(v)) return `${v.length} plantilla(s)`;
+  if (typeof v === 'boolean') return v ? 'Sí' : 'No';
+  if (v === null || v === undefined) return '—';
+  return String(v);
 }
 
 function parsearCambios(detalle: string | null): string {
@@ -63,11 +99,19 @@ function parsearCambios(detalle: string | null): string {
     const d = JSON.parse(detalle);
     if (d.cambios) {
       return Object.entries(d.cambios)
-        .map(([k, v]) => `${k}: ${v}`)
-        .join(', ');
+        .map(([k, v]) => {
+          const label = CAMPO_LABEL[k] ?? k;
+          return `${label}: ${formatValor(v)}`;
+        })
+        .join(' · ');
     }
-    if (d.tipo) return `tipo: ${d.tipo}`;
-    if (d.rol_asignado) return `rol: ${d.rol_asignado}`;
+    if (d.campo && d.tipo)   return `Campo: ${d.campo} (${d.tipo})`;
+    if (d.campo)             return `Campo: ${d.campo}`;
+    if (d.documento && d.tipo) return `Documento: ${d.documento} (${d.tipo})`;
+    if (d.documento)         return `Documento: ${d.documento}`;
+    if (d.tipo)              return `Tipo: ${d.tipo}`;
+    if (d.rol_asignado)      return `Rol: ${d.rol_asignado}`;
+    if (d.plantillas)        return `Plantillas: ${formatValor(d.plantillas)}`;
     return '—';
   } catch {
     return '—';
@@ -225,13 +269,11 @@ export default async function AdminAuditoria({ searchParams }: Props) {
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <span style={{ fontSize: 12 }}>{formatPanama(e.fecha_hora_servidor)}</span>
                     </td>
-                    <td>
-                      <Badge tone={ACCION_TONE[e.accion] ?? 'gray'}>
-                        {ACCION_LABEL[e.accion] ?? e.accion}
-                      </Badge>
+                    <td style={{ fontSize: 13 }}>
+                      {ACCION_LABEL[e.accion] ?? e.accion}
                     </td>
                     <td style={{ fontSize: 13 }}>{e.usuario_correo ?? <span className="small">system</span>}</td>
-                    <td><span className="small">{e.rol ?? '—'}</span></td>
+                    <td><span className="small">{e.rol ? (ROL_LABEL[e.rol] ?? e.rol) : '—'}</span></td>
                     <td style={{ fontSize: 13 }}><strong>{parsearEntidad(e.accion, e.detalle)}</strong></td>
                     <td style={{ fontSize: 12, color: 'var(--muted)' }}>{parsearCambios(e.detalle)}</td>
                     <td>

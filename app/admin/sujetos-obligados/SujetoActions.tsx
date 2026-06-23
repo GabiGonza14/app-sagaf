@@ -5,8 +5,6 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { SuccessModal } from '@/components/SuccessModal';
 import CustomSelect from '@/components/CustomSelect';
 
-interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
-
 const TIPO_LABEL: Record<string, string> = {
   bank:       'Banco',
   realestate: 'Inmobiliaria',
@@ -32,16 +30,13 @@ interface Sujeto {
   organismo_supervisor: string | null;
   responsable_cumpl: string | null;
   estado: string;
-  plantillasAsignadas: string[];
 }
 
 export function SujetoActions({
   sujeto,
-  todasPlantillas,
   tiposDisponibles,
 }: Readonly<{
   sujeto: Sujeto;
-  todasPlantillas: Plantilla[];
   tiposDisponibles: string[];
 }>) {
   const router = useRouter();
@@ -62,7 +57,6 @@ export function SujetoActions({
   const [estado, setEstado] = useState(sujeto.estado);
   const [organismo, setOrganismo] = useState(sujeto.organismo_supervisor ?? '');
   const [responsable, setResponsable] = useState(sujeto.responsable_cumpl ?? '');
-  const [seleccionadas, setSeleccionadas] = useState<string[]>(sujeto.plantillasAsignadas);
 
   useEffect(() => {
     if (TIPO_SECTOR_MAP[tipo]) setSector(TIPO_SECTOR_MAP[tipo]);
@@ -78,19 +72,9 @@ export function SujetoActions({
     }
   }, [open]);
 
-  const compatibles = todasPlantillas.filter((p) => p.tipo_sujeto_obligado === tipo);
-
-  function toggle(id: string) {
-    setSeleccionadas((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
-  }
-
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (seleccionadas.length === 0) {
-      setError('Debe asociar al menos una plantilla ROS.');
-      return;
-    }
     setBusy(true);
     try {
       const res = await fetch(`/api/sujetos-obligados/${sujeto.id}`, {
@@ -100,7 +84,6 @@ export function SujetoActions({
           nombre, ruc: ruc || null, tipo, sector, estado,
           organismo_supervisor: organismo || null,
           responsable_cumpl: responsable || null,
-          plantillas: seleccionadas,
         }),
       });
       const data = await res.json();
@@ -203,7 +186,7 @@ export function SujetoActions({
             </div>
             <div className="field">
               <label htmlFor={`edit-tipo-${sujeto.id}`}>Tipo</label>
-              <CustomSelect id={`edit-tipo-${sujeto.id}`} value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }} required>
+              <CustomSelect id={`edit-tipo-${sujeto.id}`} value={tipo} onChange={(e) => setTipo(e.target.value)} required>
                 {tiposDisponibles.map((t) => (
                   <option key={t} value={t}>{TIPO_LABEL[t] ?? t}</option>
                 ))}
@@ -230,28 +213,6 @@ export function SujetoActions({
               <label htmlFor={`edit-responsable-${sujeto.id}`}>Responsable de cumplimiento</label>
               <input id={`edit-responsable-${sujeto.id}`} value={responsable} onChange={(e) => setResponsable(e.target.value)} />
             </div>
-
-            {/* <fieldset> es el elemento nativo para agrupar controles de formulario */}
-            <fieldset className="field full" style={{ border: 'none', padding: 0, margin: 0 }}>
-              <legend style={{ fontWeight: 600, marginBottom: 6, display: 'block', width: '100%' }}>Plantillas ROS</legend>
-              {compatibles.length === 0 ? (
-                <div className="notice amber">No hay plantillas activas para este tipo.</div>
-              ) : (
-                <div className="lookup-grid">
-                  {compatibles.map((p) => (
-                    <label key={p.id} className="lookup-card lookup-row" style={{ cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        style={{ width: 18, flex: 'none' }}
-                        checked={seleccionadas.includes(p.id)}
-                        onChange={() => toggle(p.id)}
-                      />
-                      <strong>{p.nombre}</strong>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </fieldset>
 
             {error && <div className="client-status error" style={{ gridColumn: '1 / -1' }}>{error}</div>}
 

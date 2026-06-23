@@ -245,7 +245,7 @@ export default async function UafBandeja({ searchParams }: { searchParams: Promi
                 <div className="report-top">
                   <strong>{r.numero_ros}</strong>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    {r.nivel_riesgo && <Badge tone={riskTone(r.nivel_riesgo)}>{r.nivel_riesgo}</Badge>}
+                    {r.nivel_riesgo && <Badge tone={riskTone(r.nivel_riesgo)}>{r.nivel_riesgo.charAt(0).toUpperCase() + r.nivel_riesgo.slice(1)}</Badge>}
                     <Badge tone={estadoTone(r.estado)}>{estadoLabel(r.estado)}</Badge>
                     {r.doc_observados > 0 && <Badge tone="red">{r.doc_observados} observados</Badge>}
                   </div>

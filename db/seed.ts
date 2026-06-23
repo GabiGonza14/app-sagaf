@@ -149,12 +149,21 @@ insertPlantilla.run('pl_realestate',   'ROS Inmobiliaria / Promotora',  'realest
 insertPlantilla.run('pl_casino',       'ROS Sector Casino',             'casino',     'no_financiero');
 insertPlantilla.run('pl_notarios',     'ROS Sector Notarios',           'notarios',   'actividad_profesional');
 
+// Asociación automática: vincula plantillas con sujetos obligados por tipo y sector
 const linkSOPL = db.prepare(
-  'INSERT INTO sujeto_obligado_plantilla (sujeto_obligado_id, plantilla_id) VALUES (?, ?)',
+  'INSERT OR IGNORE INTO sujeto_obligado_plantilla (sujeto_obligado_id, plantilla_id) VALUES (?, ?)',
 );
-linkSOPL.run('so_banco_nacional', 'pl_bank_natural');
-linkSOPL.run('so_banco_nacional', 'pl_bank_legal');
-linkSOPL.run('so_inmob_istmo', 'pl_realestate');
+const sujetosParaPlantilla = db.prepare<[string, string], { id: string }>(
+  'SELECT id FROM sujeto_obligado WHERE tipo = ? AND sector = ?',
+);
+const todasPlantillas = db.prepare<[], { id: string; tipo_sujeto_obligado: string; sector: string | null }>(
+  'SELECT id, tipo_sujeto_obligado, sector FROM plantilla_ros',
+).all();
+for (const pl of todasPlantillas) {
+  if (!pl.sector) continue;
+  const sujetos = sujetosParaPlantilla.all(pl.tipo_sujeto_obligado, pl.sector);
+  for (const s of sujetos) linkSOPL.run(s.id, pl.id);
+}
 
 const insertDocReq = db.prepare(`
   INSERT INTO documento_requerido (id, plantilla_id, nombre, tipo_requerimiento, obligatorio, orden)

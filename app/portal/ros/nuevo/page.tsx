@@ -17,6 +17,8 @@ interface DocRow {
   nombre: string;
   orden: number;
   tipo_requerimiento: string;
+  formatos_permitidos: string;
+  tamano_maximo_mb: number;
 }
 
 interface CampoRow {
@@ -59,7 +61,7 @@ export default async function NuevoRosPage() {
     .all(soId);
 
   const docs = db
-    .prepare<[], DocRow>('SELECT id, plantilla_id, nombre, orden, tipo_requerimiento FROM documento_requerido ORDER BY plantilla_id, orden')
+    .prepare<[], DocRow>('SELECT id, plantilla_id, nombre, orden, tipo_requerimiento, formatos_permitidos, tamano_maximo_mb FROM documento_requerido ORDER BY plantilla_id, orden')
     .all();
 
   const docsByPlantilla: Record<string, DocRow[]> = {};
