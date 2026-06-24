@@ -275,7 +275,7 @@ CREATE TABLE IF NOT EXISTS solicitud_subsanacion (
   documento_adjunto_id  TEXT,                     -- documento observado (ya cargado), si aplica
   documento_requerido_id TEXT,                    -- slot de plantilla solicitado (doc pendiente)
   motivo          TEXT NOT NULL,
-  estado          TEXT NOT NULL DEFAULT 'pendiente', -- pendiente | atendida | vencida
+  estado          TEXT NOT NULL DEFAULT 'pendiente', -- pendiente | atendida
   solicitada_por  TEXT NOT NULL,
   fecha_solicitud TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   fecha_limite    TEXT,                                -- vence N días después de la solicitud

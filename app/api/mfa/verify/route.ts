@@ -102,7 +102,6 @@ export async function POST(req: Request) {
         token: { ...decoded, mfaVerified: true },
         secret,
         salt: cookieName,
-        maxAge: 30 * 60,
       });
       const res = NextResponse.json({ ok: true });
       res.cookies.set(cookieName, encoded, {
@@ -110,7 +109,6 @@ export async function POST(req: Request) {
         secure: isProduction,
         sameSite: 'lax',
         path: '/',
-        maxAge: 30 * 60,
       });
       return res;
     }

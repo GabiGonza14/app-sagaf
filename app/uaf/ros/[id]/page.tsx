@@ -187,12 +187,6 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
       ORDER BY fecha_hora_servidor DESC LIMIT 30`,
   ).all(id, id);
 
-  // A4: marcar como vencidas las subsanaciones que superaron su fecha límite
-  db.prepare(
-    `UPDATE solicitud_subsanacion SET estado = 'vencida'
-      WHERE estado = 'pendiente' AND fecha_limite IS NOT NULL AND fecha_limite < date('now')`,
-  ).run();
-
   const subs = db.prepare<[string], SubsRow>(
     `SELECT id, motivo, estado, fecha_solicitud, fecha_limite, documento_adjunto_id, documento_requerido_id
        FROM solicitud_subsanacion WHERE ros_id = ? ORDER BY fecha_solicitud DESC`,

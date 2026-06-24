@@ -40,15 +40,14 @@ export default async function SubsanacionesUafPage() {
        LEFT JOIN documento_adjunto   da  ON da.id  = s.documento_adjunto_id
        LEFT JOIN documento_requerido dr2 ON dr2.id = da.documento_requerido_id
       ORDER BY
-        CASE s.estado WHEN 'atendida' THEN 0 WHEN 'pendiente' THEN 1 ELSE 2 END,
+        CASE s.estado WHEN 'atendida' THEN 0 WHEN 'pendiente' THEN 1 END,
         s.fecha_respuesta DESC,
         s.fecha_solicitud DESC`,
   ).all();
 
   const atendidas = rows.filter((r) => r.estado === 'atendida');
   const pendientes = rows.filter((r) => r.estado === 'pendiente');
-  const vencidas   = rows.filter((r) => r.estado === 'vencida');
-  const resto      = rows.filter((r) => !['atendida', 'pendiente', 'vencida'].includes(r.estado));
+  const resto      = rows.filter((r) => !['atendida', 'pendiente'].includes(r.estado));
 
   const renderTable = (items: Row[]) => (
     <div style={{ overflowX: 'auto' }}>
@@ -81,8 +80,7 @@ export default async function SubsanacionesUafPage() {
               <td>
                 <Badge tone={
                   r.estado === 'atendida' ? 'green' :
-                  r.estado === 'pendiente' ? 'amber' :
-                  r.estado === 'vencida' ? 'red' : 'gray'
+                  r.estado === 'pendiente' ? 'amber' : 'gray'
                 }>{r.estado}</Badge>
               </td>
               <td style={{ fontSize: '0.82rem', color: 'var(--muted)', whiteSpace: 'nowrap' }}>
@@ -149,20 +147,6 @@ export default async function SubsanacionesUafPage() {
                 <Badge tone="amber">{pendientes.length}</Badge>
               </div>
               {renderTable(pendientes)}
-            </div>
-          )}
-
-          {/* Vencidas */}
-          {vencidas.length > 0 && (
-            <div className="card">
-              <div className="panel-head" style={{ marginBottom: 12 }}>
-                <div>
-                  <h3 style={{ margin: 0 }}>Vencidas</h3>
-                  <p style={{ margin: 0, fontSize: '0.82rem' }}>El plazo expiró sin respuesta del sujeto.</p>
-                </div>
-                <Badge tone="red">{vencidas.length}</Badge>
-              </div>
-              {renderTable(vencidas)}
             </div>
           )}
 

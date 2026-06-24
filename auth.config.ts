@@ -10,13 +10,8 @@ export const authConfig: NextAuthConfig = {
   pages: {
     signIn: '/login',
   },
-  // DEF-04 — La sesión expira por inactividad. `maxAge` define la vida del token
-  // y `updateAge` lo renueva con actividad (timeout deslizante ~30 min). Al expirar,
-  // el usuario debe volver a iniciar sesión y, por tanto, repetir MFA (mfaVerified=false).
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 60,     // 30 minutos
-    updateAge: 5 * 60,   // renovar con actividad cada 5 minutos
   },
   callbacks: {
     authorized({ auth, request }) {

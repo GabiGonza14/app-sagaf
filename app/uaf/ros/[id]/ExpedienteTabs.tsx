@@ -908,7 +908,7 @@ export function RosExpedienteTabs({
                   return {
                     title: `${docNombre} · ${s.estado}`,
                     description: `${s.motivo}\n${fechas}`,
-                    tone: s.estado === 'vencida' ? 'red' : s.estado === 'pendiente' ? 'amber' : 'green',
+                    tone: s.estado === 'pendiente' ? 'amber' : 'green',
                   };
                 })} />
               </div>
