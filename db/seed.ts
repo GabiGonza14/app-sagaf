@@ -210,6 +210,7 @@ const bankLegal: DocEntry[] = [
   { nombre: 'Identificación de Beneficiarios Finales',                                                                       tipo: 'requerido' },
   { nombre: 'Comunicaciones de descarte de la inusualidad',                                                                  tipo: 'requerido' },
   { nombre: 'Estado de cuenta de los 2 últimos años en PDF y Excel',                                                         tipo: 'requerido' },
+  { nombre: 'Volante de depósitos y retiros de cuenta',                                                                      tipo: 'requerido' },
   // CONDICIONALES — dependen del tipo de operación sospechosa, generan advertencia si faltan
   { nombre: 'Historial de Crédito (si tiene productos crediticios)',                                                         tipo: 'condicional' },
   { nombre: 'Información sobre titular de acciones emitidas y custodios (si aplica)',                                        tipo: 'condicional' },
@@ -219,7 +220,6 @@ const bankLegal: DocEntry[] = [
   { nombre: 'Copia de cheques con anversos y reversos (si hubo cheques involucrados)',                                       tipo: 'condicional' },
   { nombre: 'Copia completa de transferencias internacionales (mensaje Swift)',                                               tipo: 'condicional' },
   { nombre: 'Datos de ACH enviados y/o recibidos (si hay movimientos ACH)',                                                  tipo: 'condicional' },
-  { nombre: 'Volante de depósitos y retiros de cuenta',                                                                      tipo: 'requerido' },
   // OPCIONALES — complementarios, no generan bloqueo ni advertencia
   { nombre: 'Referencias Bancarias',                                                                                         tipo: 'opcional' },
   { nombre: 'Referencias Comerciales y/o Profesionales',                                                                     tipo: 'opcional' },
@@ -374,7 +374,7 @@ const insertAudit = db.prepare(`
 // Mapa de documentos requeridos por plantilla (extraído de seedDocs arriba)
 const reqDocs: Record<string, string[]> = {
   pl_bank_natural: ['dr_bn_1','dr_bn_2','dr_bn_3','dr_bn_4','dr_bn_5','dr_bn_6','dr_bn_7','dr_bn_8'],
-  pl_bank_legal:   ['dr_bl_1','dr_bl_2','dr_bl_3','dr_bl_4','dr_bl_5','dr_bl_6','dr_bl_7','dr_bl_8','dr_bl_9','dr_bl_10','dr_bl_11','dr_bl_12','dr_bl_13','dr_bl_14','dr_bl_23'],
+  pl_bank_legal:   ['dr_bl_1','dr_bl_2','dr_bl_3','dr_bl_4','dr_bl_5','dr_bl_6','dr_bl_7','dr_bl_8','dr_bl_9','dr_bl_10','dr_bl_11','dr_bl_12','dr_bl_13','dr_bl_14','dr_bl_15'],
   pl_realestate:   ['dr_re_1','dr_re_2','dr_re_3','dr_re_4','dr_re_5','dr_re_6','dr_re_7'],
 };
 const docEstado = (rosEstado: string) => rosEstado === 'riesgo_clasificado' || rosEstado === 'cerrado' ? 'validado' : 'cargado';

@@ -1,4 +1,6 @@
 allowBuilds:
   better-sqlite3: true
+  canvas: set this to true or false
   esbuild: true
+  tesseract.js: set this to true or false
   unrs-resolver: true

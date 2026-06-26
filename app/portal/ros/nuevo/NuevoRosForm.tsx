@@ -151,6 +151,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [extras, setExtras] = useState<File[]>([]);
   const [fileLabels, setFileLabels] = useState<Record<string, string>>(initialData?.uploadedDocs ?? {});
+  const [fileWarnings, setFileWarnings] = useState<Record<string, string[]>>({});
+  const [docAnalyzing, setDocAnalyzing] = useState<Record<string, boolean>>({});
 
   const [pending, startTransition] = useTransition();
   const [submitting, setSubmitting] = useState(false);
@@ -270,6 +272,18 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     if (!todosDocumentosCargados) {
       faltantes.push({ label: `Cargar ${docListReq.length - cargadosReq} documento(s) obligatorio(s)`, icon: <FileWarning size={14} />, categoria: 'documentos' });
     }
+    const docsConNombreDuplicado = docList.filter((d) =>
+      fileWarnings[d.id]?.some((w) => w.startsWith('Nombre duplicado'))
+    );
+    for (const d of docsConNombreDuplicado) {
+      faltantes.push({ label: `Nombre de archivo duplicado en "${d.nombre}" — usa un archivo distinto`, icon: <AlertCircle size={14} />, categoria: 'documentos' });
+    }
+    const docsConNombreNoRelacionado = docList.filter((d) =>
+      fileWarnings[d.id]?.some((w) => w.startsWith('El nombre del archivo'))
+    );
+    for (const d of docsConNombreNoRelacionado) {
+      faltantes.push({ label: `Renombra el archivo de "${d.nombre}" — el nombre debe incluir una palabra de la sección`, icon: <AlertCircle size={14} />, categoria: 'documentos' });
+    }
 
     return faltantes;
   }
@@ -287,7 +301,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     formaPago.trim(),
   );
   const camposGenericOk = !isGeneric || (cliente.id.trim().length >= 3 && partyNameValid(cliente));
-  const formListo = camposBaseOk && camposBancoOk && camposInmobiliariaOk && camposGenericOk && camposDinamicosOk;
+  // Bloqueos por documentos: nombre duplicado entre secciones y nombre no
+  // relacionado con la sección. Ambos impiden enviar (botón deshabilitado).
+  const hayNombreDuplicado = docList.some((d) =>
+    fileWarnings[d.id]?.some((w) => w.startsWith('Nombre duplicado'))
+  );
+  const hayNombreNoRelacionado = docList.some((d) =>
+    fileWarnings[d.id]?.some((w) => w.startsWith('El nombre del archivo'))
+  );
+  const documentosSinConflicto = !hayNombreDuplicado && !hayNombreNoRelacionado;
+  const formListo = camposBaseOk && camposBancoOk && camposInmobiliariaOk && camposGenericOk && camposDinamicosOk && documentosSinConflicto;
   const hayAlgunDato = [
     ordenante.id, beneficiario.id, comprador.id, cliente.id,
     monto, descripcion, productoServicio, bienInmueble, formaPago, jurisdiccion,
@@ -388,7 +411,127 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     };
   }
 
-  async function uploadFiles(rosId: string) {
+  // ── Validación de documentos ──────────────────────────────────────────────
+  const STOP_WORDS_ES = new Set([
+    'de','del','el','la','los','las','un','una','unos','unas','y','o','en',
+    'con','por','para','a','al','se','que','su','sus','este','esta','estos',
+    'estas','si','no','ya','lo','le','les','me','mi','tu','es','son','fue',
+  ]);
+
+  function extractKeywords(text: string): string[] {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !STOP_WORDS_ES.has(w));
+  }
+
+  function checkFileRelevance(fileName: string, docNombre: string): string | null {
+    const nameWithoutExt = fileName.replace(/\.[^.]+$/, '');
+    const fileKws = extractKeywords(nameWithoutExt);
+    const docKws = extractKeywords(docNombre);
+    if (fileKws.length === 0 || docKws.length === 0) return null;
+    const match = fileKws.some((fk) => docKws.some((dk) => dk.includes(fk) || fk.includes(dk)));
+    if (!match) {
+      return `El nombre del archivo no parece relacionado con "${docNombre}". Confirma que sea el documento correcto.`;
+    }
+    return null;
+  }
+
+  async function analyzeDocContent(file: File, docNombre: string): Promise<string | null> {
+    const isPdf = file.type.includes('pdf') || file.name.toLowerCase().endsWith('.pdf');
+    const isImage = /image\/(jpe?g|png)/.test(file.type) || /\.(jpe?g|png)$/i.test(file.name);
+    if (!isPdf && !isImage) return null;
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('doc_nombre', docNombre);
+      const res = await fetch('/api/documentos/analyze', { method: 'POST', body: fd });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.contentWarning ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  function handleDocFileChange(docId: string, docNombre: string, f: File | null, currentFiles: Record<string, File | null>) {
+    const updatedFiles = { ...currentFiles, [docId]: f };
+    setFiles(updatedFiles);
+
+    // Re-evalúa advertencias sincrónicas de todos los docs (duplicados, nombre)
+    setFileWarnings((prev) => {
+      const next = { ...prev };
+
+      for (const doc of docList) {
+        const docFile = doc.id === docId ? f : currentFiles[doc.id];
+        const docWarns: string[] = [];
+
+        if (docFile) {
+          // Nombre duplicado en otra sección
+          for (const [otherId, otherFile] of Object.entries(updatedFiles)) {
+            if (otherId === doc.id || !otherFile) continue;
+            if (otherFile.name === docFile.name) {
+              const conflictDoc = docList.find((d) => d.id === otherId);
+              docWarns.push(`Nombre duplicado: "${docFile.name}" ya está asignado a "${conflictDoc?.nombre ?? 'otra sección'}". Usa archivos distintos por sección.`);
+              break;
+            }
+          }
+
+          // Relevancia por nombre (solo para el doc que cambia)
+          if (doc.id === docId) {
+            const relevanceWarn = checkFileRelevance(docFile.name, docNombre);
+            if (relevanceWarn) docWarns.push(relevanceWarn);
+          } else if (prev[doc.id]) {
+            const prevRelevance = prev[doc.id].find((w) => w.startsWith('El nombre'));
+            if (prevRelevance) docWarns.push(prevRelevance);
+          }
+        }
+
+        if (docWarns.length > 0) next[doc.id] = docWarns;
+        else delete next[doc.id];
+      }
+
+      return next;
+    });
+
+    // Verificación asíncrona del contenido (PDF o imagen) vía servidor (OCR).
+    // Para PDFs con capa de texto el análisis es casi instantáneo, así que se
+    // garantiza un tiempo mínimo visible del indicador para que no "parpadee".
+    if (f) {
+      const MIN_VISIBLE_MS = 650;
+      const startedAt = Date.now();
+      setDocAnalyzing((prev) => ({ ...prev, [docId]: true }));
+      analyzeDocContent(f, docNombre).then((contentWarn) => {
+        const applyResult = () => {
+          setDocAnalyzing((prev) => ({ ...prev, [docId]: false }));
+          setFileWarnings((prev) => {
+            const filtered = (prev[docId] ?? []).filter(
+              (w) => !w.startsWith('El PDF') && !w.startsWith('La imagen') &&
+                     !w.startsWith('El contenido') && !w.startsWith('El archivo')
+            );
+            if (filtered.length === 0 && !contentWarn) {
+              const next = { ...prev };
+              delete next[docId];
+              return next;
+            }
+            return contentWarn
+              ? { ...prev, [docId]: [...filtered, contentWarn] }
+              : { ...prev, [docId]: filtered };
+          });
+        };
+        const remaining = MIN_VISIBLE_MS - (Date.now() - startedAt);
+        if (remaining > 0) setTimeout(applyResult, remaining);
+        else applyResult();
+      });
+    } else {
+      setDocAnalyzing((prev) => ({ ...prev, [docId]: false }));
+    }
+  }
+
+  async function uploadFiles(rosId: string): Promise<true | false> {
     for (const docReq of docList) {
       const file = files[docReq.id];
       if (!file) continue;
@@ -463,11 +606,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         numeroRos = data.numero_ros;
       }
 
-      const ok = await uploadFiles(rosId);
-      if (!ok) return;
+      const uploadResult = await uploadFiles(rosId);
+      if (uploadResult === false) return;
 
       clearDraft();
       setUnsavedChanges(false);
+
       setSuccess(`ROS ${numeroRos} enviado correctamente a la UAF.`);
       router.refresh();
       startTransition(() => {
@@ -498,6 +642,29 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
       return 'La descripción narrativa debe tener al menos 30 caracteres.';
     if (!todosDocumentosCargados)
       return `Debe cargar todos los documentos obligatorios antes de enviar. Faltan ${docListReq.length - cargadosReq}.`;
+    const dupDoc = docList.find((d) =>
+      fileWarnings[d.id]?.some((w) => w.startsWith('Nombre duplicado'))
+    );
+    if (dupDoc) {
+      return `El documento "${dupDoc.nombre}" tiene el mismo nombre que otro archivo. Cada sección debe tener un archivo distinto.`;
+    }
+    const noRelDoc = docList.find((d) =>
+      fileWarnings[d.id]?.some((w) => w.startsWith('El nombre del archivo'))
+    );
+    if (noRelDoc) {
+      return `El nombre del archivo en "${noRelDoc.nombre}" no se relaciona con la sección. Renómbralo para que incluya al menos una palabra de la sección.`;
+    }
+    const analyzingDoc = docListReq.find((d) => docAnalyzing[d.id]);
+    if (analyzingDoc) {
+      return `Espera a que termine el análisis del documento "${analyzingDoc.nombre}".`;
+    }
+    const emptyDoc = docListReq.find((d) =>
+      fileWarnings[d.id]?.some((w) =>
+        w.startsWith('El PDF no contiene texto') || w.startsWith('La imagen no contiene texto'))
+    );
+    if (emptyDoc) {
+      return `El documento "${emptyDoc.nombre}" está vacío o no tiene texto legible. Reemplázalo antes de enviar.`;
+    }
     return null;
   }
 
@@ -889,18 +1056,19 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           {(() => {
             const renderCard = (d: DocReq, typeClass: string) => {
               const file = files[d.id] ?? null;
+              const analyzing = !!docAnalyzing[d.id];
               const uploaded = file || fileLabels[d.id];
               const globalIdx = docList.findIndex(x => x.id === d.id) + 1;
               return (
-                <div key={d.id} className={`doc-card ${typeClass}${file ? ' uploaded' : ''}`}>
+                <div key={d.id} className={`doc-card ${typeClass}${file && !analyzing ? ' uploaded' : ''}`}>
                   <div className="doc-top">
                     <div className="doc-title" style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                       <span className="doc-num">{globalIdx}</span>
                       {d.nombre}
                     </div>
                     {(file || fileLabels[d.id] || d.tipo_requerimiento === 'requerido') && (
-                      <span className={`badge ${uploaded ? 'green' : d.tipo_requerimiento === 'requerido' ? 'amber' : 'gray'}`} style={{ flexShrink: 0, fontSize: 10 }}>
-                        {file ? 'Listo ✓' : fileLabels[d.id] ? 'Guardado' : 'Pendiente'}
+                      <span className={`badge ${analyzing ? 'amber' : uploaded ? 'green' : d.tipo_requerimiento === 'requerido' ? 'amber' : 'gray'}`} style={{ flexShrink: 0, fontSize: 10 }}>
+                        {analyzing ? 'Analizando…' : file ? 'Listo ✓' : fileLabels[d.id] ? 'Guardado' : 'Pendiente'}
                       </span>
                     )}
                   </div>
@@ -919,8 +1087,21 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
                     </div>
                   ) : null}
                   {!fileLabels[d.id] && (
-                    <FileDropZone file={file} onChange={(f) => setFiles({ ...files, [d.id]: f })}
-                      formatos={d.formatos_permitidos} maxMb={d.tamano_maximo_mb} />
+                    <>
+                      <FileDropZone
+                        file={file}
+                        onChange={(f) => handleDocFileChange(d.id, d.nombre, f, files)}
+                        formatos={d.formatos_permitidos}
+                        maxMb={d.tamano_maximo_mb}
+                        analyzing={analyzing}
+                      />
+                      {fileWarnings[d.id]?.map((w, i) => (
+                        <div key={i} className="doc-warning" role="alert">
+                          <AlertCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+                          {w}
+                        </div>
+                      ))}
+                    </>
                   )}
                 </div>
               );

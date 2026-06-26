@@ -1991,7 +1991,7 @@ button.upload-zone { font: inherit; width: 100%; text-align: left; }
   min-width: 0;
 }
 
-.upload-zone:hover,
+.upload-zone:not(.has-file):hover,
 .upload-zone.dragging {
   border-color: var(--primary);
   background: rgba(232, 243, 255, 0.5);
@@ -2003,6 +2003,13 @@ button.upload-zone { font: inherit; width: 100%; text-align: left; }
   border-color: rgba(21, 128, 61, 0.35);
   background: rgba(240, 253, 244, 0.7);
 }
+
+/* Mientras se analiza el contenido: estado neutro, sin el verde de "listo". */
+.upload-zone.has-file.analyzing {
+  border-color: var(--border);
+  background: rgba(148, 163, 184, 0.08);
+}
+.upload-zone.has-file.analyzing .upload-zone-icon { color: var(--muted); }
 
 .upload-zone-content {
   display: flex;
@@ -2018,7 +2025,7 @@ button.upload-zone { font: inherit; width: 100%; text-align: left; }
   transition: color var(--transition);
 }
 
-.upload-zone:hover .upload-zone-icon { color: var(--primary); }
+.upload-zone:not(.has-file):hover .upload-zone-icon { color: var(--primary); }
 
 .upload-zone-icon.uploaded { color: var(--green); }
 
@@ -2039,10 +2046,20 @@ button.upload-zone { font: inherit; width: 100%; text-align: left; }
   color: #94a3b8;
 }
 
-.upload-zone-content > div {
+.upload-zone-content > div,
+.upload-zone-file-info {
   flex: 1;
   min-width: 0;
 }
+
+.upload-zone-file-info {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
 
 .upload-zone-filename {
   display: block;
@@ -2085,6 +2102,20 @@ button.upload-zone { font: inherit; width: 100%; text-align: left; }
 .upload-zone-remove:hover {
   background: rgba(180, 35, 24, 0.14);
   box-shadow: var(--shadow-glow-red);
+}
+
+.doc-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #fffbeb;
+  border: 1px solid #fbbf24;
+  color: #92400e;
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 
 .section-num {
@@ -2943,3 +2974,5 @@ dialog.modal-box::backdrop {
 @media (max-width: 640px) {
   .user-badge-anchor { display: none; }
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }

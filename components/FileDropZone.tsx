@@ -39,11 +39,13 @@ export function FileDropZone({
   onChange,
   formatos,
   maxMb,
+  analyzing = false,
 }: Readonly<{
   file: File | null;
   onChange: (f: File | null) => void;
   formatos?: string;
   maxMb?: number;
+  analyzing?: boolean;
 }>) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -86,14 +88,27 @@ export function FileDropZone({
   };
 
   if (file) {
+    function openFile() {
+      const url = URL.createObjectURL(file!);
+      window.open(url, '_blank');
+    }
     return (
-      <div className="upload-zone has-file">
+      <div className={`upload-zone has-file${analyzing ? ' analyzing' : ''}`}>
         <div className="upload-zone-content">
-          <CheckCircle size={18} className="upload-zone-icon uploaded" />
-          <div>
+          {analyzing ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="upload-zone-icon" style={{ animation: 'spin 1s linear infinite' }} aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>
+          ) : (
+            <CheckCircle size={18} className="upload-zone-icon uploaded" />
+          )}
+          <button
+            type="button"
+            className="upload-zone-file-info"
+            onClick={openFile}
+            title="Ver archivo"
+          >
             <div className="upload-zone-filename">{file.name}</div>
-            <div className="upload-zone-size">{(file.size / 1024).toFixed(1)} KB</div>
-          </div>
+            <div className="upload-zone-size">{analyzing ? 'Analizando contenido…' : `${(file.size / 1024).toFixed(1)} KB`}</div>
+          </button>
           <button
             type="button"
             className="upload-zone-remove"

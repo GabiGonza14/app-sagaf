@@ -12,12 +12,56 @@ import { db } from '@/lib/db';
 import { audit, extractRequestContext } from '@/lib/audit';
 import { canAccessROS } from '@/lib/permissions';
 import { UPLOADS_DIR } from '@/lib/uploads';
+import { extractText } from '@/lib/ocr';
+
+// ── Validación de relevancia de contenido ────────────────────────────────────
+const STOP_WORDS_ES = new Set([
+  'de','del','el','la','los','las','un','una','y','o','en','con','por','para',
+  'a','al','se','que','su','sus','este','esta','si','no','ya','lo','le','es',
+  'son','fue','han','hay','ser','tiene','como','mas','sin','muy',
+]);
+
+function extractKeywords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP_WORDS_ES.has(w));
+}
+
+async function checkContentRelevance(buffer: Buffer, mime: string, docNombre: string): Promise<string | null> {
+  const result = await extractText(buffer, mime);
+
+  if (result.status === 'error') return null; // parser falló (compresión incompatible) → sin falsos positivos
+
+  const isImage = mime === 'image/jpeg' || mime === 'image/png';
+  const tipo = isImage ? 'la imagen' : 'el PDF';
+
+  if (result.status === 'empty') {
+    // Legible pero sin texto: está en blanco o no es un documento con texto
+    return `${isImage ? 'La imagen' : 'El PDF'} no contiene texto legible. Verifica que sea el documento correcto para "${docNombre}".`;
+  }
+
+  // Hay texto (capa de texto del PDF u OCR con preprocesado) — verificar tipo
+  const docText = result.text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const docKws = extractKeywords(docNombre);
+  if (docKws.length === 0) return null;
+
+  const matched = docKws.filter((kw) => docText.includes(kw));
+  if (matched.length === 0) {
+    return `El contenido de ${tipo} no corresponde a "${docNombre}". Palabras esperadas no encontradas: ${docKws.slice(0, 4).join(', ')}.`;
+  }
+  return null;
+}
 
 const ALLOWED_MIME = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 const ALLOWED_EXT = /\.(pdf|jpg|jpeg|png)$/i;
 const MAX_BYTES = 10 * 1024 * 1024;
 
 export async function POST(req: Request) {
+  console.log('[UPLOAD] handler ejecutado — versión con OCR');
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
@@ -145,5 +189,22 @@ export async function POST(req: Request) {
     detalle: { documento_requerido_id: docReqId || null, hash_sha256: hash, tamano: buffer.byteLength, mime },
   });
 
-  return NextResponse.json({ id: docId }, { status: 201 });
+  // Verificación de contenido — funciona con PDFs digitales, PDFs escaneados e imágenes
+  let contentWarning: string | null = null;
+  if (docReqId) {
+    const docReqRow = db.prepare<[string], { nombre: string }>(
+      'SELECT nombre FROM documento_requerido WHERE id = ?'
+    ).get(docReqId);
+    console.log('[OCR] docReqId:', docReqId, '| docReqRow:', docReqRow);
+    if (docReqRow) {
+      try {
+        contentWarning = await checkContentRelevance(buffer, mime, docReqRow.nombre);
+      } catch (err) {
+        console.error('[OCR] checkContentRelevance lanzó error:', err);
+      }
+    }
+  }
+  console.log('[OCR] contentWarning final:', contentWarning);
+
+  return NextResponse.json({ id: docId, contentWarning }, { status: 201 });
 }
