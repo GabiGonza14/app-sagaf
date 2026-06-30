@@ -28,9 +28,11 @@ export default defineConfig({
 
   use: {
     // URL base de la aplicación
-    baseURL: 'http://localhost:3001',
+    baseURL: 'http://localhost:3099',
     // Capturar screenshot solo al fallar
     screenshot: 'only-on-failure',
+    // Grabar video de cada test (útil para revisión y depuración)
+    video: 'on',
     // Trace al fallar (para depuración)
     trace: 'on-first-retry',
   },
@@ -38,20 +40,22 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        video: 'on',
+        screenshot: 'only-on-failure',
+      },
     },
   ],
 
   // Servidor de desarrollo: Playwright arranca Next.js automáticamente con DB de prueba
   webServer: {
-    command: 'npx tsx e2e/global-setup.ts && pnpm dev --port 3001',
-    url: 'http://localhost:3001',
+    command: 'node --import tsx e2e/setup-test-db.ts && node node_modules/next/dist/bin/next dev --port 3099',
+    url: 'http://localhost:3099',
     timeout: 120_000,
     reuseExistingServer: false,
     env: {
-      // DB separada para E2E — se inicializa antes del test en globalSetup
       DB_PATH: './db/sagaf.test.db',
-      // Secret TOTP conocido para el usuario de prueba (base32, 20 bytes)
       E2E_TOTP_SECRET: 'JBSWY3DPEHPK3PXP',
     },
   },
@@ -59,5 +63,5 @@ export default defineConfig({
   // Setup global: inicializa la DB de test con el schema y seed mínimo
   // globalSetup: './e2e/global-setup.ts',
   // Teardown: limpieza de la DB de test
-  globalTeardown: './e2e/global-teardown.ts',
+  // globalTeardown: './e2e/global-teardown.ts',
 });
