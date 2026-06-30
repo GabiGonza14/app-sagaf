@@ -20,6 +20,14 @@ interface Props {
   sujetos: Sujeto[];
 }
 
+const ROL_LABEL: Record<string, string> = {
+  sujeto_obligado: 'Sujeto Obligado',
+  analista: 'Analista',
+  supervisor: 'Supervisor',
+  auditor: 'Auditor',
+  admin: 'Administrador',
+};
+
 export function UsuarioActions({
   usuarioId, nombreActual, correoActual, estadoActual, rolActualId,
   sujetoObligadoId, roles, sujetos,
@@ -146,7 +154,7 @@ export function UsuarioActions({
               <div className="field">
                 <label>Rol</label>
                 <CustomSelect value={rolId} onChange={(e) => setRolId(e.target.value)} required>
-                  {roles.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+                  {roles.map((r) => <option key={r.id} value={r.id}>{ROL_LABEL[r.nombre] ?? r.nombre}</option>)}
                 </CustomSelect>
               </div>
               {requiresSujeto && (

@@ -1,15 +1,16 @@
 // POST /api/mfa/verify — Verifica el código TOTP del usuario.
-// En éxito actualiza el JWT con mfaVerified=true directamente en la cookie
-// y devuelve `ok:true`; el cliente solo debe navegar a su panel.
+// En éxito re-codifica el JWT con mfaVerified=true y lo devuelve en Set-Cookie;
+// el cliente solo debe navegar a su panel.
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { encode, decode } from 'next-auth/jwt';
+import { cookies } from 'next/headers';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { verifyCode } from '@/lib/totp';
 import { decryptString } from '@/lib/crypto';
 import { audit, extractRequestContext } from '@/lib/audit';
 import { checkRateLimit, clearRateLimit } from '@/lib/rate-limit';
-import { encode, decode } from '@auth/core/jwt';
 
 const schema = z.object({ code: z.string().regex(/^\d{6}$/) });
 
@@ -83,57 +84,33 @@ export async function POST(req: Request) {
 
   clearRateLimit(ctx.ip);
 
-  // Forzar actualización del token de sesión en el cliente para que el middleware vea mfaVerified=true
-  const useSecureCookies = process.env.NEXTAUTH_URL?.startsWith('https') ?? false;
-  const cookiePrefix = useSecureCookies ? '__Secure-' : '';
-  const cookieName = `${cookiePrefix}authjs.session-token`;
+  // Actualiza el JWT directamente en la cookie para que el middleware
+  // vea mfaVerified=true en la siguiente navegación sin depender de
+  // session.update() del cliente.
+  const isProduction = process.env.NODE_ENV === 'production';
+  const cookieName = isProduction
+    ? '__Secure-authjs.session-token'
+    : 'authjs.session-token';
+  const secret = process.env.AUTH_SECRET!;
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get(cookieName)?.value;
 
-  const cookieHeader = req.headers.get('cookie') || '';
-  const allCookies: { name: string; value: string }[] = [];
-  cookieHeader.split(';').forEach(c => {
-    const idx = c.indexOf('=');
-    if (idx > 0) {
-      const name = c.substring(0, idx).trim();
-      const value = c.substring(idx + 1).trim();
-      allCookies.push({ name, value });
-    }
-  });
-
-  const chunks = allCookies
-    .filter(c => c.name === cookieName || c.name.startsWith(cookieName + '.'))
-    .sort((a, b) => {
-      const aSuffix = parseInt(a.name.split('.').pop() || '0');
-      const bSuffix = parseInt(b.name.split('.').pop() || '0');
-      return aSuffix - bSuffix;
-    });
-
-  if (chunks.length > 0) {
-    const tokenValue = chunks.map(c => c.value).join('');
-    try {
-      const decoded = await decode({
-        token: tokenValue,
-        secret: process.env.AUTH_SECRET!,
+  if (sessionToken) {
+    const decoded = await decode({ token: sessionToken, secret, salt: cookieName });
+    if (decoded) {
+      const encoded = await encode({
+        token: { ...decoded, mfaVerified: true },
+        secret,
         salt: cookieName,
       });
-      if (decoded) {
-        decoded.mfaVerified = true;
-        const newToken = await encode({
-          token: decoded,
-          secret: process.env.AUTH_SECRET!,
-          salt: cookieName,
-          maxAge: 30 * 24 * 60 * 60,
-        });
-        const response = NextResponse.json({ ok: true });
-        response.cookies.set(cookieName, newToken, {
-          httpOnly: true,
-          sameSite: 'lax',
-          path: '/',
-          secure: useSecureCookies,
-        });
-        return response;
-      }
-    } catch {
-      // Si falla la actualización del JWT, responder ok de todas formas
+      const res = NextResponse.json({ ok: true });
+      res.cookies.set(cookieName, encoded, {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'lax',
+        path: '/',
+      });
+      return res;
     }
   }
 

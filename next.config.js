@@ -28,13 +28,19 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    serverComponentsExternalPackages: ['better-sqlite3'],
+    serverComponentsExternalPackages: [
+      'better-sqlite3',
+      'pdf-parse',
+      '@napi-rs/canvas',
+      'tesseract.js',
+      'pdfjs-dist',
+    ],
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
   webpack: (config) => {
-    config.externals.push('better-sqlite3');
+    config.externals.push('better-sqlite3', 'pdf-parse', '@napi-rs/canvas', 'tesseract.js');
     return config;
   },
 };

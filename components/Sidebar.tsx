@@ -1,7 +1,7 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { LogOut, X } from 'lucide-react';
 import { ConfirmModal } from './ConfirmModal';
@@ -14,6 +14,7 @@ export interface NavItem {
   label: string;
   icon: ReactNode;
   badge?: number;
+  badgeTone?: 'green' | 'amber' | 'blue';
 }
 
 interface Props {
@@ -27,8 +28,18 @@ interface Props {
 
 export function Sidebar({ role, userName, navItems, note, mobileOpen, onClose }: Props) {
   const path = usePathname();
+  const router = useRouter();
   const { hasUnsavedChanges, requestNavigate } = useNavigationGuard();
   const [showSignOut, setShowSignOut] = useState(false);
+  const prefetched = useRef(false);
+
+  useEffect(() => {
+    if (prefetched.current) return;
+    prefetched.current = true;
+    for (const item of navItems) {
+      router.prefetch(item.href);
+    }
+  }, [navItems, router]);
   const roleLabel: Record<Role, string> = {
     sujeto_obligado: 'Portal del Sujeto Obligado',
     analista:        'Sistema interno UAF',
@@ -89,7 +100,7 @@ export function Sidebar({ role, userName, navItems, note, mobileOpen, onClose }:
               <span style={{ display: 'flex', alignItems: 'center', marginRight: 4 }}>{item.icon}</span>
               {item.label}
               {item.badge ? (
-                <span className="nav-badge" aria-label={`${item.badge} pendiente(s)`}>{item.badge}</span>
+                <span className={`nav-badge nav-badge--${item.badgeTone ?? 'green'}`} aria-label={`${item.badge} pendiente(s)`}>{item.badge}</span>
               ) : null}
             </Link>
           );

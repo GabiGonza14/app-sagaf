@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
-import { auth } from '@/auth';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 
@@ -8,7 +8,7 @@ import { DiscardDraftButton } from './DiscardDraftButton';
 
 interface SujetoRow { id: string; nombre: string; tipo: string }
 interface PlantillaRow { id: string; nombre: string; tipo_sujeto_obligado: string }
-interface DocRow { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string }
+interface DocRow { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string; formatos_permitidos: string; tamano_maximo_mb: number }
 interface CampoRow { id: string; plantilla_id: string; nombre: string; tipo_dato: string; obligatorio: number; orden: number }
 
 interface RosRow {
@@ -41,7 +41,7 @@ function partyStatus(row: ParteRow): 'verified' | 'not_found' {
 
 export default async function EditarBorradorPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
   const soId = session.user.sujetoObligadoId!;
 
@@ -67,7 +67,7 @@ export default async function EditarBorradorPage({ params }: { params: Promise<{
   ).all(soId);
 
   const docs = db.prepare<[], DocRow>(
-    'SELECT id, plantilla_id, nombre, orden, tipo_requerimiento FROM documento_requerido ORDER BY plantilla_id, orden',
+    'SELECT id, plantilla_id, nombre, orden, tipo_requerimiento, formatos_permitidos, tamano_maximo_mb FROM documento_requerido ORDER BY plantilla_id, orden',
   ).all();
 
   const docsByPlantilla: Record<string, DocRow[]> = {};

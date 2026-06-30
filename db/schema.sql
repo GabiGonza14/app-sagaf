@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS documento_requerido (
   descripcion         TEXT,
   obligatorio         INTEGER NOT NULL DEFAULT 1,
   tipo_requerimiento  TEXT NOT NULL DEFAULT 'requerido',  -- requerido | condicional | opcional
-  formatos_permitidos TEXT NOT NULL DEFAULT 'pdf,jpg,png,doc,docx,xls,xlsx',
+  formatos_permitidos TEXT NOT NULL DEFAULT 'pdf,jpg,png',
   tamano_maximo_mb    INTEGER NOT NULL DEFAULT 10,
   orden               INTEGER NOT NULL,
   FOREIGN KEY (plantilla_id) REFERENCES plantilla_ros(id) ON DELETE CASCADE
@@ -122,7 +122,7 @@ CREATE TABLE IF NOT EXISTS ros (
   fecha_deteccion      TEXT NOT NULL,
   fecha_recepcion      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   estado               TEXT NOT NULL DEFAULT 'recibido',
-  -- borrador | recibido | en_analisis | revision_documental | subsanacion | escalado | cerrado | vinculado
+  -- borrador | recibido | en_analisis | en_revision_vinculo | revision_documental | subsanacion | riesgo_clasificado | cerrado
   descripcion          TEXT NOT NULL,
   observaciones        TEXT,                        -- A3: justificación de documentos pendientes (CU-01)
   canal_recepcion      TEXT NOT NULL DEFAULT 'portal_publico',
@@ -215,8 +215,11 @@ CREATE TABLE IF NOT EXISTS documento_adjunto (
   FOREIGN KEY (cargado_por)            REFERENCES usuario(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_doc_ros ON documento_adjunto(ros_id);
-
+CREATE INDEX IF NOT EXISTS idx_doc_ros          ON documento_adjunto(ros_id);
+CREATE INDEX IF NOT EXISTS idx_doc_req_id       ON documento_adjunto(documento_requerido_id);
+CREATE INDEX IF NOT EXISTS idx_doc_req_plantilla ON documento_requerido(plantilla_id, tipo_requerimiento);
+CREATE INDEX IF NOT EXISTS idx_parte_ros        ON parte_involucrada(ros_id);
+CREATE INDEX IF NOT EXISTS idx_op_ros           ON operacion_sospechosa(ros_id);
 -- ------------------------------------------------------------------
 -- Análisis y clasificación (CU-02)
 -- ------------------------------------------------------------------
@@ -239,6 +242,10 @@ CREATE TABLE IF NOT EXISTS riesgo_caso (
   justificacion       TEXT NOT NULL,              -- obligatoria (RF-02)
   clasificado_por     TEXT NOT NULL,
   fecha_clasificacion TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  anulado             INTEGER NOT NULL DEFAULT 0, -- 1 = revertido
+  anulado_por         TEXT,                       -- quien revirtio
+  anulado_justificacion TEXT,                     -- por que se revirtio
+  fecha_anulacion     TEXT,                       -- cuando se anulo
   FOREIGN KEY (ros_id)          REFERENCES ros(id) ON DELETE CASCADE,
   FOREIGN KEY (clasificado_por) REFERENCES usuario(id)
 );
@@ -268,7 +275,7 @@ CREATE TABLE IF NOT EXISTS solicitud_subsanacion (
   documento_adjunto_id  TEXT,                     -- documento observado (ya cargado), si aplica
   documento_requerido_id TEXT,                    -- slot de plantilla solicitado (doc pendiente)
   motivo          TEXT NOT NULL,
-  estado          TEXT NOT NULL DEFAULT 'pendiente', -- pendiente | atendida | vencida
+  estado          TEXT NOT NULL DEFAULT 'pendiente', -- pendiente | atendida
   solicitada_por  TEXT NOT NULL,
   fecha_solicitud TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   fecha_limite    TEXT,                                -- vence N días después de la solicitud
@@ -279,6 +286,9 @@ CREATE TABLE IF NOT EXISTS solicitud_subsanacion (
   FOREIGN KEY (documento_requerido_id) REFERENCES documento_requerido(id),
   FOREIGN KEY (solicitada_por)       REFERENCES usuario(id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_subs_estado      ON solicitud_subsanacion(estado);
+CREATE INDEX IF NOT EXISTS idx_subs_ros         ON solicitud_subsanacion(ros_id);
 
 -- ------------------------------------------------------------------
 -- Reportes (CU-04)

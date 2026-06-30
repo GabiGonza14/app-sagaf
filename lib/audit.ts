@@ -1,6 +1,7 @@
 // lib/audit.ts — Auditoría inmutable (RF-03, RNF-03, CU-03)
 // Cada acción relevante debe registrarse. La hora la genera el servidor (DEF-30).
 import { randomUUID } from 'node:crypto';
+import { cache } from 'react';
 import { db } from './db';
 
 export type AuditCriticidad = 'normal' | 'alta' | 'critica';
@@ -46,6 +47,13 @@ export function audit(payload: AuditPayload): void {
     payload.criticidad ?? 'normal',
   );
 }
+
+// Deduplicates audit calls within a single render pass.
+// React Strict Mode double-invokes Server Components; this prevents duplicate log entries.
+// Use in Server Components instead of audit() directly.
+export const auditOnce = cache((_key: string, payloadJson: string) => {
+  audit(JSON.parse(payloadJson) as AuditPayload);
+});
 
 export function extractClientIp(h: Headers): string | null {
   const proxyIp =

@@ -100,10 +100,10 @@ export async function PATCH(req: Request) {
     'UPDATE vinculo_intersectorial SET confirmado = ?, decidido_por = ?, fecha_decision = CURRENT_TIMESTAMP WHERE id = ?',
   ).run(parsed.data.confirmado ? 1 : 0, session.user.id, parsed.data.id);
 
-  // Si confirmado, el ROS pasa a estado 'vinculado'
+  // Si confirmado, el ROS pasa a estado 'en_revision_vinculo'
   if (parsed.data.confirmado) {
     db.prepare('UPDATE ros SET estado = ? WHERE id IN (?, ?)')
-      .run('vinculado', v.ros_origen_id, v.ros_destino_id);
+      .run('en_revision_vinculo', v.ros_origen_id, v.ros_destino_id);
   }
 
   // A4 — Coincidencia de alto riesgo: verificar si alguno de los ROS tiene riesgo alto

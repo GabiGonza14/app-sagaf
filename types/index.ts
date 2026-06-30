@@ -6,11 +6,11 @@ export type RosEstado =
   | 'borrador'
   | 'recibido'
   | 'en_analisis'
+  | 'en_revision_vinculo'
   | 'revision_documental'
   | 'subsanacion'
-  | 'escalado'
-  | 'cerrado'
-  | 'vinculado';
+  | 'riesgo_clasificado'
+  | 'cerrado';
 
 export type RiesgoNivel = 'bajo' | 'medio' | 'alto';
 
@@ -138,7 +138,7 @@ export interface SolicitudSubsanacion {
   ros_id: string;
   documento_adjunto_id: string | null;
   motivo: string;
-  estado: 'pendiente' | 'atendida' | 'vencida';
+  estado: 'pendiente' | 'atendida';
   solicitada_por: string;
   fecha_solicitud: string;
   fecha_respuesta: string | null;

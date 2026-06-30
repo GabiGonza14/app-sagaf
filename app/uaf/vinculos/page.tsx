@@ -1,4 +1,4 @@
-import { auth } from '@/auth';
+﻿import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
@@ -23,7 +23,7 @@ interface Row {
 }
 
 export default async function VinculosPage() {
-  const session = await auth();
+  const session = await getSession();
   const filas = db.prepare<[], Row>(
     `
     SELECT v.id, v.ros_origen_id, v.ros_destino_id, v.tipo_vinculo, v.descripcion, v.confirmado, v.decidido_por, v.fecha_deteccion,
@@ -50,7 +50,7 @@ export default async function VinculosPage() {
 
       <div className="card">
         {filas.length === 0 ? (
-          <div className="notice">Sin vínculos detectados por el momento.</div>
+          <div className="notice" style={{ marginBottom: 0 }}>Sin vínculos detectados por el momento.</div>
         ) : (
           <div className="report-list">
             {filas.map((v) => {

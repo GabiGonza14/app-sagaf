@@ -11,21 +11,20 @@ export function MfaVerifyForm({ qr }: Props) {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const ok = await verify(code);
+    // La cookie JWT ya viene actualizada (mfaVerified=true) en la respuesta del POST.
     if (ok) globalThis.location.href = '/';
   }
 
   return (
     <>
-      <div style={{ display: 'grid', gap: 14, gridTemplateColumns: '1fr', alignItems: 'start' }}>
-        {qr && (
-          <div className="qr-box">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qr} alt="Código QR para MFA" width={240} height={240} />
-          </div>
-        )}
-      </div>
+      {qr && (
+        <div className="qr-box" style={{ marginBottom: 18 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qr} alt="Código QR para MFA" width={240} height={240} />
+        </div>
+      )}
 
-      <form onSubmit={onSubmit} style={{ marginTop: 18 }}>
+      <form onSubmit={onSubmit} style={{ marginTop: 0 }}>
         <div className="form-grid">
           <div className="field full">
             <label htmlFor="code">Código de 6 dígitos</label>

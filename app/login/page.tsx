@@ -1,5 +1,6 @@
-import { redirect } from 'next/navigation';
-import { auth, signIn } from '@/auth';
+﻿import { redirect } from 'next/navigation';
+import { signIn } from '@/auth'
+import { getSession } from '@/lib/session';
 import { AuthError } from 'next-auth';
 import { LoginSubmitButton } from './LoginSubmitButton';
 import { PasswordInput } from '@/components/PasswordInput';
@@ -24,7 +25,7 @@ async function loginAction(formData: FormData): Promise<void> {
 interface SearchParams { error?: string }
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const session = await auth();
+  const session = await getSession();
   if (session?.user?.mfaVerified) redirect('/');
   if (session?.user) redirect('/mfa/verify');
 

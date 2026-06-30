@@ -1,4 +1,4 @@
-import { auth } from '@/auth';
+﻿import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
@@ -7,6 +7,14 @@ import { NuevoUsuarioForm } from './NuevoUsuarioForm';
 import { UsuarioActions } from './UsuarioActions';
 
 export const revalidate = 0;
+
+const ROL_LABEL: Record<string, string> = {
+  sujeto_obligado: 'Sujeto Obligado',
+  analista: 'Analista',
+  supervisor: 'Supervisor',
+  auditor: 'Auditor',
+  admin: 'Administrador',
+};
 
 interface UserRow {
   id: string;
@@ -24,7 +32,7 @@ interface UserRow {
 interface SujetoRow { id: string; nombre: string }
 
 export default async function UsuariosAdmin() {
-  const session = await auth();
+  const session = await getSession();
 
   const users = db.prepare<[], UserRow>(
     `
@@ -71,7 +79,7 @@ export default async function UsuariosAdmin() {
               <tr key={u.id}>
                 <td>{u.nombre}</td>
                 <td>{u.correo}</td>
-                <td><Badge tone="blue">{u.rol}</Badge></td>
+                <td><Badge tone="blue">{ROL_LABEL[u.rol] ?? u.rol}</Badge></td>
                 <td>{u.sujeto_nombre ?? '—'}</td>
                 <td><Badge tone={u.estado === 'activo' ? 'green' : 'red'}>{u.estado}</Badge></td>
                 <td>

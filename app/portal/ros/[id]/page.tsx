@@ -1,11 +1,11 @@
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { auth } from '@/auth';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge, estadoTone, estadoLabel, riskTone } from '@/components/Badge';
 import { formatPanama, formatPanamaDate } from '@/lib/date';
 import { InfoBox } from '@/components/InfoBox';
+import { CheckCircle, FileText } from 'lucide-react';
 
 import { canAccessROS } from '@/lib/permissions';
 import { ResubmitDocCard } from './ResubmitDocCard';
@@ -46,6 +46,8 @@ interface DocReqRow {
   nombre: string;
   orden: number;
   tipo_requerimiento: string;
+  formatos_permitidos: string;
+  tamano_maximo_mb: number;
 }
 
 interface DocAdjRow {
@@ -70,7 +72,7 @@ interface RiesgoRow { nivel: string; justificacion: string }
 
 export default async function RosDetailPortal({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
 
   const ros = db.prepare<[string], RosRow>(
@@ -101,7 +103,7 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
   ).all(id);
 
   const docsReq = db.prepare<[string], DocReqRow>(
-    'SELECT id, nombre, orden, tipo_requerimiento FROM documento_requerido WHERE plantilla_id = ? ORDER BY orden',
+    'SELECT id, nombre, orden, tipo_requerimiento, formatos_permitidos, tamano_maximo_mb FROM documento_requerido WHERE plantilla_id = ? ORDER BY orden',
   ).all(ros.plantilla_id);
 
   const docsAdj = db.prepare<[string], DocAdjRow>(
@@ -133,18 +135,9 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
         eyebrow="Detalle del ROS"
         title={`${ros.numero_ros} · ${estadoLabel(ros.estado, 'portal')}`}
         description="Visualiza el estado, completitud documental y solicitudes de subsanación de la UAF."
-        right={
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {ros.estado === 'borrador' && (
-              <Link href={`/portal/ros/${ros.id}/editar`} className="btn primary" style={{ padding: '7px 12px', fontSize: 12 }}>
-                Continuar edición
-              </Link>
-            )}
-          </div>
-        }
       />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+<div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
         <div className="card">
           <div className="panel-head"><div><h3>Resumen</h3><p>Datos generales del reporte.</p></div></div>
 
@@ -157,9 +150,9 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
             <InfoBox label="Riesgo asignado" value={riesgo ? <Badge tone={riskTone(riesgo.nivel)}>{riesgo.nivel}</Badge> : <span className="small">Sin clasificar aún</span>} />
             {op && (
               <>
-                <InfoBox label="Monto" value={`USD ${op.monto.toLocaleString('en-US')}`} />
+                <InfoBox label="Monto" value={`$${op.monto.toLocaleString('en-US')}`} />
                 <InfoBox label="Jurisdicción" value={op.jurisdiccion ?? '—'} />
-                <InfoBox label="Señal de alerta" value={op.senal_alerta} />
+                <InfoBox label="Riesgo reportado" value={op.senal_alerta} />
                 <InfoBox label="Producto / Bien" value={op.producto_servicio ?? op.bien_inmueble ?? '—'} />
               </>
             )}
@@ -270,7 +263,9 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
                 index={globalIdx}
                 nombre={dr.nombre}
                 tipoRequerimiento={dr.tipo_requerimiento}
-                readOnly={ros.estado !== 'borrador' && adj?.estado !== 'observado' && !solicitudMotivo}
+                formatos={dr.formatos_permitidos}
+                maxMb={dr.tamano_maximo_mb}
+                readOnly={ros.estado === 'cerrado' || (ros.estado !== 'borrador' && adj?.estado !== 'observado' && !solicitudMotivo)}
                 solicitudMotivo={solicitudMotivo}
                 adjunto={adj ? {
                   id: adj.id,
@@ -320,22 +315,43 @@ export default async function RosDetailPortal({ params }: { params: Promise<{ id
         })()}
 
         {extras.length > 0 && (
-          <div style={{ marginTop: 18 }}>
-            <h4 style={{ margin: '0 0 10px', fontSize: 14 }}>Evidencia adicional no catalogada</h4>
+          <>
+            <div className="doc-group-label" style={{ marginTop: 18 }}>
+              <span className="doc-group-dot" style={{ background: 'var(--muted)' }} />
+              Evidencia adicional no catalogada — {extras.length} {extras.length === 1 ? 'archivo' : 'archivos'}
+              <span className="doc-group-line" />
+            </div>
             <div className="doc-grid">
               {extras.map((e) => (
-                <div key={e.id} className="doc-card">
+                <div key={e.id} className="doc-card uploaded">
                   <div className="doc-top">
-                    <div className="doc-title">{e.nombre_archivo}</div>
-                    <span className="badge gray">extra</span>
+                    <div className="doc-title">
+                      <FileText size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 5, opacity: 0.6 }} />
+                      {e.nombre_archivo}
+                    </div>
+                    <span className="badge green">Cargado</span>
                   </div>
-                  <div className="small" style={{ color: 'var(--muted)' }}>
-                    Cargado: {formatPanama(e.fecha_carga)}
+                  <div className="upload-zone has-file" style={{ marginBottom: 0 }}>
+                    <div className="upload-zone-content">
+                      <CheckCircle size={18} className="upload-zone-icon uploaded" />
+                      <div>
+                        <a
+                          href={`/documentos/${e.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="upload-zone-filename"
+                          style={{ color: 'var(--primary)', textDecoration: 'none' }}
+                        >
+                          {e.nombre_archivo}
+                        </a>
+                        <div className="upload-zone-size">Documento adjunto · {formatPanama(e.fecha_carga)}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </>
         )}
       </div>
     </>

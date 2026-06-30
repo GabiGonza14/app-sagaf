@@ -121,11 +121,20 @@ export function PlantillaEditor({
   }
 
   // --- Alta de documento ---
+  const FORMATOS_OPC = ['pdf', 'jpg', 'png', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv'];
   const [dNombre, setDNombre] = useState('');
   const [dDesc, setDDesc] = useState('');
   const [dTipo, setDTipo] = useState('requerido');
-  const [dFormatos, setDFormatos] = useState('pdf,jpg,png');
+  const [dFormatosSet, setDFormatosSet] = useState<Set<string>>(new Set(['pdf', 'jpg', 'png']));
   const [dMax, setDMax] = useState(10);
+
+  function toggleFormato(fmt: string) {
+    setDFormatosSet(prev => {
+      const next = new Set(prev);
+      if (next.has(fmt)) next.delete(fmt); else next.add(fmt);
+      return next;
+    });
+  }
   const [addingDoc, setAddingDoc] = useState(false);
   const [docErr, setDocErr] = useState<string | null>(null);
 
@@ -139,13 +148,14 @@ export function PlantillaEditor({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nombre: dNombre.trim(), descripcion: dDesc.trim() || null,
-          tipo_requerimiento: dTipo, formatos_permitidos: dFormatos.trim() || 'pdf,jpg,png',
+          tipo_requerimiento: dTipo,
+          formatos_permitidos: dFormatosSet.size > 0 ? FORMATOS_OPC.filter(f => dFormatosSet.has(f)).join(',') : 'pdf,jpg,png',
           tamano_maximo_mb: Number(dMax) || 10,
         }),
       });
       const data = await res.json();
       if (!res.ok) { setDocErr(data.error ?? 'Error.'); return; }
-      setDNombre(''); setDDesc(''); setDTipo('requerido'); setDFormatos('pdf,jpg,png'); setDMax(10);
+      setDNombre(''); setDDesc(''); setDTipo('requerido'); setDFormatosSet(new Set(['pdf', 'jpg', 'png'])); setDMax(10);
       router.refresh();
     } finally { setAddingDoc(false); }
   }
@@ -316,9 +326,27 @@ export function PlantillaEditor({
                 {Object.entries(REQ_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </CustomSelect>
             </div>
-            <div className="field">
-              <label htmlFor="d-formatos">Formatos permitidos</label>
-              <input id="d-formatos" value={dFormatos} onChange={(e) => setDFormatos(e.target.value)} placeholder="pdf,jpg,png" />
+            <div className="field full">
+              <label>Formatos permitidos</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 6 }}>
+                {FORMATOS_OPC.map(fmt => (
+                  <label key={fmt} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5, cursor: 'pointer',
+                    padding: '4px 10px', borderRadius: 6, fontSize: 13, fontWeight: 500,
+                    border: `1.5px solid ${dFormatosSet.has(fmt) ? 'var(--primary)' : 'var(--line)'}`,
+                    background: dFormatosSet.has(fmt) ? 'var(--primary-bg, #eff6ff)' : 'transparent',
+                    color: dFormatosSet.has(fmt) ? 'var(--primary)' : 'var(--muted)',
+                    userSelect: 'none',
+                  }}>
+                    <input type="checkbox" checked={dFormatosSet.has(fmt)} onChange={() => toggleFormato(fmt)}
+                           style={{ display: 'none' }} />
+                    {fmt}
+                  </label>
+                ))}
+              </div>
+              {dFormatosSet.size === 0 && (
+                <div className="small" style={{ color: 'var(--red)', marginTop: 4 }}>Selecciona al menos un formato.</div>
+              )}
             </div>
             <div className="field">
               <label htmlFor="d-max">Tamaño máx. (MB)</label>
@@ -343,7 +371,7 @@ export function PlantillaEditor({
       <div className="card" style={{ marginTop: 18 }}>
         <h3 style={{ margin: '0 0 4px' }}>Sujetos obligados que la usan</h3>
         <p className="small" style={{ marginBottom: 12, color: 'var(--muted)' }}>
-          La asociación se gestiona desde cada sujeto obligado.
+          La asociación es automática: se vinculan los sujetos obligados cuyo tipo y sector coinciden con esta plantilla.
         </p>
         {sujetos.length === 0 ? (
           <div className="notice">

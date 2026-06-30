@@ -1,8 +1,8 @@
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-import { auth } from '@/auth';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
-import { audit, extractClientIp } from '@/lib/audit';
+import { auditOnce, extractClientIp } from '@/lib/audit';
 import { TopBar } from '@/components/TopBar';
 import { Badge, riskTone, estadoTone, estadoLabel } from '@/components/Badge';
 import { formatPanama } from '@/lib/date';
@@ -83,7 +83,7 @@ interface SubsRow {
 
 export default async function ExpedienteUaf({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
 
   const ros = db.prepare<[string], RosRow>(
@@ -100,14 +100,14 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
     ).get(id, session.user.id);
     if (!asignado) {
       const h2 = await headers();
-      audit({
+      auditOnce('consulta_expediente_bloqueado', JSON.stringify({
         modulo: 'expediente', accion: 'consulta_expediente', resultado: 'bloqueado',
         usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
         recurso_afectado: ros.numero_ros,
         ip: extractClientIp(h2),
         user_agent: h2.get('user-agent'),
         criticidad: 'alta',
-      });
+      }));
       return (
         <>
           <TopBar eyebrow="Expediente del ROS" title={ros.numero_ros}
@@ -122,13 +122,13 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
   }
 
   const h = await headers();
-  audit({
+  auditOnce('consulta_expediente_exito', JSON.stringify({
     modulo: 'expediente', accion: 'consulta_expediente', resultado: 'exito',
     usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
     recurso_afectado: ros.numero_ros,
     ip: extractClientIp(h),
     user_agent: h.get('user-agent'),
-  });
+  }));
 
   const partes = db.prepare<[string], ParteRow>(
     `SELECT id, rol_en_operacion, tipo_persona, identificador, identificador_enmascarado, nombre_visible
@@ -160,7 +160,8 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
     `SELECT rc.id, rc.nivel, rc.puntaje, rc.justificacion, rc.fecha_clasificacion,
             u.nombre AS clasificado_por_nombre
        FROM riesgo_caso rc JOIN usuario u ON u.id = rc.clasificado_por
-      WHERE rc.ros_id = ? ORDER BY rc.fecha_clasificacion DESC`,
+      WHERE rc.ros_id = ? AND rc.anulado = 0
+      ORDER BY rc.fecha_clasificacion DESC`,
   ).all(id);
   const riesgoActual = riesgos[0] ?? null;
 
@@ -176,6 +177,8 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
        WHERE (v.ros_origen_id = ? OR v.ros_destino_id = ?)
          AND (v.confirmado = 1 OR v.decidido_por IS NULL)`,
   ).all(id, id, id);
+  const vinculosConfirmados = vinculos.filter((v) => v.confirmado === 1).length;
+  const vinculosPendientes  = vinculos.filter((v) => v.confirmado === 0).length;
 
   const auditoria = db.prepare<[string, string], AuditoriaRow>(
     `SELECT fecha_hora_servidor, usuario_correo, rol, accion, modulo, resultado, criticidad, detalle
@@ -183,12 +186,6 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
       WHERE recurso_afectado = ? OR recurso_afectado = (SELECT numero_ros FROM ros WHERE id = ?)
       ORDER BY fecha_hora_servidor DESC LIMIT 30`,
   ).all(id, id);
-
-  // A4: marcar como vencidas las subsanaciones que superaron su fecha límite
-  db.prepare(
-    `UPDATE solicitud_subsanacion SET estado = 'vencida'
-      WHERE estado = 'pendiente' AND fecha_limite IS NOT NULL AND fecha_limite < date('now')`,
-  ).run();
 
   const subs = db.prepare<[string], SubsRow>(
     `SELECT id, motivo, estado, fecha_solicitud, fecha_limite, documento_adjunto_id, documento_requerido_id
@@ -207,13 +204,10 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
   const opcionalesCargados = countCargados(docsReqOpcionales);
   const completitudObligatoria = docsReqObligatorios.length === 0
     ? 100
-    : Math.round((obligatoriosCargados / docsReqObligatorios.length) * 100);
-
-  const canClassify = ['analista', 'supervisor'].includes(session.user.rol);
-  const canClose = session.user.rol === 'supervisor';
+      : Math.round((obligatoriosCargados / docsReqObligatorios.length) * 100);
 
   const asignacion = db.prepare<[string], AsignacionRow>(
-    `SELECT ar.analista_id, u.nombre AS analista_nombre, ar.fecha_asignacion,
+    `SELECT ar.analista_id, rtrim(u.nombre, ', ') AS analista_nombre, ar.fecha_asignacion,
             us.nombre AS asignado_por_nombre
        FROM asignacion_ros ar
        JOIN usuario u  ON u.id  = ar.analista_id
@@ -221,11 +215,28 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
       WHERE ar.ros_id = ? AND ar.activa = 1`,
   ).get(id) ?? null;
 
+  const canClassify = session.user.rol === 'supervisor'
+    || (session.user.rol === 'analista' && asignacion?.analista_id === session.user.id);
+  const canClose = session.user.rol === 'supervisor';
+  const canReopen = session.user.rol === 'supervisor';
+  const canRevertRiesgo = session.user.rol === 'supervisor'
+    || (session.user.rol === 'analista' && asignacion?.analista_id === session.user.id);
+
+  // Workflow: docs obligatorios resueltos (validado o no aplica) para gatear Riesgo.
+  // Si un obligatorio queda observado/cargado/pendiente, se espera corrección o validación antes de clasificar.
+  const requiredValidados = docsReq.filter((r) =>
+    r.tipo_requerimiento === 'requerido' &&
+    docsAdj.some((d) => d.documento_requerido_id === r.id && ['validado', 'no_aplica'].includes(d.estado)),
+  ).length;
+  const requiredTotal = docsReq.filter((d) => d.tipo_requerimiento === 'requerido').length;
+  const allRequiredDocsValidated = requiredTotal === 0 || requiredValidados >= requiredTotal;
+  const riesgoClasificado = !!riesgoActual;
+
   const analistas = canClose
     ? db.prepare<[], AnalistaRow>(
-        `SELECT u.id, u.nombre FROM usuario u
+        `SELECT u.id, rtrim(u.nombre, ', ') AS nombre FROM usuario u
            JOIN rol r ON r.id = u.rol_id
-          WHERE r.nombre IN ('analista', 'supervisor') AND u.estado = 'activo'
+          WHERE r.nombre = 'analista' AND u.estado = 'activo'
           ORDER BY u.nombre`,
       ).all()
     : [];
@@ -237,54 +248,71 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
         eyebrow="Expediente del ROS"
         title={`${ros.numero_ros} · ${ros.sujeto_tipo === 'bank' ? 'Banco' : ros.sujeto_tipo === 'realestate' ? 'Inmobiliaria' : ros.sujeto_tipo}`}
         description="Reporte recibido desde el portal público. Datos sensibles enmascarados por defecto."
-        right={
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            {riesgoActual && <Badge tone={riskTone(riesgoActual.nivel)}>{`Riesgo ${riesgoActual.nivel}`}</Badge>}
-            <Badge tone={estadoTone(ros.estado)}>{estadoLabel(ros.estado)}</Badge>
-          </div>
-        }
       />
 
       <RosExpedienteTabs
         rosId={ros.id}
         numeroRos={ros.numero_ros}
+        estadoActual={ros.estado}
         canClassify={canClassify}
         canClose={canClose}
+        canReopen={canReopen}
+        canRevertRiesgo={canRevertRiesgo}
+        allRequiredDocsValidated={allRequiredDocsValidated}
+        requiredDocTotal={requiredTotal}
+        requiredDocValidated={requiredValidados}
+        riesgoClasificado={riesgoClasificado}
         summary={
           <div>
             <div className="summary-grid">
               <InfoBox label="Sujeto obligado" value={ros.sujeto_nombre} />
               <InfoBox label="Tipo" value={ros.sujeto_tipo === 'bank' ? 'Banco · Persona Jurídica/Natural' : ros.sujeto_tipo === 'realestate' ? 'Inmobiliaria / Promotora' : ros.sujeto_tipo} />
               <InfoBox label="Cliente" value={partes[0] ? <span className="masked" title="Identificador enmascarado">{partes[0].identificador_enmascarado}</span> : '—'} />
-              <InfoBox label="Monto reportado" value={op ? `USD ${op.monto.toLocaleString('en-US')}` : '—'} />
+              <InfoBox label="Monto reportado" value={op ? `$${op.monto.toLocaleString('en-US')}` : '—'} />
               <InfoBox label="Estado" value={<Badge tone={estadoTone(ros.estado)}>{estadoLabel(ros.estado)}</Badge>} />
-              <InfoBox label="Completitud" value={`${docsAdj.filter((d) => d.documento_requerido_id).length} de ${docsReq.length} documentos (${completitud}%)`} />
+              <InfoBox label="Completitud documental" value={
+                <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ color: obligatoriosCargados === docsReqObligatorios.length ? '#16a34a' : '#dc2626', fontWeight: 600, fontSize: 13 }}>
+                    {obligatoriosCargados}/{docsReqObligatorios.length} obligatorios
+                  </span>
+                  {docsReqCondicionales.length > 0 && (
+                    <span style={{ color: '#d97706', fontWeight: 600, fontSize: 13 }}>
+                      {condicionalesCargados}/{docsReqCondicionales.length} condicionales
+                    </span>
+                  )}
+                  {docsReqOpcionales.length > 0 && (
+                    <span style={{ color: '#6b7280', fontWeight: 600, fontSize: 13 }}>
+                      {opcionalesCargados}/{docsReqOpcionales.length} opcionales
+                    </span>
+                  )}
+                </span>
+              } />
             </div>
 
             <div className="info-box" style={{ marginTop: 12 }}>
               <span className="info-box-label">Resumen narrativo</span>
-              <strong>{ros.descripcion}</strong>
+              <strong style={{ fontWeight: 500, fontSize: 14, lineHeight: 1.6 }}>{ros.descripcion}</strong>
             </div>
 
             {op && (
-              <div className="card" style={{ marginTop: 12, padding: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 16 }}>Operación sospechosa</h3>
-                <p className="small" style={{ marginBottom: 12 }}>Detalles reportados por el sujeto obligado.</p>
+              <div className="card" style={{ marginTop: 12, padding: '16px 18px' }}>
+                <h3>Operación sospechosa</h3>
+                <p className="small">Detalles reportados por el sujeto obligado.</p>
                 <div className="summary-grid">
-                  <InfoBox label="Monto" value={`${op.moneda} ${op.monto.toLocaleString('en-US')}`} />
+                  <InfoBox label="Monto" value={`$${op.monto.toLocaleString('en-US')}`} />
                   {op.jurisdiccion && <InfoBox label="Jurisdicción" value={op.jurisdiccion} />}
                   {op.producto_servicio && <InfoBox label="Producto / servicio" value={op.producto_servicio} />}
                   {op.bien_inmueble && <InfoBox label="Bien inmueble" value={op.bien_inmueble} />}
                   {op.forma_pago && <InfoBox label="Forma de pago" value={op.forma_pago} />}
-                  <InfoBox label="Señal de alerta" value={op.senal_alerta} />
+                  <InfoBox label="Riesgo reportado" value={op.senal_alerta} />
                 </div>
               </div>
             )}
 
             {camposDin.length > 0 && (
-              <div className="card" style={{ marginTop: 12, padding: 14 }}>
-                <h3 style={{ margin: 0, fontSize: 16 }}>Información adicional de la plantilla</h3>
-                <p className="small" style={{ marginBottom: 12 }}>Campos definidos por la plantilla del sector.</p>
+              <div className="card" style={{ marginTop: 12, padding: '16px 18px' }}>
+                <h3>Información adicional de la plantilla</h3>
+                <p className="small">Campos definidos por la plantilla del sector.</p>
                 <div className="summary-grid">
                   {camposDin.map((c) => (
                     <InfoBox key={c.nombre} label={c.nombre} value={c.valor?.trim() ? c.valor : '—'} />
@@ -293,9 +321,9 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
               </div>
             )}
 
-            <div className="card" style={{ marginTop: 12, padding: 14 }}>
-              <h3 style={{ margin: 0, fontSize: 16 }}>Partes involucradas</h3>
-              <p className="small" style={{ marginBottom: 12 }}>Identificadores enmascarados por privacidad. Los datos completos requieren permisos de acceso UAF.</p>
+            <div className="card" style={{ marginTop: 12, padding: '16px 18px' }}>
+              <h3>Partes involucradas</h3>
+              <p className="small">Identificadores enmascarados por privacidad. Los datos completos requieren permisos de acceso UAF.</p>
               <div className="summary-grid">
                 {partes.map((p) => (
                   <InfoBox key={p.id} label={p.rol_en_operacion.replace(/_/g, ' ')}
@@ -312,7 +340,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
           <div>
             <ProgressList
               items={[
-                { label: 'Señales de alerta', value: riesgoActual?.puntaje ?? 0, badge: riesgoActual ? riesgoActual.nivel : 'sin clasificar', tone: riesgoActual ? riskTone(riesgoActual.nivel) : 'gray' },
+                { label: 'Riesgo reportado', value: riesgoActual?.puntaje ?? 0, badge: riesgoActual ? riesgoActual.nivel : 'sin clasificar', tone: riesgoActual ? riskTone(riesgoActual.nivel) : 'gray' },
                 {
                   label: 'Completitud documental obligatoria',
                   value: completitudObligatoria,
@@ -336,7 +364,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
                     },
                   ],
                 },
-                { label: 'Coincidencias con otros ROS', value: Math.min(vinculos.length * 25, 100), badge: `${vinculos.length} vínculo(s)`, tone: vinculos.length > 0 ? 'purple' : 'gray' },
+                { label: 'Coincidencias con otros ROS', value: Math.min(vinculosConfirmados * 25, 100), badge: `${vinculosConfirmados} confirmado(s)${vinculosPendientes > 0 ? ` · ${vinculosPendientes} pendiente(s)` : ''}`, tone: vinculosConfirmados > 0 ? 'purple' : vinculosPendientes > 0 ? 'amber' : 'gray' },
               ]}
             />
             {riesgos.length > 0 && (
@@ -355,19 +383,26 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
         docsReq={docsReq}
         docsAdj={docsAdj}
         vinculos={vinculos.map((v) => ({
-          id: v.id, numero_ros: v.numero_ros, tipo_vinculo: v.tipo_vinculo,
+          id: v.id, ros_destino_id: v.ros_destino_id, numero_ros: v.numero_ros, tipo_vinculo: v.tipo_vinculo,
           descripcion: v.descripcion, confirmado: v.confirmado === 1,
           alto_riesgo: (v as unknown as { alto_riesgo: number | null }).alto_riesgo === 1,
         }))}
         auditEvents={auditoria.map((a) => ({
-          title: `${a.accion} · ${a.usuario_correo ?? 'system'} (${a.rol ?? '—'})`,
-          description: `${formatPanama(a.fecha_hora_servidor)} · módulo ${a.modulo} · ${a.resultado}${a.detalle ? ` · ${a.detalle}` : ''}`,
-          tone: a.criticidad === 'critica' ? 'red' : a.criticidad === 'alta' ? 'amber' : 'default',
+          fecha: formatPanama(a.fecha_hora_servidor),
+          usuario: a.usuario_correo,
+          rol: a.rol,
+          accion: a.accion,
+          modulo: a.modulo,
+          resultado: a.resultado,
+          criticidad: a.criticidad,
+          detalle: a.detalle,
         }))}
         subs={subs}
         asignacion={asignacion}
         analistas={analistas}
         canAssign={canClose}
+        vinculosConfirmados={vinculosConfirmados}
+        vinculosPendientes={vinculosPendientes}
       />
     </>
   );

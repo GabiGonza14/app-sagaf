@@ -31,5 +31,14 @@ if (!subCols.some((c) => c.name === 'documento_requerido_id')) {
   console.log('[SAGAF] Migración: documento_requerido_id añadido a solicitud_subsanacion');
 }
 
+const riesgoCols = db.pragma('table_info(riesgo_caso)') as Array<{ name: string }>;
+if (!riesgoCols.some((c) => c.name === 'anulado')) {
+  db.exec("ALTER TABLE riesgo_caso ADD COLUMN anulado INTEGER NOT NULL DEFAULT 0");
+  db.exec("ALTER TABLE riesgo_caso ADD COLUMN anulado_por TEXT");
+  db.exec("ALTER TABLE riesgo_caso ADD COLUMN anulado_justificacion TEXT");
+  db.exec("ALTER TABLE riesgo_caso ADD COLUMN fecha_anulacion TEXT");
+  console.log('[SAGAF] Migración: columnas de anulación añadidas a riesgo_caso');
+}
+
 console.log(`[SAGAF] Base de datos inicializada en ${dbPath}`);
 db.close();

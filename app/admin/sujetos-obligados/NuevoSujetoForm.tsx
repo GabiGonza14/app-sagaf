@@ -4,8 +4,6 @@ import { useRouter } from 'next/navigation';
 import CustomSelect from '@/components/CustomSelect';
 import { SuccessModal } from '@/components/SuccessModal';
 
-interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
-
 const TIPO_LABEL: Record<string, string> = {
   bank:       'Banco',
   realestate: 'Inmobiliaria',
@@ -23,10 +21,8 @@ const TIPO_SECTOR_MAP: Record<string, string> = {
 };
 
 export function NuevoSujetoForm({
-  plantillas,
   tiposDisponibles,
 }: {
-  plantillas: Plantilla[];
   tiposDisponibles: string[];
 }) {
   const router = useRouter();
@@ -41,16 +37,9 @@ export function NuevoSujetoForm({
 
   const [organismo, setOrganismo] = useState('');
   const [responsable, setResponsable] = useState('');
-  const [seleccionadas, setSeleccionadas] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successModal, setSuccessModal] = useState(false);
-
-  const compatibles = plantillas.filter((p) => p.tipo_sujeto_obligado === tipo);
-
-  function toggle(id: string) {
-    setSeleccionadas((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -63,10 +52,6 @@ export function NuevoSujetoForm({
       setError('El responsable de cumplimiento es obligatorio.');
       return;
     }
-    if (seleccionadas.length === 0) {
-      setError('Debe asociar al menos una plantilla ROS.');
-      return;
-    }
     setBusy(true);
     try {
       const res = await fetch('/api/sujetos-obligados', {
@@ -76,12 +61,11 @@ export function NuevoSujetoForm({
           nombre, ruc, tipo, sector, estado,
           organismo_supervisor: organismo,
           responsable_cumpl: responsable,
-          plantillas: seleccionadas,
         }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Error.'); return; }
-      setNombre(''); setRuc(''); setOrganismo(''); setResponsable(''); setSeleccionadas([]);
+      setNombre(''); setRuc(''); setOrganismo(''); setResponsable('');
       setEstado('activo');
       setSuccessModal(true);
       router.refresh();
@@ -108,7 +92,7 @@ export function NuevoSujetoForm({
         </div>
         <div className="field">
           <label htmlFor="so-tipo">Tipo</label>
-          <CustomSelect id="so-tipo" value={tipo} onChange={(e) => { setTipo(e.target.value); setSeleccionadas([]); }} placeholder="— Seleccione —" required>
+          <CustomSelect id="so-tipo" value={tipo} onChange={(e) => setTipo(e.target.value)} placeholder="— Seleccione —" required>
             {tiposDisponibles.map((t) => (
               <option key={t} value={t}>{TIPO_LABEL[t] ?? t}</option>
             ))}
@@ -134,26 +118,6 @@ export function NuevoSujetoForm({
         <div className="field">
           <label htmlFor="so-responsable">Responsable de cumplimiento <span aria-hidden="true" style={{ color: 'var(--danger, #dc2626)' }}>*</span></label>
           <input id="so-responsable" value={responsable} onChange={(e) => setResponsable(e.target.value)} required />
-        </div>
-
-        <div className="field full">
-          <label>Plantillas ROS a asociar</label>
-          {compatibles.length === 0 ? (
-            <div className="notice amber">No hay plantillas activas para este tipo. Cree una primero.</div>
-          ) : (
-            <div className="lookup-grid">
-              {compatibles.map((p) => (
-                <label key={p.id} className="lookup-card" style={{ cursor: 'pointer' }}>
-                  <div className="lookup-row">
-                    <input type="checkbox" style={{ width: 18, flex: 'none' }}
-                           checked={seleccionadas.includes(p.id)}
-                           onChange={() => toggle(p.id)} />
-                    <strong>{p.nombre}</strong>
-                  </div>
-                </label>
-              ))}
-            </div>
-          )}
         </div>
 
         {error && <div className="client-status error" style={{ gridColumn: '1 / -1' }}>{error}</div>}

@@ -50,9 +50,10 @@ export default function CustomSelect({
   Children.forEach(children, (child) => {
     if (isValidElement(child) && child.type === 'option') {
       const p = child.props as { value?: string; children?: React.ReactNode; disabled?: boolean; style?: React.CSSProperties };
+      const label = Children.toArray(p.children).join('');
       options.push({
-        value: p.value !== undefined ? String(p.value) : String(p.children ?? ''),
-        label: String(p.children ?? ''),
+        value: p.value !== undefined ? String(p.value) : label,
+        label,
         disabled: p.disabled,
         style: p.style,
       });

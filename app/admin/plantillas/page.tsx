@@ -15,6 +15,15 @@ const TIPO_LABEL: Record<string, string> = {
   notarios: 'Notaría',
 };
 
+const SECTOR_LABEL: Record<string, string> = {
+  financiero:              'Financiero',
+  no_financiero:           'No financiero',
+  actividad_profesional:   'Actividad profesional',
+  bienes_raices:           'Bienes raíces',
+  comercio:                'Comercio',
+  servicios:               'Servicios',
+};
+
 interface Row {
   id: string;
   nombre: string;
@@ -120,7 +129,7 @@ export default async function PlantillasAdmin() {
                 <tr key={r.id}>
                   <td><strong>{r.nombre}</strong></td>
                   <td>{TIPO_LABEL[r.tipo_sujeto_obligado] ?? r.tipo_sujeto_obligado}</td>
-                  <td className="small">{r.sector ?? '—'}</td>
+                  <td className="small">{r.sector ? (SECTOR_LABEL[r.sector] ?? r.sector) : '—'}</td>
                   <td className="small">v{r.version}</td>
                   <td><Badge tone={r.campos > 0 ? 'blue' : 'amber'}>{r.campos}</Badge></td>
                   <td><Badge tone={r.documentos > 0 ? 'green' : 'amber'}>{r.documentos}</Badge></td>

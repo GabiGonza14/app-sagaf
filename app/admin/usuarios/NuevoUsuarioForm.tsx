@@ -10,6 +10,14 @@ interface Props {
   roles: Array<{ id: string; nombre: string }>;
 }
 
+const ROL_LABEL: Record<string, string> = {
+  sujeto_obligado: 'Sujeto Obligado',
+  analista: 'Analista',
+  supervisor: 'Supervisor',
+  auditor: 'Auditor',
+  admin: 'Administrador',
+};
+
 export function NuevoUsuarioForm({ sujetos, roles }: Props) {
   const router = useRouter();
   const [nombre, setNombre] = useState('');
@@ -22,14 +30,14 @@ export function NuevoUsuarioForm({ sujetos, roles }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [successModal, setSuccessModal] = useState(false);
 
-  const rolName = roles.find((r) => r.id === rolId)?.nombre;
+  const rolName = roles.find((r) => r.id === rolId)?.nombre ?? '';
   const requiresSujeto = rolName === 'sujeto_obligado';
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (requiresSujeto && !sujetoId) {
-      setError('Un usuario con rol "sujeto_obligado" debe estar asociado a una entidad.');
+      setError('Un usuario con rol "Sujeto Obligado" debe estar asociado a una entidad.');
       return;
     }
     setBusy(true);
@@ -71,11 +79,12 @@ export function NuevoUsuarioForm({ sujetos, roles }: Props) {
         <div className="field">
           <label>Contraseña inicial</label>
           <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+          <span className="small" style={{ color: 'var(--muted)', marginTop: 4, display: 'block' }}>Mínimo 8 caracteres</span>
         </div>
         <div className="field">
           <label>Rol</label>
           <CustomSelect value={rolId} onChange={(e) => setRolId(e.target.value)} required>
-            {roles.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+            {roles.map((r) => <option key={r.id} value={r.id}>{ROL_LABEL[r.nombre] ?? r.nombre}</option>)}
           </CustomSelect>
         </div>
         {requiresSujeto && (

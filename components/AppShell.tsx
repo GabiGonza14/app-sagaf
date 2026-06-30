@@ -20,7 +20,6 @@ interface Props {
 
 export function AppShell({ role, userName, userInitials, userBadge, navItems, note, children }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
   useEffect(() => {
     const onResize = () => { if (window.innerWidth > 900) setSidebarOpen(false); };
     window.addEventListener('resize', onResize);
@@ -63,6 +62,13 @@ export function AppShell({ role, userName, userInitials, userBadge, navItems, no
             SG
           </div>
           <span className="mobile-header-title">SAGAF</span>
+        </div>
+
+        <div className="user-badge-anchor">
+          <div className="user-badge-pill">
+            <div className="user-badge-avatar">{userInitials ?? '??'}</div>
+            <span className="user-badge-name">{userName}</span>
+          </div>
         </div>
 
         {children}

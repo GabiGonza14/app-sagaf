@@ -115,23 +115,6 @@ Los datos se almacenan en la **tabla `personas` de la base de datos SQLite**. Es
 
 En producción, este mecanismo podría integrarse con una API gubernamental real (Tribunal Electoral / Registro Público), pero para fines académicos el directorio se mantiene en la misma base de datos.
 
-Algunos identificadores de prueba:
-
-| Identificador | Tipo | Nombre |
-| --- | --- | --- |
-| `8-888-888` | Cédula panameña | María Elena González |
-| `8-482-917` | Cédula panameña | Carlos Alberto Pérez |
-| `8-095-221` | Cédula panameña | Ana Lucía Morales |
-| `8-777-444` | Cédula panameña | Roberto Antonio Castillo |
-| `2-147-836` | Cédula panameña | Lucía del Carmen Rodríguez |
-| `PE-8891` | Pasaporte (Venezuela) | Luis Eduardo Herrera |
-| `CO-441892` | Pasaporte (Colombia) | Valentina Ospina Ríos |
-| `MX-2019-773` | Pasaporte (México) | Alejandro Torres Guzmán |
-| `US-AB991234` | Pasaporte (EE. UU.) | Jennifer Diane Mitchell |
-| `CN-G88721045` | Pasaporte (China) | Wei Zhong Liu |
-| `RUC-77` | RUC empresa | Inversiones del Istmo, S.A. |
-| `RUC-45892301` | RUC empresa | Constructora Horizonte Verde, S.A. |
-| `RUC-88776655` | RUC empresa | Holding Pacific Group Corp. |
 
 ---
 
