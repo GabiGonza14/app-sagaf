@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import { createContext, useContext, useState, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { X, AlertTriangle } from 'lucide-react';
 
@@ -59,8 +59,13 @@ export function NavigationGuardProvider({ children }: { children: React.ReactNod
     pendingHrefRef.current = null;
   }, []);
 
+  const ctxValue = useMemo(
+    () => ({ hasUnsavedChanges, setUnsavedChanges, requestNavigate, registerSaveDraft }),
+    [hasUnsavedChanges, requestNavigate, registerSaveDraft],
+  );
+
   return (
-    <NavigationGuardCtx.Provider value={{ hasUnsavedChanges, setUnsavedChanges, requestNavigate, registerSaveDraft }}>
+    <NavigationGuardCtx.Provider value={ctxValue}>
       {children}
 
       {showModal && (

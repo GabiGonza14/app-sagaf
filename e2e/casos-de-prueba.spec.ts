@@ -66,7 +66,7 @@ async function pickDate(page: Page, dateStr: string) {
     dayEl = page.locator('.react-datepicker__day:not(.react-datepicker__day--disabled):not(.react-datepicker__day--outside-month)').first();
   }
   await dayEl.click();
-  await page.waitForTimeout(300);
+  await expect(page.locator('.react-datepicker')).toBeHidden();
 }
 
 // ─── Test Data ────────────────────────────────────────────────────────────
@@ -294,14 +294,20 @@ await page.waitForURL(
 
       // Seleccionar señal de alerta
       const alertaBtn = page.locator('button:has-text("Seleccione una tipología")');
-      if ((await alertaBtn.count()) > 0) { await alertaBtn.click(); await page.locator('[role="option"]').first().click(); await page.waitForTimeout(300); }
+      if ((await alertaBtn.count()) > 0) {
+        await alertaBtn.click();
+        await page.locator('[role="option"]').first().click();
+        await expect(page.locator('[role="listbox"]')).toBeHidden();
+      }
 
       // Cliente lookup
       const lookupInput = page.locator('textbox[name*="Cédula"]').or(page.locator('.lookup-card input:not([readonly])')).first();
       if ((await lookupInput.count()) > 0) {
         await lookupInput.fill('8-888-888');
         await page.locator('button:has-text("Verificar")').first().click();
-        await page.waitForTimeout(2000);
+        await expect(
+          page.locator('text=Coincidencia encontrada').or(page.locator('text=Sin coincidencia')).first()
+        ).toBeVisible({ timeout: 10000 });
       }
 
       await pickDate(page, '2026-06-19');
@@ -463,7 +469,9 @@ test.describe('CP-06: Validación de Identidad', () => {
       if ((await secondCard.count()) > 0) {
         await secondCard.fill('8-777-444');
         await page.locator('button:has-text("Verificar")').first().click();
-        await page.waitForTimeout(2000);
+        await expect(
+          page.locator('text=Coincidencia encontrada').or(page.locator('text=Sin coincidencia')).first()
+        ).toBeVisible({ timeout: 10000 });
       }
     });
 
@@ -545,7 +553,7 @@ test.describe('CP-07: Carga Documental', () => {
       try {
         await fc.setFiles(path.join(__dirname, UPLOAD_FILES.exe));
         // Si no hay rechazo explícito, al menos verificar que no se carga
-        await page.waitForTimeout(2000);
+        await page.waitForLoadState('networkidle');
       } catch {
         // Puede que el file chooser no acepte .exe
       }
@@ -580,7 +588,7 @@ test.describe('CP-07: Carga Documental', () => {
 
       try {
         await fc.setFiles(path.join(__dirname, UPLOAD_FILES.large));
-        await page.waitForTimeout(3000);
+        await page.waitForLoadState('networkidle');
         // Si no hay error explícito, el archivo grande puede haber sido rechazado silenciosamente
       } catch {
         // Error esperado por tamaño
@@ -827,12 +835,12 @@ test.describe('CP-05: Autenticación y Roles', () => {
     await test.step('Ingresar código MFA inválido', async () => {
       await page.fill('input[name="code"]', '000000');
       await page.click('button[type="submit"]');
-      await page.waitForTimeout(2000);
 
       // Debe mostrar error o permanecer en la página MFA
       const errorMsg = page.locator('.notice.red, [class*="error"], text=Código').first();
+      const isVisible = await errorMsg.isVisible({ timeout: 5000 }).catch(() => false);
       const stillOnMfa = page.url().includes('/mfa/verify');
-      expect(await errorMsg.isVisible({ timeout: 3000 }).catch(() => false) || stillOnMfa).toBeTruthy();
+      expect(isVisible || stillOnMfa).toBeTruthy();
     });
 
   });
@@ -971,7 +979,6 @@ test.describe('CP-NF: No Funcionales', () => {
       await page.fill('#correo', 'noexiste@test.com');
       await page.fill('#password', 'wrongpassword');
       await page.click('button[type="submit"]');
-      await page.waitForTimeout(3000);
 
       // Debe mostrar mensaje de error en español
       const errorMsg = page.locator('.notice.red, [class*="error"]');
@@ -1041,14 +1048,20 @@ test.describe('Flujo Integrado: Registro → Análisis → Subsanación', () => 
 
     // Seleccionar señal de alerta
     const alertaBtn = page.locator('button:has-text("Seleccione una tipología")');
-    if ((await alertaBtn.count()) > 0) { await alertaBtn.click(); await page.locator('[role="option"]').first().click(); await page.waitForTimeout(300); }
+    if ((await alertaBtn.count()) > 0) {
+      await alertaBtn.click();
+      await page.locator('[role="option"]').first().click();
+      await expect(page.locator('[role="listbox"]')).toBeHidden();
+    }
 
     // Cliente lookup
     const lookupInput = page.locator('textbox[name*="Cédula"]').or(page.locator('.lookup-card input:not([readonly])')).first();
     if ((await lookupInput.count()) > 0) {
       await lookupInput.fill('8-888-888');
       await page.locator('button:has-text("Verificar")').first().click();
-      await page.waitForTimeout(2000);
+      await expect(
+        page.locator('text=Coincidencia encontrada').or(page.locator('text=Sin coincidencia')).first()
+      ).toBeVisible({ timeout: 10000 });
     }
 
     await pickDate(page, '2026-06-19');
@@ -1124,10 +1137,10 @@ test.describe('Flujo Integrado: Registro → Análisis → Subsanación', () => 
       const observarBtn = page.locator('button:has-text("Observar")');
       if ((await observarBtn.count()) > 0) {
         await observarBtn.first().click();
-        await page.waitForTimeout(1000);
 
         const obsTextarea = page.locator('textarea[name="observacion"]');
         if ((await obsTextarea.count()) > 0) {
+          await expect(obsTextarea).toBeVisible();
           await obsTextarea.fill('Documento requiere mejora de legibilidad.');
         }
         const confirmBtn = page.locator('button:has-text("Confirmar")');
@@ -1160,11 +1173,10 @@ test.describe('Flujo Integrado: Registro → Análisis → Subsanación', () => 
       const reemplazarBtn = page.locator('button:has-text("Reemplazar")');
       if ((await reemplazarBtn.count()) > 0) {
         await reemplazarBtn.first().click();
-        await page.waitForTimeout(1000);
 
         const fcPromise = page.waitForEvent('filechooser');
         const uploadZone = page.locator('.upload-zone, input[type="file"]').first();
-        if ((await uploadZone.count()) > 0) {
+        if (await uploadZone.isVisible({ timeout: 5000 }).catch(() => false)) {
           await uploadZone.click();
           const fc = await fcPromise;
           await fc.setFiles(path.join(__dirname, UPLOAD));
@@ -1196,7 +1208,7 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.waitForURL('**/portal/ros/nuevo');
     await page.waitForLoadState('networkidle');
     await page.fill('#descripcion', "'; DROP TABLE usuario; -- operación con suficientes caracteres para validación ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
     expect(page.url()).not.toContain('/login');
   });
 
@@ -1218,7 +1230,7 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.waitForLoadState('networkidle');
     await page.fill('#descripcion', '<script>alert("XSS")</script> Operación con script que tiene suficientes caracteres para validación del formulario');
     page.on('dialog', async (dialog) => { await dialog.dismiss(); });
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
   });
 
   test('CP-AB-04: XSS en oficial de cumplimiento', async ({ page }) => {
@@ -1228,7 +1240,7 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.waitForLoadState('networkidle');
     let dialogAppeared = false;
     page.on('dialog', async (d) => { dialogAppeared = true; await d.dismiss(); });
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
     expect(dialogAppeared).toBe(false);
   });
 
@@ -1238,7 +1250,7 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.waitForURL('**/portal/ros/nuevo');
     await page.waitForLoadState('networkidle');
     await page.fill('#descripcion', 'A'.repeat(10000));
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
     expect(page.url()).not.toContain('/login');
   });
 
@@ -1248,7 +1260,7 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.waitForURL('**/portal/ros/nuevo');
     await page.waitForLoadState('networkidle');
     await page.fill('#monto', '-99999');
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
     expect(page.url()).not.toContain('/login');
   });
 
@@ -1258,7 +1270,7 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.waitForURL('**/portal/ros/nuevo');
     await page.waitForLoadState('networkidle');
     await page.fill('#monto', '99999999999999999999');
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
     expect(page.url()).not.toContain('/login');
   });
 
@@ -1269,7 +1281,7 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.waitForLoadState('networkidle');
     await page.fill('#producto-servicio', 'Cuenta 🏦💰 con 中文 и русский');
     await page.fill('#descripcion', 'Operación con ∑∏∫√∞≈≠≤≥ ∧∨¬→↔ ∀∃∈∉⊂⊃∪∩ 🌍🚀💻 שלום עולם. Con suficientes caracteres.');
-    await page.waitForTimeout(2000);
+    await page.waitForLoadState('networkidle');
     expect(page.url()).not.toContain('/login');
   });
 
@@ -1279,7 +1291,8 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.waitForURL('**/portal/ros/nuevo');
     await page.waitForLoadState('networkidle');
     const rlo = '\u202E';
-    await page.waitForTimeout(1000);
+    await page.fill('#descripcion', `Operaci\u00F3n con caracter RTL override ${rlo}malicioso y suficiente longitud para validar el formulario.`);
+    await page.waitForLoadState('networkidle');
     expect(page.url()).not.toContain('/login');
   });
 
@@ -1288,7 +1301,8 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.click('text=Registrar ROS');
     await page.waitForURL('**/portal/ros/nuevo');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await page.fill('#descripcion', 'Operación​‌‍ con caracteres de ancho cero y suficiente longitud para validar el formulario.');
+    await page.waitForLoadState('networkidle');
     expect(page.url()).not.toContain('/login');
   });
 
@@ -1297,7 +1311,7 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.click('text=Registrar ROS');
     await page.waitForURL('**/portal/ros/nuevo');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
     expect(page.url()).not.toContain('/login');
   });
 
@@ -1355,7 +1369,10 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
       page1.click('button:has-text("Enviar ROS a la UAF")').catch(() => {}),
       page2.click('button:has-text("Enviar ROS a la UAF")').catch(() => {}),
     ]);
-    await page1.waitForTimeout(5000);
+    await Promise.all([
+      page1.waitForLoadState('networkidle').catch(() => {}),
+      page2.waitForLoadState('networkidle').catch(() => {}),
+    ]);
     await ctx.close();
   });
 
@@ -1376,7 +1393,8 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.click('text=Registrar ROS');
     await page.waitForURL('**/portal/ros/nuevo');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(1000);
+    await page.fill('#descripcion', 'Operación\r\nSet-Cookie: injected=true con suficientes caracteres para validación del formulario.');
+    await page.waitForLoadState('networkidle');
     expect(page.url()).not.toContain('/login');
   });
 
@@ -1386,9 +1404,10 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.waitForURL('**/portal/ros/nuevo');
     await page.waitForLoadState('networkidle');
     await page.fill('#producto-servicio', 'javascript:alert(1)');
-    const dialogAppeared = false;
-    page.on('dialog', async (d) => { await d.dismiss(); });
-    await page.waitForTimeout(1000);
+    let dialogAppeared = false;
+    page.on('dialog', async (d) => { dialogAppeared = true; await d.dismiss(); });
+    await page.waitForLoadState('networkidle');
+    expect(dialogAppeared).toBe(false);
   });
 
   test('CP-AB-20: Brute force login (5 intentos)', async ({ page }) => {
@@ -1397,7 +1416,7 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
       await page.fill('#correo', USERS.soBanco);
       await page.fill('#password', `wrongpass${i}`);
       await page.click('button[type="submit"]');
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('networkidle');
     }
     expect(page.url()).not.toContain('/error');
   });
@@ -1413,7 +1432,7 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.fill('#descripcion', 'Prueba de clics rápidos para verificar no duplicados. Con suficientes caracteres para validación.');
     const submitBtn = page.locator('button:has-text("Enviar ROS a la UAF")');
     for (let i = 0; i < 10; i++) submitBtn.click().catch(() => {});
-    await page.waitForTimeout(5000);
+    await page.waitForLoadState('networkidle');
     expect(page.url()).not.toContain('/login');
   });
 
@@ -1423,7 +1442,7 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await page.waitForURL('**/portal/ros/nuevo');
     await page.waitForLoadState('networkidle');
     await page.fill('#descripcion', '<iframe src="http://evil.com"></iframe> operación con suficientes caracteres para validación ABCDEFGHIJKLMNOPQRSTUVWXY');
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('networkidle');
     expect(page.url()).not.toContain('/login');
   });
 
@@ -1431,7 +1450,7 @@ test.describe('CP-AB: Creative Abuse & Security Tests', () => {
     await loginAs(page, USERS.soBanco);
     for (const route of ['/portal', '/portal/ros', '/portal/subsanaciones', '/portal/ros/nuevo']) {
       await page.goto(route);
-      await page.waitForTimeout(500);
+      await page.waitForLoadState('networkidle');
     }
     expect(page.url()).not.toContain('/error');
   });

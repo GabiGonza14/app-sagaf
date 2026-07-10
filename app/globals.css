@@ -1897,7 +1897,7 @@ label {
   font-weight: 600;
   border: 1px solid rgba(21,128,61,0.15);
 }
-.uaf-doc-notice.pending { background: rgba(148,163,184,.09); color: #64748b; }
+.uaf-doc-notice.pending { background: rgba(148,163,184,.09); color: #475569; }
 
 .uaf-doc-sub {
   display: block;
