@@ -137,7 +137,13 @@ export function UsuarioActions({
 
       {/* Modal Editar */}
       {openEditar && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) { setOpenEditar(false); setNombre(nombreActual); setCorreo(correoActual); setRolId(rolActualId); setSujetoId(sujetoObligadoId ?? ''); setError(null); } }} role="dialog" aria-modal="true">
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) { setOpenEditar(false); setNombre(nombreActual); setCorreo(correoActual); setRolId(rolActualId); setSujetoId(sujetoObligadoId ?? ''); setError(null); } }}
+          onKeyDown={(e) => { if (e.key === 'Escape') { setOpenEditar(false); setNombre(nombreActual); setCorreo(correoActual); setRolId(rolActualId); setSujetoId(sujetoObligadoId ?? ''); setError(null); } }}
+          role="dialog"
+          aria-modal="true"
+        >
           <div className="modal-box" style={{ maxWidth: 480 }}>
             <button type="button" className="modal-close" onClick={() => { setOpenEditar(false); setNombre(nombreActual); setCorreo(correoActual); setRolId(rolActualId); setSujetoId(sujetoObligadoId ?? ''); setError(null); }} aria-label="Cerrar"><X size={16} /></button>
             <h3 className="modal-title">Editar usuario</h3>

@@ -166,7 +166,14 @@ export default function CustomSelect({
             key={opt.value}
             role="option"
             aria-selected={isSelected}
+            tabIndex={opt.disabled ? -1 : 0}
             onClick={() => !opt.disabled && handleSelect(opt.value)}
+            onKeyDown={(e) => {
+              if (!opt.disabled && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                handleSelect(opt.value);
+              }
+            }}
             style={{
               display: 'flex',
               alignItems: 'center',

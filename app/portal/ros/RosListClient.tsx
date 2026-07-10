@@ -244,6 +244,8 @@ export function RosListClient({ ros, filtroEstado }: Props) {
             zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
           onClick={(e) => { if (e.target === e.currentTarget) setModal(false); }}
+          onKeyDown={(e) => { if (e.key === 'Escape') setModal(false); }}
+          role="presentation"
         >
           <div style={{
             background: 'white', borderRadius: 14, padding: '28px 32px',

@@ -37,6 +37,7 @@ export function SuccessModal({ isOpen, title, message, onClose, autoDismissMs = 
     <div
       className="modal-overlay"
       onClick={(e) => { if (e.target === e.currentTarget) onCloseRef.current(); }}
+      onKeyDown={(e) => { if (e.key === 'Escape') onCloseRef.current(); }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="success-modal-title"

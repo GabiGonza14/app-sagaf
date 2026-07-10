@@ -64,8 +64,8 @@ export function NavigationGuardProvider({ children }: { children: React.ReactNod
       {children}
 
       {showModal && (
-        <div className="modal-overlay" onClick={handleCancel}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'left' }}>
+        <div className="modal-overlay" onClick={handleCancel} onKeyDown={(e) => { if (e.key === 'Escape') handleCancel(); }} role="presentation">
+          <div className="modal-box" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} style={{ textAlign: 'left' }}>
             <button className="modal-close" onClick={handleCancel}><X size={16} /></button>
             <div className="modal-icon" style={{ background: '#fef3c7', color: '#d97706', margin: '0 0 16px' }}>
               <AlertTriangle size={22} />
