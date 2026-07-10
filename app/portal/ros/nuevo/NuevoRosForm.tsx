@@ -229,33 +229,42 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     categoria: 'generales' | 'verificacion' | 'datos' | 'adicional' | 'documentos';
   }
 
-  function getFaltantes(): FaltaItem[] {
+  function getFaltantesGenerales(): FaltaItem[] {
     const faltantes: FaltaItem[] = [];
-
-    // 1. Datos generales del ROS
     if (!oficial.trim()) faltantes.push({ label: 'Ingresar el nombre del oficial de cumplimiento', icon: <User size={14} />, categoria: 'generales' });
     if (!correoOficial.trim() || !isValidEmail(correoOficial)) faltantes.push({ label: 'Ingresar un correo institucional válido', icon: <Mail size={14} />, categoria: 'generales' });
     if (!fechaDeteccion) faltantes.push({ label: 'Seleccionar la fecha de detección', icon: <Calendar size={14} />, categoria: 'generales' });
+    return faltantes;
+  }
 
-    // 2. Verificación de identidad
-    if (isBank) {
-      if (ordenante.status === 'idle') faltantes.push({ label: 'Verificar la cédula del ordenante', icon: <UserCheck size={14} />, categoria: 'verificacion' });
-      else if (ordenante.status === 'not_found' && ordenante.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del ordenante', icon: <User size={14} />, categoria: 'verificacion' });
-      if (beneficiario.status === 'idle') faltantes.push({ label: 'Verificar la cédula del beneficiario', icon: <UserCheck size={14} />, categoria: 'verificacion' });
-      else if (beneficiario.status === 'not_found' && beneficiario.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del beneficiario', icon: <User size={14} />, categoria: 'verificacion' });
-    }
+  function getFaltantesVerificacionBanco(): FaltaItem[] {
+    if (!isBank) return [];
+    const faltantes: FaltaItem[] = [];
+    if (ordenante.status === 'idle') faltantes.push({ label: 'Verificar la cédula del ordenante', icon: <UserCheck size={14} />, categoria: 'verificacion' });
+    else if (ordenante.status === 'not_found' && ordenante.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del ordenante', icon: <User size={14} />, categoria: 'verificacion' });
+    if (beneficiario.status === 'idle') faltantes.push({ label: 'Verificar la cédula del beneficiario', icon: <UserCheck size={14} />, categoria: 'verificacion' });
+    else if (beneficiario.status === 'not_found' && beneficiario.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del beneficiario', icon: <User size={14} />, categoria: 'verificacion' });
+    return faltantes;
+  }
 
-    if (isRealEstate) {
-      if (comprador.status === 'idle') faltantes.push({ label: 'Verificar la cédula del comprador', icon: <UserCheck size={14} />, categoria: 'verificacion' });
-      else if (comprador.status === 'not_found' && comprador.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del comprador', icon: <User size={14} />, categoria: 'verificacion' });
-    }
+  function getFaltantesVerificacionInmobiliaria(): FaltaItem[] {
+    if (!isRealEstate) return [];
+    const faltantes: FaltaItem[] = [];
+    if (comprador.status === 'idle') faltantes.push({ label: 'Verificar la cédula del comprador', icon: <UserCheck size={14} />, categoria: 'verificacion' });
+    else if (comprador.status === 'not_found' && comprador.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del comprador', icon: <User size={14} />, categoria: 'verificacion' });
+    return faltantes;
+  }
 
-    if (isGeneric) {
-      if (cliente.status === 'idle') faltantes.push({ label: 'Verificar la cédula/RUC del cliente', icon: <UserCheck size={14} />, categoria: 'verificacion' });
-      else if (cliente.status === 'not_found' && cliente.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del cliente', icon: <User size={14} />, categoria: 'verificacion' });
-    }
+  function getFaltantesVerificacionGenerica(): FaltaItem[] {
+    if (!isGeneric) return [];
+    const faltantes: FaltaItem[] = [];
+    if (cliente.status === 'idle') faltantes.push({ label: 'Verificar la cédula/RUC del cliente', icon: <UserCheck size={14} />, categoria: 'verificacion' });
+    else if (cliente.status === 'not_found' && cliente.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del cliente', icon: <User size={14} />, categoria: 'verificacion' });
+    return faltantes;
+  }
 
-    // 3. Datos de la operación (en orden del formulario)
+  function getFaltantesDatos(): FaltaItem[] {
+    const faltantes: FaltaItem[] = [];
     if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0) faltantes.push({ label: 'Ingresar un monto válido mayor a 0', icon: <DollarSign size={14} />, categoria: 'datos' });
     if (!jurisdiccion.trim()) faltantes.push({ label: isRealEstate ? 'Ingresar la ubicación del bien inmueble' : 'Ingresar la jurisdicción relacionada', icon: <MapPin size={14} />, categoria: 'datos' });
     if (!senalAlerta.trim()) faltantes.push({ label: 'Seleccionar el riesgo reportado', icon: <AlertCircle size={14} />, categoria: 'datos' });
@@ -263,12 +272,18 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     if (isRealEstate && !bienInmueble.trim()) faltantes.push({ label: 'Ingresar el bien inmueble involucrado', icon: <Building2 size={14} />, categoria: 'datos' });
     if (isRealEstate && !formaPago.trim()) faltantes.push({ label: 'Ingresar la forma de pago', icon: <DollarSign size={14} />, categoria: 'datos' });
     if (!descripcion.trim() || descripcion.length < 30) faltantes.push({ label: `Ampliar la descripción narrativa (mín. 30 caracteres, actual: ${descripcion.length})`, icon: <Type size={14} />, categoria: 'datos' });
+    return faltantes;
+  }
 
-    // 4. Información adicional de la plantilla
+  function getFaltantesAdicional(): FaltaItem[] {
+    const faltantes: FaltaItem[] = [];
     const campoFaltante = camposDinamicos.find((c) => c.obligatorio === 1 && !(camposValores[c.id] ?? '').trim());
     if (campoFaltante) faltantes.push({ label: `Completar el campo "${campoFaltante.nombre}"`, icon: <FileText size={14} />, categoria: 'adicional' });
+    return faltantes;
+  }
 
-    // 5. Sustento documental
+  function getFaltantesDocumentos(): FaltaItem[] {
+    const faltantes: FaltaItem[] = [];
     if (!todosDocumentosCargados) {
       faltantes.push({ label: `Cargar ${docListReq.length - cargadosReq} documento(s) obligatorio(s)`, icon: <FileWarning size={14} />, categoria: 'documentos' });
     }
@@ -284,8 +299,19 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     for (const d of docsConNombreNoRelacionado) {
       faltantes.push({ label: `Renombra el archivo de "${d.nombre}" — el nombre debe incluir una palabra de la sección`, icon: <AlertCircle size={14} />, categoria: 'documentos' });
     }
-
     return faltantes;
+  }
+
+  function getFaltantes(): FaltaItem[] {
+    return [
+      ...getFaltantesGenerales(),
+      ...getFaltantesVerificacionBanco(),
+      ...getFaltantesVerificacionInmobiliaria(),
+      ...getFaltantesVerificacionGenerica(),
+      ...getFaltantesDatos(),
+      ...getFaltantesAdicional(),
+      ...getFaltantesDocumentos(),
+    ];
   }
 
   const camposBancoOk = !isBank || Boolean(

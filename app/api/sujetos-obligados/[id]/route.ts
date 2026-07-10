@@ -99,7 +99,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
     ip: ctx.ip, user_agent: ctx.user_agent,
     detalle: { id, nombre: d.nombre ?? so.nombre, cambios: Object.fromEntries(
-      Object.entries(d).filter(([k, v]) => v !== undefined && String(v ?? '') !== String(so[k as keyof typeof so] ?? ''))
+      Object.entries(d).filter(([k, v]: [string, string | null | undefined]) => v !== undefined && String(v ?? '') !== String(so[k as keyof typeof so] ?? ''))
     ) },
     criticidad: 'normal',
   });
