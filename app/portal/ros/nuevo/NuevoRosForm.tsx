@@ -116,6 +116,49 @@ function inputTypeFor(tipoDato: string): string {
   return 'text';
 }
 
+function renderSavedFileBlock(nombreGuardado: string, onRemove: () => void) {
+  return (
+    <div className="upload-zone has-file">
+      <div className="upload-zone-content">
+        <CheckCircle size={18} className="upload-zone-icon uploaded" />
+        <div>
+          <div className="upload-zone-filename">{nombreGuardado}</div>
+          <div className="upload-zone-size">Adjunto guardado · reemplazar si se desea</div>
+        </div>
+        <button type="button" className="upload-zone-remove"
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          aria-label="Quitar archivo">×</button>
+      </div>
+    </div>
+  );
+}
+
+function renderDropzoneBlock(
+  d: DocReq,
+  file: File | null,
+  analyzing: boolean,
+  onFileChange: (f: File | null) => void,
+  warnings: string[] | undefined,
+) {
+  return (
+    <>
+      <FileDropZone
+        file={file}
+        onChange={onFileChange}
+        formatos={d.formatos_permitidos}
+        maxMb={d.tamano_maximo_mb}
+        analyzing={analyzing}
+      />
+      {warnings?.map((w) => (
+        <div key={w} className="doc-warning" role="alert">
+          <AlertCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+          {w}
+        </div>
+      ))}
+    </>
+  );
+}
+
 function docBadgeClass(analyzing: boolean, uploaded: boolean, requerido: boolean): string {
   if (analyzing) return 'amber';
   if (uploaded) return 'green';
@@ -1115,36 +1158,13 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
                       </span>
                     )}
                   </div>
-                  {fileLabels[d.id] && !file ? (
-                    <div className="upload-zone has-file">
-                      <div className="upload-zone-content">
-                        <CheckCircle size={18} className="upload-zone-icon uploaded" />
-                        <div>
-                          <div className="upload-zone-filename">{fileLabels[d.id]}</div>
-                          <div className="upload-zone-size">Adjunto guardado · reemplazar si se desea</div>
-                        </div>
-                        <button type="button" className="upload-zone-remove"
-                          onClick={(e) => { e.stopPropagation(); setFileLabels({ ...fileLabels, [d.id]: '' }); }}
-                          aria-label="Quitar archivo">×</button>
-                      </div>
-                    </div>
-                  ) : null}
-                  {!fileLabels[d.id] && (
-                    <>
-                      <FileDropZone
-                        file={file}
-                        onChange={(f) => handleDocFileChange(d.id, d.nombre, f, files)}
-                        formatos={d.formatos_permitidos}
-                        maxMb={d.tamano_maximo_mb}
-                        analyzing={analyzing}
-                      />
-                      {fileWarnings[d.id]?.map((w) => (
-                        <div key={w} className="doc-warning" role="alert">
-                          <AlertCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-                          {w}
-                        </div>
-                      ))}
-                    </>
+                  {fileLabels[d.id] && !file
+                    ? renderSavedFileBlock(fileLabels[d.id], () => setFileLabels({ ...fileLabels, [d.id]: '' }))
+                    : null}
+                  {!fileLabels[d.id] && renderDropzoneBlock(
+                    d, file, analyzing,
+                    (f) => handleDocFileChange(d.id, d.nombre, f, files),
+                    fileWarnings[d.id],
                   )}
                 </div>
               );
