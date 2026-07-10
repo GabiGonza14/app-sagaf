@@ -75,6 +75,53 @@ function validateCamposObligatorios(
   return null;
 }
 
+function isReversion(desde: string, hacia: string): boolean {
+  if (desde === 'cerrado') return true;
+  if (desde === 'subsanacion') return ['en_analisis', 'revision_documental', 'en_revision_vinculo'].includes(hacia);
+  if (desde === 'en_revision_vinculo') return ['en_analisis', 'revision_documental'].includes(hacia);
+  if (desde === 'riesgo_clasificado') return ['en_analisis', 'revision_documental', 'en_revision_vinculo'].includes(hacia);
+  return false;
+}
+
+function crearCasoAnalisisSiNoExiste(numeroRos: string, id: string): void {
+  const existing = db.prepare('SELECT 1 FROM caso_analisis WHERE ros_id = ?').get(id);
+  if (!existing) {
+    db.prepare(`
+      INSERT INTO caso_analisis (id, codigo_caso, ros_id, estado)
+      VALUES (?, ?, ?, 'abierto')
+    `).run(randomUUID(), `CASO-${numeroRos.replace('ROS-', '')}`, id);
+  }
+}
+
+function validarPermisoSujetoObligado(
+  sujetoObligadoId: string | null | undefined,
+  rosSujetoObligadoId: string,
+  desde: string,
+  hacia: string,
+): string | null {
+  if (desde !== 'borrador' || hacia !== 'recibido') return 'Solo puedes enviar un borrador a la UAF';
+  if (sujetoObligadoId !== rosSujetoObligadoId) return 'No autorizado';
+  return null;
+}
+
+function validarCierre(hacia: string, desde: string, rol: string, id: string): { error: string; status: number } | null {
+  if (hacia === 'cerrado' && rol !== 'supervisor') {
+    return { error: 'Solo Supervisor puede cerrar casos', status: 403 };
+  }
+  if (hacia === 'cerrado') {
+    const tieneRiesgo = db.prepare<[string], { c: number }>(
+      `SELECT COUNT(*) AS c FROM riesgo_caso WHERE ros_id = ? AND anulado = 0`,
+    ).get(id);
+    if (!tieneRiesgo || tieneRiesgo.c === 0) {
+      return { error: 'No se puede cerrar el caso sin antes registrar la clasificación de riesgo.', status: 400 };
+    }
+  }
+  if (desde === 'cerrado' && rol !== 'supervisor') {
+    return { error: 'Solo Supervisor puede reabrir casos cerrados', status: 403 };
+  }
+  return null;
+}
+
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
@@ -128,48 +175,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   // Sujeto obligado solo puede enviar borrador → recibido
   if (session.user.rol === 'sujeto_obligado') {
-    if (desde !== 'borrador' || hacia !== 'recibido') {
-      return NextResponse.json({ error: 'Solo puedes enviar un borrador a la UAF' }, { status: 403 });
-    }
-    if (session.user.sujetoObligadoId !== ros.sujeto_obligado_id) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
-    }
-    // Crear caso de análisis al recibir
-    const existing = db.prepare('SELECT 1 FROM caso_analisis WHERE ros_id = ?').get(id);
-    if (!existing) {
-      db.prepare(`
-        INSERT INTO caso_analisis (id, codigo_caso, ros_id, estado)
-        VALUES (?, ?, ?, 'abierto')
-      `).run(randomUUID(), `CASO-${ros.numero_ros.replace('ROS-', '')}`, id);
-    }
+    const permisoError = validarPermisoSujetoObligado(session.user.sujetoObligadoId, ros.sujeto_obligado_id, desde, hacia);
+    if (permisoError) return NextResponse.json({ error: permisoError }, { status: 403 });
+    crearCasoAnalisisSiNoExiste(ros.numero_ros, id);
   } else if (!['analista', 'supervisor'].includes(session.user.rol)) {
     return NextResponse.json({ error: 'Permiso insuficiente' }, { status: 403 });
   }
 
-  // Solo Supervisor puede cerrar (hacia cerrado)
-  if (hacia === 'cerrado' && session.user.rol !== 'supervisor') {
-    return NextResponse.json({ error: 'Solo Supervisor puede cerrar casos' }, { status: 403 });
-  }
-  // No se puede cerrar sin clasificación de riesgo registrada
-  if (hacia === 'cerrado') {
-    const tieneRiesgo = db.prepare<[string], { c: number }>(
-      `SELECT COUNT(*) AS c FROM riesgo_caso WHERE ros_id = ? AND anulado = 0`,
-    ).get(id);
-    if (!tieneRiesgo || tieneRiesgo.c === 0) {
-      return NextResponse.json({
-        error: 'No se puede cerrar el caso sin antes registrar la clasificación de riesgo.',
-      }, { status: 400 });
-    }
-  }
-  // Solo Supervisor puede reabrir (desde cerrado)
-  if (desde === 'cerrado' && session.user.rol !== 'supervisor') {
-    return NextResponse.json({ error: 'Solo Supervisor puede reabrir casos cerrados' }, { status: 403 });
-  }
+  const cierreError = validarCierre(hacia, desde, session.user.rol, id);
+  if (cierreError) return NextResponse.json({ error: cierreError.error }, { status: cierreError.status });
 
-  const esReversion = desde === 'cerrado'
-    || (desde === 'subsanacion' && (hacia === 'en_analisis' || hacia === 'revision_documental' || hacia === 'en_revision_vinculo'))
-    || (desde === 'en_revision_vinculo' && (hacia === 'en_analisis' || hacia === 'revision_documental'))
-    || (desde === 'riesgo_clasificado' && (hacia === 'en_analisis' || hacia === 'revision_documental' || hacia === 'en_revision_vinculo'));
+  const esReversion = isReversion(desde, hacia);
 
   db.prepare('UPDATE ros SET estado = ? WHERE id = ?').run(hacia, id);
 
@@ -297,13 +313,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     if (esSubmit) {
-      const existing = db.prepare('SELECT 1 FROM caso_analisis WHERE ros_id = ?').get(id);
-      if (!existing) {
-        db.prepare(`
-          INSERT INTO caso_analisis (id, codigo_caso, ros_id, estado)
-          VALUES (?, ?, ?, 'abierto')
-        `).run(randomUUID(), `CASO-${ros.numero_ros.replace('ROS-', '')}`, id);
-      }
+      crearCasoAnalisisSiNoExiste(ros.numero_ros, id);
     }
   });
 
