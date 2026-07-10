@@ -1,43 +1,44 @@
-import { auth } from '@/auth';
+﻿import { getSession } from '@/lib/session';
 import { headers } from 'next/headers';
-import { ShieldCheck } from 'lucide-react';
 import { TopBar } from '@/components/TopBar';
 import { KpiCard } from '@/components/KpiCard';
 import { AuditTable } from '@/components/AuditTable';
 import { db } from '@/lib/db';
-import { audit } from '@/lib/audit';
+import { auditOnce, extractClientIp } from '@/lib/audit';
 
 export const revalidate = 0;
 
 interface SP {
-  q?: string; modulo?: string; resultado?: string; criticidad?: string; desde?: string; hasta?: string;
+  q?: string; modulo?: string; rol?: string; resultado?: string; criticidad?: string; desde?: string; hasta?: string; page?: string;
 }
 
 export default async function AuditorHome({ searchParams }: { searchParams: Promise<SP> }) {
-  const session = await auth();
+  const session = await getSession();
   const sp = await searchParams;
   const filters = {
     q:          sp.q          ?? '',
     modulo:     sp.modulo     ?? '',
+    rol:        sp.rol        ?? '',
     resultado:  sp.resultado  ?? '',
     criticidad: sp.criticidad ?? '',
     desde:      sp.desde      ?? '',
     hasta:      sp.hasta      ?? '',
   };
+  const currentPage = Math.max(1, Number(sp.page) || 1);
 
   // CU-03 · auditoría de la auditoría
   const h = await headers();
-  audit({
+  auditOnce('consulta_log', JSON.stringify({
     modulo: 'auditoria',
     accion: 'consulta_log',
     resultado: 'exito',
     usuario_id: session!.user.id,
     usuario_correo: session!.user.email,
     rol: session!.user.rol,
-    ip: h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip'),
+    ip: extractClientIp(h),
     user_agent: h.get('user-agent'),
     detalle: filters,
-  });
+  }));
 
   const total    = db.prepare<[], { c: number }>(`SELECT COUNT(*) AS c FROM evento_auditoria`).get()!.c;
   const fallos   = db.prepare<[], { c: number }>(`SELECT COUNT(*) AS c FROM evento_auditoria WHERE resultado = 'fallo'`).get()!.c;
@@ -64,16 +65,6 @@ export default async function AuditorHome({ searchParams }: { searchParams: Prom
         <KpiCard label="Fallos MFA"        value={mfaFails} badge="Seguridad" tone="purple" />
       </div>
 
-      <div className="notice" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 18 }}>
-        <ShieldCheck size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-        <span>
-          <strong>Log inmutable — CU-03 · RF-03 · RNF-03:</strong> Este historial es de solo lectura.
-          Los triggers de base de datos bloquean cualquier UPDATE o DELETE sobre la tabla{' '}
-          <code style={{ fontFamily: 'Consolas, monospace', background: '#e8f3ff', padding: '1px 5px', borderRadius: 5 }}>evento_auditoria</code>.
-          La consulta que estás realizando ahora también quedó registrada.
-        </span>
-      </div>
-
       <div className="card">
         <div className="panel-head">
           <div>
@@ -81,7 +72,7 @@ export default async function AuditorHome({ searchParams }: { searchParams: Prom
             <p>Fecha del servidor · Usuario · Rol · Módulo · Acción · Entidad afectada · Cambios · Resultado · IP</p>
           </div>
         </div>
-        <AuditTable filters={filters} modulosDisponibles={modulosDisponibles} />
+        <AuditTable filters={filters} modulosDisponibles={modulosDisponibles} page={currentPage} />
       </div>
     </>
   );

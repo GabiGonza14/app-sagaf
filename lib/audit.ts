@@ -1,6 +1,7 @@
 // lib/audit.ts — Auditoría inmutable (RF-03, RNF-03, CU-03)
 // Cada acción relevante debe registrarse. La hora la genera el servidor (DEF-30).
 import { randomUUID } from 'node:crypto';
+import { cache } from 'react';
 import { db } from './db';
 
 export type AuditCriticidad = 'normal' | 'alta' | 'critica';
@@ -47,12 +48,33 @@ export function audit(payload: AuditPayload): void {
   );
 }
 
+// Deduplicates audit calls within a single render pass.
+// React Strict Mode double-invokes Server Components; this prevents duplicate log entries.
+// Use in Server Components instead of audit() directly.
+export const auditOnce = cache((_key: string, payloadJson: string) => {
+  audit(JSON.parse(payloadJson) as AuditPayload);
+});
+
+export function extractClientIp(h: Headers): string | null {
+  const proxyIp =
+    h.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    h.get('x-real-ip') ??
+    h.get('x-client-ip') ??
+    h.get('cf-connecting-ip') ??
+    h.get('true-client-ip') ??
+    h.get('forwarded')?.split(';').find((p) => p.trim().startsWith('for='))?.split('=')[1]?.replace(/"/g, '')?.trim();
+  if (proxyIp) return proxyIp;
+
+  const host = h.get('host') ?? '';
+  if (host.includes('localhost') || host.startsWith('127.0.0.1') || host.startsWith('::1')) return '127.0.0.1';
+
+  return null;
+}
+
 export function extractRequestContext(req: Request): { ip: string | null; user_agent: string | null } {
-  const headers = req.headers;
-  const ip =
-    headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    headers.get('x-real-ip') ??
-    null;
-  const user_agent = headers.get('user-agent') ?? null;
-  return { ip, user_agent };
+  const h = req.headers;
+  return {
+    ip: extractClientIp(h),
+    user_agent: h.get('user-agent') ?? null,
+  };
 }

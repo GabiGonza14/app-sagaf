@@ -14,7 +14,6 @@ const schema = z.object({
   estado: z.enum(['activo', 'inactivo']).default('activo'),
   organismo_supervisor: z.string().min(1, 'El organismo supervisor es obligatorio'),
   responsable_cumpl: z.string().min(1, 'El responsable de cumplimiento es obligatorio'),
-  plantillas: z.array(z.string()).min(1, 'Asocie al menos una plantilla ROS (RE-01)'),
 });
 
 export async function POST(req: Request) {
@@ -41,6 +40,16 @@ export async function POST(req: Request) {
     if (existeNombre) return NextResponse.json({ error: 'Ya existe un sujeto obligado sin RUC con ese nombre' }, { status: 409 });
   }
 
+  const plantillasAuto = db.prepare<[string, string], { id: string }>(
+    'SELECT id FROM plantilla_ros WHERE tipo_sujeto_obligado = ? AND sector = ? AND activa = 1',
+  ).all(parsed.data.tipo, parsed.data.sector);
+  if (plantillasAuto.length === 0) {
+    return NextResponse.json(
+      { error: 'No hay plantillas activas para el tipo y sector seleccionados. Cree una primero.' },
+      { status: 400 },
+    );
+  }
+
   const id = randomUUID();
   const tx = db.transaction(() => {
     db.prepare(`
@@ -50,10 +59,10 @@ export async function POST(req: Request) {
       id, parsed.data.nombre, parsed.data.ruc ?? null, parsed.data.tipo, parsed.data.sector,
       parsed.data.organismo_supervisor, parsed.data.responsable_cumpl, parsed.data.estado,
     );
-    for (const plId of parsed.data.plantillas) {
+    for (const pl of plantillasAuto) {
       db.prepare(
         'INSERT INTO sujeto_obligado_plantilla (sujeto_obligado_id, plantilla_id) VALUES (?, ?)',
-      ).run(id, plId);
+      ).run(id, pl.id);
     }
   });
   tx();
@@ -63,7 +72,7 @@ export async function POST(req: Request) {
     modulo: 'admin', accion: 'crear_sujeto_obligado', resultado: 'exito',
     usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
     ip: ctx.ip, user_agent: ctx.user_agent,
-    detalle: { id, nombre: parsed.data.nombre, tipo: parsed.data.tipo, plantillas: parsed.data.plantillas },
+    detalle: { id, nombre: parsed.data.nombre, tipo: parsed.data.tipo, plantillas: plantillasAuto.map((p) => p.id) },
     criticidad: 'normal',
   });
 

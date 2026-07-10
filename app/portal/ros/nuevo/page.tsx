@@ -1,8 +1,8 @@
-import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
+﻿import { redirect } from 'next/navigation';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
-import { BackButton } from '@/components/BackButton';
+
 import { NuevoRosForm } from './NuevoRosForm';
 
 interface PlantillaRow {
@@ -17,6 +17,17 @@ interface DocRow {
   nombre: string;
   orden: number;
   tipo_requerimiento: string;
+  formatos_permitidos: string;
+  tamano_maximo_mb: number;
+}
+
+interface CampoRow {
+  id: string;
+  plantilla_id: string;
+  nombre: string;
+  tipo_dato: string;
+  obligatorio: number;
+  orden: number;
 }
 
 interface SujetoRow {
@@ -27,7 +38,7 @@ interface SujetoRow {
 }
 
 export default async function NuevoRosPage() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
   const soId = session.user.sujetoObligadoId!;
 
@@ -50,13 +61,24 @@ export default async function NuevoRosPage() {
     .all(soId);
 
   const docs = db
-    .prepare<[], DocRow>('SELECT id, plantilla_id, nombre, orden, tipo_requerimiento FROM documento_requerido ORDER BY plantilla_id, orden')
+    .prepare<[], DocRow>('SELECT id, plantilla_id, nombre, orden, tipo_requerimiento, formatos_permitidos, tamano_maximo_mb FROM documento_requerido ORDER BY plantilla_id, orden')
     .all();
 
   const docsByPlantilla: Record<string, DocRow[]> = {};
   for (const d of docs) {
     if (plantillas.find((p) => p.id === d.plantilla_id)) {
       (docsByPlantilla[d.plantilla_id] ||= []).push(d);
+    }
+  }
+
+  // Campos dinámicos definidos por el admin para cada plantilla (RF-01, data-driven)
+  const campos = db
+    .prepare<[], CampoRow>('SELECT id, plantilla_id, nombre, tipo_dato, obligatorio, orden FROM campo_plantilla ORDER BY plantilla_id, orden')
+    .all();
+  const camposByPlantilla: Record<string, CampoRow[]> = {};
+  for (const c of campos) {
+    if (plantillas.find((p) => p.id === c.plantilla_id)) {
+      (camposByPlantilla[c.plantilla_id] ||= []).push(c);
     }
   }
 
@@ -67,7 +89,6 @@ export default async function NuevoRosPage() {
         <TopBar
           eyebrow="Recepción y registro"
           title="Registrar nuevo Reporte de Operación Sospechosa"
-          right={<BackButton href="/portal" label="Inicio" />}
         />
         <div className="notice red" style={{ marginTop: 24 }}>
           <strong>Organización inactiva.</strong> Su organización ha sido desactivada por el administrador del sistema.
@@ -84,7 +105,6 @@ export default async function NuevoRosPage() {
         <TopBar
           eyebrow="Recepción y registro"
           title="Registrar nuevo Reporte de Operación Sospechosa"
-          right={<BackButton href="/portal" label="Inicio" />}
         />
         <div className="notice amber" style={{ marginTop: 24 }}>
           <strong>Sin plantillas asignadas.</strong> Su organización no tiene plantillas ROS habilitadas.
@@ -99,13 +119,13 @@ export default async function NuevoRosPage() {
       <TopBar
         eyebrow="Recepción y registro"
         title="Registrar nuevo Reporte de Operación Sospechosa"
-        right={<BackButton href="/portal" label="Inicio" />}
       />
 
       <NuevoRosForm
         sujeto={{ id: so.id, nombre: so.nombre, tipo: so.tipo }}
         plantillas={plantillas}
         docsByPlantilla={docsByPlantilla}
+        camposByPlantilla={camposByPlantilla}
         oficialDefault={session.user.name ?? ''}
         correoDefault={session.user.email ?? ''}
       />

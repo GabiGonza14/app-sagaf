@@ -55,7 +55,7 @@ sagaf-app/
 ├── components/           # Componentes UI reutilizables
 ├── db/
 │   ├── schema.sql        # Esquema relacional (16+ tablas)
-│   ├── seed.ts           # Datos demo (6 usuarios, 2 orgs, 3 plantillas, 3 ROS)
+│   ├── seed.ts           # Datos base (6 usuarios, 2 orgs, 5 plantillas, 70 docs, 0 ROS — sin precarga)
 │   ├── init.ts           # Inicialización
 │   └── reset.ts          # Reset completo
 ├── auth.ts               # Configuración NextAuth v5
@@ -76,6 +76,8 @@ sagaf-app/
 | `supervisor` | `/uaf` + reportes exportables | Supervisa análisis, genera reportes |
 | `auditor` | `/auditor` | Solo lee el log de auditoría |
 | `admin` | `/admin` | Gestiona usuarios, organizaciones y plantillas |
+
+> **Decisión sobre roles (5 en total):** el documento académico enumera 4 roles operativos en RF-05, pero **CU-03 nombra explícitamente al "Auditor Interno"** como actor de solo lectura. Por eso el sistema implementa **5 roles**: realiza un actor que el propio docx reconoce, sin contradecirlo. (Ver `docs/planificacion_sagaf.md`, Anexo A-4.)
 
 ---
 

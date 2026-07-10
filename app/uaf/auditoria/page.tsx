@@ -1,21 +1,25 @@
-import { auth } from '@/auth';
+﻿import { redirect } from 'next/navigation';
+import { getSession } from '@/lib/session';
 import { TopBar } from '@/components/TopBar';
 import { AuditTable } from '@/components/AuditTable';
-import { audit, extractRequestContext } from '@/lib/audit';
+import { auditOnce, extractClientIp } from '@/lib/audit';
 import { headers } from 'next/headers';
 
 export const revalidate = 0;
 
 interface SP {
-  q?: string; modulo?: string; resultado?: string; criticidad?: string; desde?: string; hasta?: string;
+  q?: string; modulo?: string; rol?: string; resultado?: string; criticidad?: string; desde?: string; hasta?: string;
 }
 
 export default async function UafAuditoriaPage({ searchParams }: { searchParams: Promise<SP> }) {
-  const session = await auth();
+  const session = await getSession();
+  // Solo el rol auditor accede desde /auditor; supervisor y analista no tienen permiso aquí
+  if (session?.user?.rol !== 'admin') redirect('/uaf');
   const sp = await searchParams;
   const filters = {
     q: sp.q ?? '',
     modulo: sp.modulo ?? '',
+    rol: sp.rol ?? '',
     resultado: sp.resultado ?? '',
     criticidad: sp.criticidad ?? '',
     desde: sp.desde ?? '',
@@ -24,17 +28,17 @@ export default async function UafAuditoriaPage({ searchParams }: { searchParams:
 
   // CU-03 RE-03: la consulta al log queda auditada
   const h = await headers();
-  audit({
+  auditOnce('consulta_log', JSON.stringify({
     modulo: 'auditoria',
     accion: 'consulta_log',
     resultado: 'exito',
     usuario_id: session!.user.id,
     usuario_correo: session!.user.email,
     rol: session!.user.rol,
-    ip: h.get('x-forwarded-for')?.split(',')[0]?.trim() ?? h.get('x-real-ip'),
+    ip: extractClientIp(h),
     user_agent: h.get('user-agent'),
     detalle: filters,
-  });
+  }));
 
   return (
     <>

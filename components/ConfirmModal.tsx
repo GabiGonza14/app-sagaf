@@ -17,6 +17,7 @@ export interface ConfirmModalProps {
     label: string;
     placeholder?: string;
     required?: boolean;
+    minLength?: number;
     value: string;
     onChange: (v: string) => void;
   };
@@ -107,7 +108,11 @@ export function ConfirmModal({
 
         <div
           className="modal-icon"
-          style={{ background: iconBg, color: iconColor }}
+          style={{ 
+            background: iconBg, 
+            color: iconColor,
+            boxShadow: `0 4px 14px ${iconColor.replace('var(', 'var(--shadow-glow-').replace(')', ')')}` 
+          }}
         >
           {icon}
         </div>
@@ -144,7 +149,7 @@ export function ConfirmModal({
             type="button"
             className={btnClass}
             onClick={onConfirm}
-            disabled={busy || (input?.required && !input.value.trim())}
+            disabled={busy || (input?.required && !input.value.trim()) || (!!input?.minLength && input.value.trim().length < input.minLength)}
           >
             {busy ? 'Procesando…' : confirmLabel}
           </button>

@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { authConfig } from './auth.config';
 import { db } from './lib/db';
 import { audit, extractRequestContext } from './lib/audit';
+import { checkRateLimit, clearRateLimit } from './lib/rate-limit';
 
 interface UsuarioRow {
   id: string;
@@ -51,6 +52,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials, req) {
         const parsed = loginSchema.safeParse(credentials);
         const ctx = extractRequestContext(req as unknown as Request);
+
+        // BL-035: Rate Limiting (máx 5 intentos por minuto por IP)
+        const rateLimit = checkRateLimit(ctx.ip, 5, 60000);
+        if (!rateLimit.ok) {
+          audit({
+            modulo: 'autenticacion', accion: 'login_failed', resultado: 'fallo',
+            ip: ctx.ip, user_agent: ctx.user_agent,
+            detalle: { motivo: 'rate_limit_exceeded' },
+            criticidad: 'alta',
+          });
+          return null;
+        }
+
         if (!parsed.success) {
           audit({
             modulo: 'autenticacion', accion: 'login_failed', resultado: 'fallo',
@@ -87,6 +101,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         stmtUpdateUltimoAcceso.run(usuario.id);
+        
+        // Reset rate limit for this IP on successful password match
+        clearRateLimit(ctx.ip);
 
         audit({
           modulo: 'autenticacion', accion: 'login_password_ok', resultado: 'exito',

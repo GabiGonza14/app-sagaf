@@ -7,6 +7,7 @@ interface Item {
   value: number; // 0-100
   badge: string;
   tone?: Tone;
+  detail?: Array<{ label: string; value: string; tone?: Tone }>;
 }
 
 export function ProgressList({ items }: { items: Item[] }) {
@@ -18,7 +19,27 @@ export function ProgressList({ items }: { items: Item[] }) {
             <strong>{it.label}</strong>
             <Badge tone={it.tone ?? 'blue'}>{it.badge}</Badge>
           </div>
-          <div className="bar"><div style={{ width: `${Math.max(0, Math.min(100, it.value))}%` }} /></div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="bar" style={{ flex: 1 }}>
+              <div
+                style={{ width: `${Math.max(0, Math.min(100, it.value))}%` }}
+                className="animate-shimmer"
+              />
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 600, minWidth: 34, textAlign: 'right', color: 'var(--muted)', flexShrink: 0 }}>
+              {Math.max(0, Math.min(100, it.value))}%
+            </span>
+          </div>
+          {it.detail && it.detail.length > 0 && (
+            <div className="progress-detail">
+              {it.detail.map((d) => (
+                <span key={d.label} className={`progress-chip ${d.tone ?? 'gray'}`}>
+                  <strong>{d.value}</strong>
+                  {d.label}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </div>

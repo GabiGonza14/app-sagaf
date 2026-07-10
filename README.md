@@ -55,6 +55,44 @@ Abrir [http://localhost:3000](http://localhost:3000) — serás redirigido a `/l
 
 ---
 
+## 🐳 Docker Compose
+
+Alternativa para levantar el proyecto sin necesidad de instalar Node.js directamente en tu máquina.
+
+### Requisitos
+- **Docker** 20.10+
+- **Docker Compose** v2+
+
+### Pasos
+
+```bash
+# 1. Construir la imagen y levantar el contenedor
+#    - Se inicializa la BD automáticamente si no existe
+#    - Se ejecuta seed para cargar los usuarios demo
+#    - El puerto 3000 se mapea al host
+docker-compose up --build
+
+# 2. Detener y eliminar contenedor
+# docker-compose down
+
+# 3. Resetear la base de datos (elimina volumen y vuelve a construir)
+# docker-compose down -v && docker-compose up --build
+```
+
+### Configuración
+
+- **Volumen persistente**: `./db-data` en tu máquina se monta en `/app/db-data` del contenedor para que la base de datos SQLite sobreviva a reinicios del contenedor. **Importante**: no se monta sobre `/app/db` para no ocultar los scripts `init.ts` y `seed.ts` del contenedor.
+- **Variables de entorno**: `docker-compose.yml` lee automáticamente tu `.env.local` (ya existe en el proyecto). Asegúrate de que contenga al menos:
+  ```env
+  AUTH_SECRET=bf7f99824c8e483c175a26052df64eab3426c7a07e248b3b8350ce3ffe450705
+  AUTH_TRUST_HOST=true
+  ```
+- **Nota**: `better-sqlite3` requiere compilación nativa. El Dockerfile instala `python3`, `make` y `g++` para compilarlo correctamente.
+
+> **Nota**: En producción, cambia `AUTH_SECRET` por un valor seguro generado con `openssl rand -base64 32` y elimina `AUTH_TRUST_HOST=true` (reemplázalo por el dominio real en `AUTH_URL`).
+
+---
+
 ## 🔐 Credenciales
 
 Todas las cuentas usan la contraseña **`password123`** (hash bcrypt en BD).
@@ -73,25 +111,10 @@ Al primer login, cada cuenta deberá **enrolar MFA** escaneando el QR con su aut
 
 El portal público devuelve **únicamente el nombre** si la cédula/RUC/pasaporte existe — nunca dirección, teléfono, actividad u otros datos sensibles (RF-06 / DEF-09 mitigado).
 
-Los datos provienen de **`lib/directorio-nacional.json`**, un archivo JSON local con **20 registros ficticios** que simula una API gubernamental externa (Tribunal Electoral / Registro Público). Incluye cédulas panameñas, pasaportes extranjeros y RUC de empresas. En producción este archivo sería reemplazado por una llamada al servicio real.
+Los datos se almacenan en la **tabla `personas` de la base de datos SQLite**. Esta tabla asocia cada identificador (cédula, pasaporte o RUC) con su nombre. **La verificación del identificador es obligatoria** antes de enviar un ROS: el usuario debe hacer clic en *Verificar* para cada parte involucrada. Si el identificador existe, se muestra el nombre registrado; si no existe, el usuario debe ingresar el nombre manualmente tras verificar. Al enviar el ROS, si el identificador no estaba registrado, se guarda automáticamente en la tabla `personas` para que esté disponible en futuras verificaciones.
 
-Algunos identificadores de prueba:
+En producción, este mecanismo podría integrarse con una API gubernamental real (Tribunal Electoral / Registro Público), pero para fines académicos el directorio se mantiene en la misma base de datos.
 
-| Identificador | Tipo | Nombre |
-| --- | --- | --- |
-| `8-888-888` | Cédula panameña | María Elena González |
-| `8-482-917` | Cédula panameña | Carlos Alberto Pérez |
-| `8-095-221` | Cédula panameña | Ana Lucía Morales |
-| `8-777-444` | Cédula panameña | Roberto Antonio Castillo |
-| `2-147-836` | Cédula panameña | Lucía del Carmen Rodríguez |
-| `PE-8891` | Pasaporte (Venezuela) | Luis Eduardo Herrera |
-| `CO-441892` | Pasaporte (Colombia) | Valentina Ospina Ríos |
-| `MX-2019-773` | Pasaporte (México) | Alejandro Torres Guzmán |
-| `US-AB991234` | Pasaporte (EE. UU.) | Jennifer Diane Mitchell |
-| `CN-G88721045` | Pasaporte (China) | Wei Zhong Liu |
-| `RUC-77` | RUC empresa | Inversiones del Istmo, S.A. |
-| `RUC-45892301` | RUC empresa | Constructora Horizonte Verde, S.A. |
-| `RUC-88776655` | RUC empresa | Holding Pacific Group Corp. |
 
 ---
 
@@ -116,7 +139,7 @@ sagaf-app/
 │   ├── admin/                  ADMINISTRADOR (CU-05, CU-06)
 │   │   ├── usuarios/
 │   │   ├── sujetos-obligados/
-│   │   └── plantillas/
+│   │   └── plantillas/          (CU-06 — listado + editor de campos/documentos por plantilla)
 │   └── api/                    Route Handlers REST
 │       ├── auth/[...nextauth]/
 │       ├── mfa/{setup,verify}/
@@ -135,8 +158,7 @@ sagaf-app/
 │   ├── audit.ts                Log inmutable; hora del servidor (DEF-30)
 │   ├── permissions.ts          RBAC + assertions; canAccessROS (DEF-05)
 │   ├── masking.ts              Enmascaramiento Ley 81
-│   ├── persons.ts              Lookup Ley 81: solo nombre en portal (fuente: directorio-nacional.json)
-│   ├── directorio-nacional.json  20 personas ficticias (cédulas PA, pasaportes, RUC)
+│   ├── persons.ts              Lookup Ley 81: solo nombre en portal (fuente: tabla personas en SQLite)
 │   └── ros-number.ts           Número único ROS-YYYY-NNNNNN (DEF-12 mitigado)
 ├── components/
 │   ├── Sidebar.tsx · TopBar.tsx · KpiCard.tsx · Badge.tsx
@@ -144,12 +166,29 @@ sagaf-app/
 │   ├── AuditTable.tsx · AuditFilters.tsx
 ├── db/
 │   ├── schema.sql              16+ tablas (diagrama de clases UML)
-│   ├── seed.ts                 6 usuarios, 2 SO, 3 plantillas, 56 docs — sin ROS precargados
+│   ├── seed.ts                 6 usuarios, 2 SO, 5 plantillas (banco×2, inmobiliaria, casino, notarios), 70 docs req. — sin ROS precargados (registro manual)
 │   └── init.ts · reset.ts
 ├── types/                      Tipos del dominio + ext NextAuth
 ├── auth.ts · auth.config.ts    NextAuth v5 (con flujo MFA)
 └── middleware.ts               Protección de rutas por rol + MFA
 ```
+
+---
+
+## 📁 Carpeta `docs/` — Documentación del proyecto
+
+Toda la documentación técnica y de contexto del proyecto vive en la carpeta `docs/`. Es el punto de entrada para entender las decisiones de diseño, los criterios aplicados y el estado de la implementación.
+
+| Archivo | Contenido |
+| --- | --- |
+| `Parcial ISA 4 V2.0.docx` | Documento académico original entregado por el docente. Contiene la especificación del proyecto, requisitos funcionales y no funcionales, casos de uso, criterios de aceptación, plan de pruebas y matriz de defectos. Es la **fuente primaria** del sistema. |
+| `criterio_documental_ros.md` | Descripción de cada documento requerido en las tres plantillas activas (Banco · Persona Natural, Banco · Persona Jurídica, Inmobiliaria). Explica qué es cada documento, por qué se clasificó como **obligatorio**, **condicional** u **opcional**, y qué valor aporta al análisis de la UAF. Incluye notas de implementación sobre los campos `tipo_requerimiento` y `obligatorio` en la BD. |
+| `manual_usuario.md` | Manual de uso del sistema dirigido al usuario final: cómo registrar un ROS, cómo atender subsanaciones, cómo usar la bandeja UAF, etc. |
+| `planificacion_sagaf.md` | Plan de desarrollo por fases, decisiones de arquitectura y justificación de los 5 roles del sistema (incluyendo el Auditor Interno implícito en CU-03). |
+| `reporte_pruebas_fase3.md` | Resultados de las pruebas de la Fase 3: cobertura, casos ejecutados, defectos encontrados y estado de mitigación. |
+| `metricas_finales_sagaf.md` | Métricas finales del proyecto: líneas de código, cobertura de CUs/RFs/RNFs, defectos mitigados y estadísticas de implementación. |
+
+> La carpeta `Contexto/` en la raíz del proyecto contiene los archivos originales entregados por el docente: el PDF del parcial, los 4 diagramas UML de casos de uso, el diagrama de clases y el prototipo HTML semi-funcional de referencia.
 
 ---
 
@@ -164,8 +203,8 @@ sagaf-app/
 | **RF-03** Trazabilidad y auditoría | `lib/audit.ts` registra cada acción (usuario, rol, fecha servidor, IP, UA, recurso, criticidad). Trigger `ABORT` en BD evita UPDATE/DELETE del log |
 | **RF-04** Reportes e inteligencia | `/uaf/reportes` con KPIs, agregados por sector, distribución de riesgo, tiempos, completitud documental. Exportación CSV con marca de agua y restricción de rol |
 | **RF-05** Control de acceso por roles | 5 roles, `middleware.ts` + assertions en backend. MFA obligatorio. Sujetos obligados solo ven sus propios ROS (previene **DEF-05** IDOR) |
-| **RF-06** Validación segura de identidad | `POST /api/personas/verify` retorna **únicamente** `{found, nombre}`. Mitiga **DEF-09**. En banco se valida ordenante y beneficiario **por separado** (mitiga **DEF-11**) |
-| **RF-07** Carga documental individualizada | `POST /api/documentos/upload` con `documento_requerido_id` por archivo. Estado `pendiente/cargado/observado/validado/no_aplica`. Mitiga **DEF-15** |
+| **RF-06** Validación segura de identidad | `POST /api/personas/verify` consulta la tabla `personas` de SQLite y retorna **únicamente** `{found, nombre}`. **La verificación es obligatoria** antes de enviar el ROS; si no existe, se crea al enviar. Mitiga **DEF-09**. En banco se valida ordenante y beneficiario **por separado** (mitiga **DEF-11**) |
+| **RF-07** Carga documental individualizada | `POST /api/documentos/upload` con `documento_requerido_id` por archivo. Estado `pendiente/cargado/observado/validado/no_aplica`. Mitiga **DEF-15**. Clasificación de tres niveles por plantilla: **obligatorio** (bloquea el envío si falta), **condicional** (advertencia, depende de la operación) y **opcional** (complementario). Criterio y descripción de cada documento en `docs/criterio_documental_ros.md` |
 
 ### Requisitos no funcionales
 
@@ -174,7 +213,7 @@ sagaf-app/
 | **RNF-01** Seguridad y privacidad | bcrypt + JWT + TOTP real. Portal NO autocompleta datos sensibles. **DEF-01/02/03** mitigados (ventana TOTP estricta, expiración validada, MFA bloqueante) |
 | **RNF-02** Control de acceso por roles | RBAC backend + middleware. Admin NO tiene acceso libre a contenido sensible. |
 | **RNF-03** Trazabilidad | Auditoría completa con IP, UA, recurso, detalle JSON, criticidad. Hora del servidor (mitiga **DEF-30**). |
-| **RNF-04** Usabilidad | Diseño tomado 1:1 del `Prototipo.html` aprobado. Formularios solo con campos pertinentes según sector. |
+| **RNF-04** Usabilidad | Rediseño visual completo: glassmorphism, micro-animaciones, tipografía mejorada y paleta institucional extendida. Formularios solo con campos pertinentes según sector. |
 | **RNF-05** Gestión documental controlada | Un contenedor por requisito, hash SHA-256 del archivo, descarga auditada. |
 | **RNF-06** Integridad de datos | Zod en cada endpoint, normalización de identificadores (mitiga **DEF-10**). Monto como `REAL` (mitiga **DEF-35**). |
 | **RNF-07** Rendimiento | SQLite con WAL + PRAGMAs. Índices en `ros`, `parte_involucrada`, `documento_adjunto`, `evento_auditoria`. |
@@ -203,7 +242,7 @@ sagaf-app/
 | **DEF-03** Login sin completar MFA | `auth.config.ts` redirige a `/mfa/verify` mientras `mfaVerified === false` |
 | **DEF-05** IDOR (acceso a ROS de otra entidad) | `canAccessROS()` en BD + middleware + verificación por endpoint |
 | **DEF-06** Validación de permisos solo en frontend | RBAC en backend con `requirePermission()` que arroja `ForbiddenError` |
-| **DEF-09** Autocompletado de datos sensibles | `POST /api/personas/verify` solo devuelve `{found, nombre}` |
+| **DEF-09** Autocompletado de datos sensibles | `POST /api/personas/verify` consulta la tabla `personas` de SQLite y solo devuelve `{found, nombre}` |
 | **DEF-10** Búsqueda falla por formato | `normalizeIdentifier()` + `tryVariants()` en `lib/persons.ts` |
 | **DEF-11** Ordenante/beneficiario comparten estado | Cada parte tiene su propio `useState` en `NuevoRosForm.tsx` |
 | **DEF-12** Números de ROS duplicados | `generateNumeroROS()` con transacción atómica |
@@ -218,8 +257,8 @@ sagaf-app/
 
 1. **Login como Banco**: `cumplimiento@banconacional.com.pa` / `password123`
    - Enrola MFA con tu app autenticadora (escanea QR o pega la clave manual).
-   - Verás `/portal` (sin ROS precargados; la BD arranca limpia).
-   - Click en *”Registrar nuevo ROS”*. Verifica con cédula `8-888-888` → debería mostrar “María Elena González” y nada más (los datos sensibles como dirección y actividad económica están en el JSON pero nunca se exponen al portal).
+   - Verás `/portal` sin ROS precargados; registra el primero con *Registrar nuevo ROS*.
+   - Click en *”Registrar nuevo ROS”*. **Verifica** con cédula `8-888-888` → debería mostrar “María Elena González” y nada más (la base de datos solo almacena nombre e identificador; otros datos sensibles nunca se exponen al portal). Si usas un identificador que no existe, ingresa el nombre manualmente tras verificar.
    - Sube archivos a cada requisito documental (mín. 5 para probar). Envía.
 
 2. **Login como Analista UAF**: `analista@uaf.gob.pa` / `password123`
@@ -234,7 +273,7 @@ sagaf-app/
 
 5. **Login como Auditor**: `auditor@uaf.gob.pa` → `/auditor` muestra el log completo de TODAS las acciones, **sin** acceso al contenido de los ROS.
 
-6. **Login como Admin**: `/admin` → crear usuarios, sujetos obligados, ver plantillas.
+6. **Login como Admin**: `/admin` → crear usuarios, sujetos obligados y **plantillas ROS** (con sus campos y documentos requeridos, CU-06).
 
 ---
 
@@ -261,14 +300,14 @@ pnpm build       # Build de producción
 Este MVP académico **NO** está listo para producción tal cual. Para producción se requeriría:
 
 - `AUTH_SECRET` generado aleatoriamente y rotado (`openssl rand -base64 32`)
-- Cifrado at-rest del `mfa_secret` en BD (no en claro)
 - Reemplazar SQLite por PostgreSQL/MariaDB con replicación
 - Reemplazar storage local por S3/MinIO con cifrado del lado del servidor
 - Reverse proxy (Nginx/Caddy) + TLS forzado
-- Rate limiting en `/api/auth/*` y `/api/mfa/*`
 - Headers de seguridad (CSP, HSTS, X-Frame-Options)
 - Backup automatizado y plan de recuperación
 - Pen-testing externo
+
+> **Ya implementado en este MVP**: cifrado AES-256-CBC at-rest del `mfa_secret` en BD, rate limiting en `/api/auth/*` y `/api/mfa/*`.
 
 ---
 

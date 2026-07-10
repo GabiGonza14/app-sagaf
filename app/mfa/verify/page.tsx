@@ -1,17 +1,20 @@
-import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
+﻿import { redirect } from 'next/navigation';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { MfaVerifyForm } from './MfaVerifyForm';
 import { SignOutLink } from '@/components/SignOutLink';
 import { buildQrDataUrl } from '@/lib/totp';
+import { decryptString } from '@/lib/crypto';
 
 export default async function MfaVerifyPage() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
   if (session.user.mfaVerified) redirect('/');
 
   const row = db
-    .prepare<[string], { mfa_activo: number; mfa_secret: string | null }>('SELECT mfa_activo, mfa_secret FROM usuario WHERE id = ?')
+    .prepare<[string], { mfa_activo: number; mfa_secret: string | null }>(
+      'SELECT mfa_activo, mfa_secret FROM usuario WHERE id = ?',
+    )
     .get(session.user.id);
 
   // Primer login: si MFA no está activo, ofrecer enrolamiento
@@ -19,10 +22,10 @@ export default async function MfaVerifyPage() {
     redirect('/mfa/setup');
   }
 
-  // Generar QR para mostrar en la verificación
   let qr: string | null = null;
   if (row.mfa_secret) {
-    qr = await buildQrDataUrl(session.user.email ?? 'sagaf', row.mfa_secret);
+    const secret = decryptString(row.mfa_secret);
+    qr = await buildQrDataUrl(session.user.email ?? 'sagaf', secret);
   }
 
   return (
@@ -39,8 +42,8 @@ export default async function MfaVerifyPage() {
 
         <h1 style={{ fontSize: 22, marginBottom: 4 }}>Verificación MFA</h1>
         <p className="lead" style={{ marginBottom: 18 }}>
-          Ingrese el código de 6 dígitos generado por su aplicación autenticadora
-          (Google Authenticator, Microsoft Authenticator, Authy).
+          Ingrese el código de 6 dígitos generado por su aplicación autenticadora.
+          Si borró la entrada, escanee el QR nuevamente.
         </p>
 
         <MfaVerifyForm qr={qr} />

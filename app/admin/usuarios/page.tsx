@@ -1,4 +1,4 @@
-import { auth } from '@/auth';
+﻿import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
@@ -8,11 +8,21 @@ import { UsuarioActions } from './UsuarioActions';
 
 export const revalidate = 0;
 
+const ROL_LABEL: Record<string, string> = {
+  sujeto_obligado: 'Sujeto Obligado',
+  analista: 'Analista',
+  supervisor: 'Supervisor',
+  auditor: 'Auditor',
+  admin: 'Administrador',
+};
+
 interface UserRow {
   id: string;
   nombre: string;
   correo: string;
   rol: string;
+  rol_id: string;
+  sujeto_obligado_id: string | null;
   sujeto_nombre: string | null;
   estado: string;
   mfa_activo: number;
@@ -22,16 +32,16 @@ interface UserRow {
 interface SujetoRow { id: string; nombre: string }
 
 export default async function UsuariosAdmin() {
-  const session = await auth();
+  const session = await getSession();
 
   const users = db.prepare<[], UserRow>(
     `
-    SELECT u.id, u.nombre, u.correo, r.nombre AS rol,
+    SELECT u.id, u.nombre, u.correo, r.nombre AS rol, u.rol_id, u.sujeto_obligado_id,
            so.nombre AS sujeto_nombre, u.estado, u.mfa_activo, u.ultimo_acceso
-      FROM usuario u
-      JOIN rol r ON r.id = u.rol_id
-      LEFT JOIN sujeto_obligado so ON so.id = u.sujeto_obligado_id
-     ORDER BY u.nombre
+       FROM usuario u
+       JOIN rol r ON r.id = u.rol_id
+       LEFT JOIN sujeto_obligado so ON so.id = u.sujeto_obligado_id
+      ORDER BY u.nombre
     `,
   ).all();
 
@@ -69,7 +79,7 @@ export default async function UsuariosAdmin() {
               <tr key={u.id}>
                 <td>{u.nombre}</td>
                 <td>{u.correo}</td>
-                <td><Badge tone="blue">{u.rol}</Badge></td>
+                <td><Badge tone="blue">{ROL_LABEL[u.rol] ?? u.rol}</Badge></td>
                 <td>{u.sujeto_nombre ?? '—'}</td>
                 <td><Badge tone={u.estado === 'activo' ? 'green' : 'red'}>{u.estado}</Badge></td>
                 <td>
@@ -78,7 +88,7 @@ export default async function UsuariosAdmin() {
                   </Badge>
                 </td>
                 <td className="small">{u.ultimo_acceso ? formatPanama(u.ultimo_acceso) : '—'}</td>
-                <td><UsuarioActions usuarioId={u.id} estadoActual={u.estado} /></td>
+                <td><UsuarioActions usuarioId={u.id} nombreActual={u.nombre} correoActual={u.correo} estadoActual={u.estado} rolActualId={u.rol_id} sujetoObligadoId={u.sujeto_obligado_id} roles={roles} sujetos={sujetos} /></td>
               </tr>
             ))}
           </tbody>

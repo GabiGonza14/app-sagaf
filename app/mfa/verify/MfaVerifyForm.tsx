@@ -1,56 +1,36 @@
 'use client';
-import { useState } from 'react';
+import { useMfaVerify } from '../useMfaVerify';
 
 interface Props {
   readonly qr: string | null;
 }
 
 export function MfaVerifyForm({ qr }: Props) {
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { code, setCode, loading, error, verify } = useMfaVerify();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await fetch('/api/mfa/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Código inválido');
-        return;
-      }
-      // El JWT ya fue actualizado por /api/mfa/verify con mfaVerified=true
-      window.location.href = '/';
-    } finally {
-      setLoading(false);
-    }
+    const ok = await verify(code);
+    // La cookie JWT ya viene actualizada (mfaVerified=true) en la respuesta del POST.
+    if (ok) globalThis.location.href = '/';
   }
 
   return (
     <>
-      <div style={{ display: 'grid', gap: 14, gridTemplateColumns: '1fr', alignItems: 'start' }}>
-        {qr && (
-          <div className="qr-box">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qr} alt="Código QR para MFA" width={240} height={240} />
-          </div>
-        )}
+      {qr && (
+        <div className="qr-box" style={{ marginBottom: 18 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qr} alt="Código QR para MFA" width={240} height={240} />
+        </div>
+      )}
 
-
-      </div>
-
-      <form onSubmit={onSubmit} style={{ marginTop: 18 }}>
+      <form onSubmit={onSubmit} style={{ marginTop: 0 }}>
         <div className="form-grid">
           <div className="field full">
             <label htmlFor="code">Código de 6 dígitos</label>
             <input
               id="code"
+              name="code"
               inputMode="numeric"
               pattern="[0-9]{6}"
               maxLength={6}

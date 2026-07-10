@@ -1,9 +1,17 @@
-// PATCH /api/documentos/[id] — Observar / validar documento (CU-08)
+// PATCH /api/documentos/[id] — Observar / validar / revertir documento (CU-08)
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { audit, extractRequestContext } from '@/lib/audit';
+
+const VALID_FORWARD = new Set(['validado', 'observado', 'no_aplica']);
+const VALID_REVERSE: Record<string, Set<string>> = {
+  validado:  new Set(['cargado', 'observado']),
+  no_aplica: new Set(['cargado']),
+  observado: new Set(['cargado', 'validado']),
+  cargado:   new Set(['validado', 'observado', 'no_aplica']),
+};
 
 const schema = z.object({
   estado: z.enum(['cargado', 'observado', 'validado', 'no_aplica']),
@@ -21,23 +29,50 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 });
 
-  const adj = db.prepare<[string], { ros_id: string; nombre_archivo: string }>(
-    'SELECT ros_id, nombre_archivo FROM documento_adjunto WHERE id = ?',
+  const adj = db.prepare<[string], { ros_id: string; nombre_archivo: string; estado: string }>(
+    'SELECT ros_id, nombre_archivo, estado FROM documento_adjunto WHERE id = ?',
   ).get(id);
   if (!adj) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
 
-  db.prepare('UPDATE documento_adjunto SET estado = ?, observacion = ? WHERE id = ?')
-    .run(parsed.data.estado, parsed.data.observacion ?? null, id);
+  const desde = adj.estado;
+  const hacia = parsed.data.estado;
+  const permitidos = VALID_REVERSE[desde];
+  if (!permitidos?.has(hacia) && !(desde === 'cargado' && VALID_FORWARD.has(hacia))) {
+    return NextResponse.json({
+      error: `Transición no permitida: no puede pasar de "${desde}" a "${hacia}".`,
+    }, { status: 400 });
+  }
 
-  const numero = db.prepare<[string], { numero_ros: string }>('SELECT numero_ros FROM ros WHERE id = ?').get(adj.ros_id)?.numero_ros;
+  const esReversion = desde === 'validado' || desde === 'no_aplica' || (desde === 'observado' && hacia === 'cargado');
+
+  db.prepare('UPDATE documento_adjunto SET estado = ?, observacion = ? WHERE id = ?')
+    .run(hacia, parsed.data.observacion ?? null, id);
+
+  const ros = db.prepare<[string], { numero_ros: string; estado: string }>(
+    'SELECT numero_ros, estado FROM ros WHERE id = ?',
+  ).get(adj.ros_id);
   const ctx = extractRequestContext(req);
+  const accion = esReversion ? `revertir_${desde}` : `marcar_${hacia}`;
+
+  // Auto-transición al validar el primer documento: en_revision_vinculo → revision_documental
+  if (hacia === 'validado' && ros && ['en_analisis', 'en_revision_vinculo'].includes(ros.estado)) {
+    const anterior = ros.estado;
+    db.prepare(`UPDATE ros SET estado = 'revision_documental' WHERE id = ?`).run(adj.ros_id);
+    audit({
+      modulo: 'ros', accion: 'cambio_estado', resultado: 'exito',
+      usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
+      recurso_afectado: ros.numero_ros, ip: ctx.ip, user_agent: ctx.user_agent,
+      detalle: { anterior, nuevo: 'revision_documental', automatico: true },
+    });
+  }
 
   audit({
-    modulo: 'documentos', accion: `marcar_${parsed.data.estado}`, resultado: 'exito',
+    modulo: 'documentos', accion, resultado: 'exito',
     usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
-    recurso_afectado: numero ?? adj.ros_id, ip: ctx.ip, user_agent: ctx.user_agent,
-    detalle: { documento_adjunto_id: id, archivo: adj.nombre_archivo, observacion: parsed.data.observacion ?? null },
+    recurso_afectado: ros?.numero_ros ?? adj.ros_id, ip: ctx.ip, user_agent: ctx.user_agent,
+    detalle: { documento_adjunto_id: id, archivo: adj.nombre_archivo, desde, hacia, observacion: parsed.data.observacion ?? null },
+    criticidad: esReversion ? 'alta' : 'normal',
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, accion, desde, hacia });
 }

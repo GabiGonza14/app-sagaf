@@ -1,11 +1,10 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useMfaVerify } from '../useMfaVerify';
 
 export function MfaSetupClient() {
   const [qr, setQr] = useState<string | null>(null);
-  const [code, setCode] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { code, setCode, loading, error, verify } = useMfaVerify();
 
   useEffect(() => {
     let cancelled = false;
@@ -23,24 +22,8 @@ export function MfaSetupClient() {
 
   async function onConfirm(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setLoading(true);
-    try {
-      const res = await fetch('/api/mfa/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? 'Código inválido');
-        return;
-      }
-      // El JWT ya fue actualizado por /api/mfa/verify con mfaVerified=true
-      window.location.href = '/';
-    } finally {
-      setLoading(false);
-    }
+    const ok = await verify(code);
+    if (ok) globalThis.location.href = '/';
   }
 
   return (
@@ -54,8 +37,6 @@ export function MfaSetupClient() {
             <div style={{ padding: 24, color: '#667085' }}>Generando QR…</div>
           )}
         </div>
-
-
       </div>
 
       <form onSubmit={onConfirm} style={{ marginTop: 18 }}>

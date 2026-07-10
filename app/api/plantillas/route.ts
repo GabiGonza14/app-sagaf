@@ -31,10 +31,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Ya existe una plantilla con ese nombre para ese tipo' }, { status: 409 });
 
   const id = randomUUID();
-  db.prepare(`
-    INSERT INTO plantilla_ros (id, nombre, version, tipo_sujeto_obligado, sector, activa)
-    VALUES (?, ?, ?, ?, ?, 1)
-  `).run(id, parsed.data.nombre, parsed.data.version, parsed.data.tipo_sujeto_obligado, parsed.data.sector);
+  const tx = db.transaction(() => {
+    db.prepare(`
+      INSERT INTO plantilla_ros (id, nombre, version, tipo_sujeto_obligado, sector, activa)
+      VALUES (?, ?, ?, ?, ?, 1)
+    `).run(id, parsed.data.nombre, parsed.data.version, parsed.data.tipo_sujeto_obligado, parsed.data.sector);
+
+    const sujetos = db.prepare<[string, string, string], { id: string }>(
+      'SELECT id FROM sujeto_obligado WHERE tipo = ? AND sector = ? AND estado = ?',
+    ).all(parsed.data.tipo_sujeto_obligado, parsed.data.sector, 'activo');
+    for (const s of sujetos) {
+      db.prepare(
+        'INSERT OR IGNORE INTO sujeto_obligado_plantilla (sujeto_obligado_id, plantilla_id) VALUES (?, ?)',
+      ).run(s.id, id);
+    }
+  });
+  tx();
 
   const ctx = extractRequestContext(req);
   audit({

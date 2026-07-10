@@ -1,10 +1,10 @@
-import { redirect } from 'next/navigation';
-import { auth } from '@/auth';
+﻿import { redirect } from 'next/navigation';
+import { getSession } from '@/lib/session';
 import { MfaSetupClient } from './MfaSetupClient';
 import { SignOutLink } from '@/components/SignOutLink';
 
 export default async function MfaSetupPage() {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
   if (session.user.mfaVerified) redirect('/');
 

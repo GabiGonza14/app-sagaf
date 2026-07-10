@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import { auth } from '@/auth';
+﻿import Link from 'next/link';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { KpiCard } from '@/components/KpiCard';
@@ -20,6 +20,12 @@ interface RosResumen {
   nivel_riesgo: string | null;
   doc_total: number;
   doc_cargados: number;
+  doc_obl_total: number;
+  doc_obl_cargados: number;
+  doc_cond_total: number;
+  doc_cond_cargados: number;
+  doc_opt_total: number;
+  doc_opt_cargados: number;
   pendientes_subsanacion: number;
 }
 
@@ -31,7 +37,7 @@ interface SubsanacionPendiente {
 }
 
 export default async function PortalHome() {
-  const session = await auth();
+  const session = await getSession();
   const soId = session!.user.sujetoObligadoId!;
 
   const so = db
@@ -44,13 +50,15 @@ export default async function PortalHome() {
               COALESCE((SELECT monto FROM operacion_sospechosa WHERE ros_id = r.id), 0) AS monto,
               (SELECT nivel FROM riesgo_caso WHERE ros_id = r.id
                 ORDER BY fecha_clasificacion DESC LIMIT 1) AS nivel_riesgo,
-              (SELECT COUNT(*) FROM documento_requerido dr
-                JOIN plantilla_ros pl ON pl.id = dr.plantilla_id
-               WHERE pl.id = r.plantilla_id) AS doc_total,
-              (SELECT COUNT(*) FROM documento_adjunto da
-                WHERE da.ros_id = r.id AND da.documento_requerido_id IS NOT NULL) AS doc_cargados,
-              (SELECT COUNT(*) FROM solicitud_subsanacion s
-                WHERE s.ros_id = r.id AND s.estado = 'pendiente') AS pendientes_subsanacion
+              (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = r.plantilla_id) AS doc_total,
+              (SELECT COUNT(*) FROM documento_adjunto da WHERE da.ros_id = r.id AND da.documento_requerido_id IS NOT NULL) AS doc_cargados,
+              (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = r.plantilla_id AND tipo_requerimiento = 'requerido') AS doc_obl_total,
+              (SELECT COUNT(*) FROM documento_adjunto da JOIN documento_requerido dr ON dr.id = da.documento_requerido_id WHERE da.ros_id = r.id AND dr.tipo_requerimiento = 'requerido') AS doc_obl_cargados,
+              (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = r.plantilla_id AND tipo_requerimiento = 'condicional') AS doc_cond_total,
+              (SELECT COUNT(*) FROM documento_adjunto da JOIN documento_requerido dr ON dr.id = da.documento_requerido_id WHERE da.ros_id = r.id AND dr.tipo_requerimiento = 'condicional') AS doc_cond_cargados,
+              (SELECT COUNT(*) FROM documento_requerido WHERE plantilla_id = r.plantilla_id AND tipo_requerimiento = 'opcional') AS doc_opt_total,
+              (SELECT COUNT(*) FROM documento_adjunto da JOIN documento_requerido dr ON dr.id = da.documento_requerido_id WHERE da.ros_id = r.id AND dr.tipo_requerimiento = 'opcional') AS doc_opt_cargados,
+              (SELECT COUNT(*) FROM solicitud_subsanacion s WHERE s.ros_id = r.id AND s.estado = 'pendiente') AS pendientes_subsanacion
          FROM ros r
         WHERE r.sujeto_obligado_id = ?
         ORDER BY r.fecha_recepcion DESC`,
@@ -106,37 +114,14 @@ export default async function PortalHome() {
         <KpiCard label="Clasificados alto riesgo" value={totales.altos} badge="Prioridad" tone="red" />
       </div>
 
-      {/* Alertas de subsanación */}
-      {subsanacionesPendientes.length > 0 && (
-        <div className="notice amber" style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 18 }}>
-          <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 1 }} />
-          <div style={{ flex: 1 }}>
-            <strong style={{ display: 'block', marginBottom: 6 }}>
-              {subsanacionesPendientes.length} solicitud{subsanacionesPendientes.length > 1 ? 'es' : ''} de subsanación pendiente{subsanacionesPendientes.length > 1 ? 's' : ''}
-            </strong>
-            <div style={{ display: 'grid', gap: 4 }}>
-              {subsanacionesPendientes.map((s) => (
-                <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                  <span style={{ fontFamily: 'Consolas, monospace', fontWeight: 700 }}>{s.numero_ros}</span>
-                  <span>—</span>
-                  <span>{s.motivo}</span>
-                  <Link href={`/portal/ros/${s.ros_id}`} style={{ marginLeft: 'auto', color: '#7a4b00', fontWeight: 700, textDecoration: 'underline' }}>
-                    Atender →
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, alignItems: 'stretch' }}>
         {/* Acciones rápidas */}
         <div className="card">
           <div className="panel-head" style={{ marginBottom: 14 }}>
             <div>
               <h3>Acciones rápidas</h3>
-              <p>Operaciones frecuentes de cumplimiento</p>
+              <p>Operaciones frecuentes</p>
             </div>
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
@@ -147,7 +132,7 @@ export default async function PortalHome() {
               </div>
               <div style={{ flex: 1 }}>
                 <strong style={{ display: 'block', fontSize: 14, color: '#102a43' }}>Registrar nuevo ROS</strong>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Formulario dinámico según sector · CU-01</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>Formulario dinámico según sector</span>
               </div>
               <ArrowRight size={16} style={{ color: 'var(--muted)' }} />
             </Link>
@@ -209,7 +194,7 @@ export default async function PortalHome() {
                   <div className="report-top">
                     <strong>{r.numero_ros}</strong>
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      <Badge tone={estadoTone(r.estado)}>{estadoLabel(r.estado)}</Badge>
+                      <Badge tone={estadoTone(r.estado)}>{estadoLabel(r.estado, 'portal')}</Badge>
                       {r.nivel_riesgo && <Badge tone={riskTone(r.nivel_riesgo)}>{r.nivel_riesgo}</Badge>}
                     </div>
                   </div>
@@ -218,10 +203,35 @@ export default async function PortalHome() {
                       <Clock size={11} style={{ display: 'inline', marginRight: 4 }} />
                       {formatPanamaMedium(r.fecha_recepcion)}
                     </span>
-                    <span>
-                      USD {r.monto.toLocaleString('en-US')} · Docs: {r.doc_cargados}/{r.doc_total}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      USD {r.monto.toLocaleString('en-US')}
+                      {r.doc_obl_total > 0 && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
+                          background: r.doc_obl_cargados >= r.doc_obl_total ? 'var(--green-soft)' : 'var(--red-soft)',
+                          color: r.doc_obl_cargados >= r.doc_obl_total ? 'var(--green)' : 'var(--red)',
+                        }} title="Obligatorios">
+                          {r.doc_obl_cargados}/{r.doc_obl_total} obl.
+                        </span>
+                      )}
+                      {r.doc_cond_total > 0 && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
+                          background: 'var(--amber-soft)', color: 'var(--amber)',
+                        }} title="Condicionales">
+                          {r.doc_cond_cargados}/{r.doc_cond_total} cond.
+                        </span>
+                      )}
+                      {r.doc_opt_total > 0 && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 999,
+                          background: '#f1f5f9', color: '#64748b',
+                        }} title="Opcionales">
+                          {r.doc_opt_cargados}/{r.doc_opt_total} opc.
+                        </span>
+                      )}
                       {r.pendientes_subsanacion > 0 && (
-                        <span style={{ marginLeft: 8 }}><Badge tone="amber">{r.pendientes_subsanacion} subsanación</Badge></span>
+                        <Badge tone="amber">{r.pendientes_subsanacion} subsanación</Badge>
                       )}
                     </span>
                   </div>
@@ -232,13 +242,7 @@ export default async function PortalHome() {
         </div>
       </div>
 
-      {/* Aviso legal */}
-      <div className="notice" style={{ marginTop: 18 }}>
-        <strong>Cumplimiento Ley 23 de 2015 y Ley 81 de 2019 — Privacy by Design</strong>
-        <br />
-        Todos los documentos se cargan en contenedores individuales. Los datos de identidad verificados no son almacenados ni expuestos por el sistema.
-        Cada acción en este portal queda registrada en el log de auditoría inmutable de la UAF.
-      </div>
+
     </>
   );
 }

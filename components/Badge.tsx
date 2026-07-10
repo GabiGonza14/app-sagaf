@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function Badge({ children, tone = 'blue', className }: Props) {
-  return <span className={clsx('badge', tone, className)}>{children}</span>;
+  return <span className={clsx('badge', tone, className)} style={{ fontWeight: 800 }}>{children}</span>;
 }
 
 export function riskTone(nivel: string): Tone {
@@ -24,15 +24,19 @@ export function estadoTone(estado: string): Tone {
     case 'borrador':            return 'gray';
     case 'recibido':            return 'blue';
     case 'en_analisis':         return 'blue';
+    case 'en_revision_vinculo': return 'purple';
     case 'revision_documental': return 'amber';
-    case 'subsanacion':         return 'amber';
-    case 'escalado':            return 'red';
-    case 'vinculado':           return 'purple';
+    case 'subsanacion':         return 'teal';
+    case 'riesgo_clasificado':  return 'green';
     case 'cerrado':             return 'green';
     default:                    return 'gray';
   }
 }
 
-export function estadoLabel(estado: string): string {
+export type EstadoContexto = 'portal' | 'uaf';
+
+export function estadoLabel(estado: string, contexto?: EstadoContexto): string {
+  // Desde el portal del Sujeto Obligado, "recibido" → "Enviado"
+  if (estado === 'recibido' && contexto === 'portal') return 'Enviado';
   return estado.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 }

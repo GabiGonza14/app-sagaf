@@ -5,6 +5,8 @@ node_modules
 
 # testing
 coverage
+playwright-report
+test-results
 
 # next.js
 .next/
@@ -36,6 +38,11 @@ db/sagaf.db
 db/sagaf.db-journal
 db/sagaf.db-shm
 db/sagaf.db-wal
+db/sagaf.test.db*
+backups/
+db-data/
+# Archivos cargados — fuera de public/ para que no se sirvan sin autenticación (BL-033)
+var/uploads/
 public/uploads/*
 !public/uploads/.gitkeep
 

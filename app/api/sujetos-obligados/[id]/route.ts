@@ -10,10 +10,9 @@ const schema = z.object({
   ruc: z.string().optional().nullable(),
   tipo: z.string().min(1).optional(),
   sector: z.string().min(1).optional(),
-  organismo_supervisor: z.string().optional().nullable(),
-  responsable_cumpl: z.string().optional().nullable(),
+  organismo_supervisor: z.string().min(1).optional(),
+  responsable_cumpl: z.string().min(1).optional(),
   estado: z.enum(['activo', 'inactivo']).optional(),
-  plantillas: z.array(z.string()).min(1).optional(),
 });
 
 type Data = z.infer<typeof schema>;
@@ -25,8 +24,8 @@ function buildUpdateFields(d: Data): { fields: string[]; vals: unknown[] } {
   if (d.ruc !== undefined)                  { fields.push('ruc = ?');                  vals.push(d.ruc ?? null); }
   if (d.tipo !== undefined)                 { fields.push('tipo = ?');                 vals.push(d.tipo); }
   if (d.sector !== undefined)               { fields.push('sector = ?');               vals.push(d.sector); }
-  if (d.organismo_supervisor !== undefined) { fields.push('organismo_supervisor = ?'); vals.push(d.organismo_supervisor ?? null); }
-  if (d.responsable_cumpl !== undefined)    { fields.push('responsable_cumpl = ?');    vals.push(d.responsable_cumpl ?? null); }
+  if (d.organismo_supervisor !== undefined) { fields.push('organismo_supervisor = ?'); vals.push(d.organismo_supervisor); }
+  if (d.responsable_cumpl !== undefined)    { fields.push('responsable_cumpl = ?');    vals.push(d.responsable_cumpl); }
   if (d.estado !== undefined)               { fields.push('estado = ?');               vals.push(d.estado); }
   return { fields, vals };
 }
@@ -48,8 +47,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const parsed = schema.safeParse(payload);
   if (!parsed.success) return NextResponse.json({ error: 'Datos inválidos', issues: parsed.error.flatten() }, { status: 400 });
 
-  const so = db.prepare<[string], { nombre: string; ruc: string | null }>(
-    'SELECT nombre, ruc FROM sujeto_obligado WHERE id = ?',
+  const so = db.prepare<[string], { nombre: string; ruc: string | null; tipo: string; sector: string; organismo_supervisor: string | null; responsable_cumpl: string | null; estado: string }>(
+    'SELECT nombre, ruc, tipo, sector, organismo_supervisor, responsable_cumpl, estado FROM sujeto_obligado WHERE id = ?',
   ).get(id);
   if (!so) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
 
@@ -76,12 +75,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (fields.length > 0) {
       db.prepare(`UPDATE sujeto_obligado SET ${fields.join(', ')} WHERE id = ?`).run(...vals, id);
     }
-    if (d.plantillas) {
+    // Auto-reasignar plantillas si cambió tipo o sector
+    if (d.tipo !== undefined || d.sector !== undefined) {
+      const nuevoTipo = d.tipo ?? db.prepare<[string], string>('SELECT tipo FROM sujeto_obligado WHERE id = ?').pluck().get(id) as string;
+      const nuevoSector = d.sector ?? db.prepare<[string], string>('SELECT sector FROM sujeto_obligado WHERE id = ?').pluck().get(id) as string;
+      const nuevas = db.prepare<[string, string], { id: string }>(
+        'SELECT id FROM plantilla_ros WHERE tipo_sujeto_obligado = ? AND sector = ? AND activa = 1',
+      ).all(nuevoTipo, nuevoSector);
       db.prepare('DELETE FROM sujeto_obligado_plantilla WHERE sujeto_obligado_id = ?').run(id);
-      for (const plId of d.plantillas) {
+      for (const pl of nuevas) {
         db.prepare(
           'INSERT INTO sujeto_obligado_plantilla (sujeto_obligado_id, plantilla_id) VALUES (?, ?)',
-        ).run(id, plId);
+        ).run(id, pl.id);
       }
     }
   });
@@ -93,7 +98,41 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     modulo: 'admin', accion: accionAudit, resultado: 'exito',
     usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
     ip: ctx.ip, user_agent: ctx.user_agent,
-    detalle: { id, nombre: d.nombre ?? so.nombre, cambios: d },
+    detalle: { id, nombre: d.nombre ?? so.nombre, cambios: Object.fromEntries(
+      Object.entries(d).filter(([k, v]: [string, string | null | undefined]) => v !== undefined && String(v ?? '') !== String(so[k as keyof typeof so] ?? ''))
+    ) },
+    criticidad: 'normal',
+  });
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const session = await auth();
+  if (!session?.user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+  if (!['admin', 'supervisor'].includes(session.user.rol))
+    return NextResponse.json({ error: 'Solo admin/supervisor' }, { status: 403 });
+
+  const so = db.prepare<[string], { nombre: string }>(
+    'SELECT nombre FROM sujeto_obligado WHERE id = ?',
+  ).get(id);
+  if (!so) return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
+
+  const usuarios = db.prepare('SELECT COUNT(*) AS n FROM usuario WHERE sujeto_obligado_id = ?').get(id) as { n: number };
+  if (usuarios.n > 0) return NextResponse.json({ error: 'No se puede eliminar: tiene usuarios asociados.' }, { status: 409 });
+
+  const ros = db.prepare('SELECT COUNT(*) AS n FROM ros WHERE sujeto_obligado_id = ?').get(id) as { n: number };
+  if (ros.n > 0) return NextResponse.json({ error: 'No se puede eliminar: tiene reportes ROS asociados.' }, { status: 409 });
+
+  db.prepare('DELETE FROM sujeto_obligado WHERE id = ?').run(id);
+
+  const ctx = extractRequestContext(_req);
+  audit({
+    modulo: 'admin', accion: 'eliminar_sujeto_obligado', resultado: 'exito',
+    usuario_id: session.user.id, usuario_correo: session.user.email, rol: session.user.rol,
+    ip: ctx.ip, user_agent: ctx.user_agent,
+    detalle: { id, nombre: so.nombre },
     criticidad: 'normal',
   });
 

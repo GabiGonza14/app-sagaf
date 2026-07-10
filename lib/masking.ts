@@ -4,9 +4,28 @@
 
 export function maskIdentifier(id: string | null | undefined): string {
   if (!id) return '***';
-  const clean = id.replace(/[^0-9A-Z]/gi, '');
-  if (clean.length <= 3) return '***';
-  return `***-***-${clean.slice(-3)}`;
+  const v = id.trim();
+  const stripped = v.replace(/[^0-9A-Z]/gi, '');
+  const last3 = stripped.slice(-3) || '***';
+
+  // RUC (persona natural: N-NT-NNNNNN, o jurídica: NNNNNN-N-NNNNNN)
+  if (/^\d{1,2}-[A-Z]{2}-\d{4,}$/i.test(v) || /^\d{5,}-\d{1,2}-\d{4,}$/.test(v)) {
+    return `RUC-***-${last3}`;
+  }
+
+  // Cédula extranjera con prefijo (PE-, E-, N-, AV-, PI-)
+  const prefixMatch = v.match(/^(PE|AV|PI|E|N)-\d/i);
+  if (prefixMatch) {
+    return `${prefixMatch[1].toUpperCase()}-***-${last3}`;
+  }
+
+  // Pasaporte: 1-2 letras + 5 o más dígitos
+  if (/^[A-Z]{1,2}\d{5,}$/i.test(v)) {
+    return `PAS-***-${last3}`;
+  }
+
+  // Cédula panameña estándar o fallback genérico
+  return `***-***-${last3}`;
 }
 
 export function maskEmail(email: string | null | undefined): string {

@@ -1,16 +1,60 @@
 'use client';
-import { useRef, useMemo, useState, useTransition } from 'react';
+import { useRef, useMemo, useState, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, CheckCircle, FileText, AlertCircle, User, Building2, Shield, FileCheck, Save } from 'lucide-react';
+import { CheckCircle, FileText, AlertCircle, User, Building2, Shield, FileCheck, Save, Info, ClipboardList, UserCheck, FileWarning, DollarSign, MapPin, Calendar, Mail, FileDigit, Type } from 'lucide-react';
+import { FileDropZone, isAllowedFile, MAX_BYTES } from '@/components/FileDropZone';
+import { useNavigationGuard } from '@/lib/navigation-guard';
+import CustomSelect from '@/components/CustomSelect';
+import DatePicker, { registerLocale } from 'react-datepicker';
+import { es } from 'date-fns/locale';
+import 'react-datepicker/dist/react-datepicker.css';
+
+registerLocale('es', es);
+
+// ── Auto-save draft helpers (sessionStorage) ──
+const DRAFT_KEY = 'sagaf_ros_draft';
+
+function saveDraft(data: unknown) {
+  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch {}
+}
+
+function clearDraft() {
+  try { sessionStorage.removeItem(DRAFT_KEY); } catch {}
+}
 
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
-interface DocReq    { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string }
+interface DocReq    { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string; formatos_permitidos: string; tamano_maximo_mb: number }
+interface CampoDin  { id: string; plantilla_id: string; nombre: string; tipo_dato: string; obligatorio: number; orden: number }
 
 interface PartyState {
   id: string;
+  tipo: 'natural' | 'juridica';
   status: 'idle' | 'verified' | 'not_found' | 'error';
   nombre: string;
   message?: string;
+}
+
+interface FormDraft {
+  plantillaId: string;
+  sujetoInvestigacion: 'natural' | 'juridica';
+  ordenante: PartyState;
+  beneficiario: PartyState;
+  comprador: PartyState;
+  cliente: PartyState;
+  monto: string;
+  jurisdiccion: string;
+  senalAlerta: string;
+  productoServicio: string;
+  bienInmueble: string;
+  formaPago: string;
+  descripcion: string;
+  oficial: string;
+  correoOficial: string;
+  fechaDeteccion: string;
+  camposValores: Record<string, string>;
+  observaciones: string;
+  fileLabels: Record<string, string>;
+  savedAt: number;
 }
 
 interface InitialData {
@@ -20,114 +64,97 @@ interface InitialData {
   correoOficial: string;
   fechaDeteccion: string;
   descripcion: string;
+  observaciones?: string;
   monto: number;
   jurisdiccion: string;
   senalAlerta: string;
   productoServicio: string;
   bienInmueble: string;
   formaPago: string;
-  tipoCliente: 'natural' | 'juridica';
+  sujetoInvestigacion: 'natural' | 'juridica';
   ordenante: PartyState;
   beneficiario: PartyState;
   comprador: PartyState;
+  cliente: PartyState;
   uploadedDocs: Record<string, string>;
+  camposValores?: Record<string, string>;
 }
 
 interface Props {
   sujeto: { id: string; nombre: string; tipo: string };
   plantillas: Plantilla[];
   docsByPlantilla: Record<string, DocReq[]>;
+  camposByPlantilla?: Record<string, CampoDin[]>;
   oficialDefault: string;
   correoDefault: string;
   initialData?: InitialData;
 }
 
-function FileDropZone({
-  file,
-  onChange,
-}: {
-  file: File | null;
-  onChange: (f: File | null) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const dropped = e.dataTransfer.files[0];
-    if (dropped) onChange(dropped);
-  };
-
-  return (
-    <div
-      className={`upload-zone${file ? ' has-file' : ''}${dragging ? ' dragging' : ''}`}
-      onClick={() => inputRef.current?.click()}
-      onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={handleDrop}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        style={{ display: 'none' }}
-        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
-      />
-      {file ? (
-        <div className="upload-zone-content">
-          <CheckCircle size={18} className="upload-zone-icon uploaded" />
-          <div>
-            <div className="upload-zone-filename">{file.name}</div>
-            <div className="upload-zone-size">{(file.size / 1024).toFixed(1)} KB</div>
-          </div>
-          <button
-            type="button"
-            className="upload-zone-remove"
-            onClick={(e) => { e.stopPropagation(); onChange(null); }}
-            aria-label="Quitar archivo"
-          >
-            ×
-          </button>
-        </div>
-      ) : (
-        <div className="upload-zone-content">
-          <Upload size={16} className="upload-zone-icon" />
-          <div className="upload-zone-empty">
-            <div className="upload-zone-hint">Arrastra o haz clic para subir</div>
-            <div className="upload-zone-types">PDF, JPG, PNG — máx. 10 MB</div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+function isValidEmail(email: string): boolean {
+  const at = email.indexOf('@');
+  if (at < 1) return false;
+  const domain = email.slice(at + 1);
+  const dot = domain.lastIndexOf('.');
+  return dot > 0 && dot < domain.length - 1 && !email.includes(' ');
 }
 
-export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefault, correoDefault, initialData }: Props) {
+function formatApiError(data: { error?: string; issues?: { fieldErrors?: Record<string, string[]>; formErrors?: string[] } }, fallback: string): string {
+  if (!data.error) return fallback;
+  if (data.error !== 'Datos inválidos') return data.error;
+  const allMsgs = [
+    ...(data.issues?.formErrors ?? []),
+    ...Object.values(data.issues?.fieldErrors ?? {}).flat(),
+  ];
+  const detail = allMsgs.join(' ');
+  return detail || fallback;
+}
+
+function inputTypeFor(tipoDato: string): string {
+  if (tipoDato === 'number') return 'number';
+  if (tipoDato === 'date') return 'date';
+  return 'text';
+}
+
+function docBadgeClass(analyzing: boolean, uploaded: boolean, requerido: boolean): string {
+  if (analyzing) return 'amber';
+  if (uploaded) return 'green';
+  return requerido ? 'amber' : 'gray';
+}
+
+function docBadgeText(analyzing: boolean, hasFile: boolean, hasSavedLabel: boolean): string {
+  if (analyzing) return 'Analizando…';
+  if (hasFile) return 'Listo ✓';
+  return hasSavedLabel ? 'Guardado' : 'Pendiente';
+}
+
+export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlantilla = {}, oficialDefault, correoDefault, initialData }: Props) {
   const esEdicion = !!initialData;
   const router = useRouter();
   const isBank = sujeto.tipo === 'bank';
   const isRealEstate = sujeto.tipo === 'realestate';
+  const isGeneric = !isBank && !isRealEstate;
 
   const defaultPlantilla = initialData?.plantillaId ?? plantillas[0]?.id ?? '';
   const [plantillaId, setPlantillaId] = useState(defaultPlantilla);
-  const [tipoCliente, setTipoCliente] = useState<'natural' | 'juridica'>(initialData?.tipoCliente ?? 'natural');
+  const [sujetoInvestigacion, setSujetoInvestigacion] = useState<'natural' | 'juridica'>(initialData?.sujetoInvestigacion ?? 'natural');
 
   const [ordenante, setOrdenante] = useState<PartyState>(
-    initialData?.ordenante ?? { id: '', status: 'idle', nombre: '' }
+    initialData?.ordenante ?? { id: '', tipo: 'natural', status: 'idle', nombre: '' }
   );
   const [beneficiario, setBeneficiario] = useState<PartyState>(
-    initialData?.beneficiario ?? { id: '', status: 'idle', nombre: '' }
+    initialData?.beneficiario ?? { id: '', tipo: 'natural', status: 'idle', nombre: '' }
   );
   const [comprador, setComprador] = useState<PartyState>(
-    initialData?.comprador ?? { id: '', status: 'idle', nombre: '' }
+    initialData?.comprador ?? { id: '', tipo: 'natural', status: 'idle', nombre: '' }
+  );
+  const [cliente, setCliente] = useState<PartyState>(
+    initialData?.cliente ?? { id: '', tipo: 'natural', status: 'idle', nombre: '' }
   );
 
-  const [monto, setMonto] = useState(initialData?.monto ? String(initialData.monto) : '');
+  const [monto, setMonto] = useState(initialData?.monto != null ? String(initialData.monto) : '');
   const [jurisdiccion, setJurisdiccion] = useState(initialData?.jurisdiccion ?? '');
-  const [senalAlerta, setSenalAlerta] = useState(initialData?.senalAlerta ?? 'Movimientos incompatibles con el perfil');
+  const [senalAlerta, setSenalAlerta] = useState(initialData?.senalAlerta ?? '');
   const [productoServicio, setProductoServicio] = useState(initialData?.productoServicio ?? '');
   const [bienInmueble, setBienInmueble] = useState(initialData?.bienInmueble ?? '');
   const [formaPago, setFormaPago] = useState(initialData?.formaPago ?? '');
@@ -136,15 +163,32 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
   const [correoOficial, setCorreoOficial] = useState(initialData?.correoOficial ?? correoDefault);
   const [fechaDeteccion, setFechaDeteccion] = useState(initialData?.fechaDeteccion ?? new Date().toISOString().slice(0, 10));
 
-  const [observaciones, setObservaciones] = useState('');
+  const [camposValores, setCamposValores] = useState<Record<string, string>>(initialData?.camposValores ?? {});
+  const [observaciones, setObservaciones] = useState(initialData?.observaciones ?? '');
   const [files, setFiles] = useState<Record<string, File | null>>({});
   const [extras, setExtras] = useState<File[]>([]);
   const [fileLabels, setFileLabels] = useState<Record<string, string>>(initialData?.uploadedDocs ?? {});
+  const [fileWarnings, setFileWarnings] = useState<Record<string, string[]>>({});
+  const [docAnalyzing, setDocAnalyzing] = useState<Record<string, boolean>>({});
 
   const [pending, startTransition] = useTransition();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // ── Navigation guard (unsaved changes) ──
+  const { setUnsavedChanges, registerSaveDraft } = useNavigationGuard();
+
+  function collectDraft(): FormDraft {
+    return {
+      plantillaId, sujetoInvestigacion,
+      ordenante, beneficiario, comprador, cliente,
+      monto, jurisdiccion, senalAlerta, productoServicio, bienInmueble, formaPago,
+      descripcion, oficial, correoOficial, fechaDeteccion,
+      camposValores, observaciones, fileLabels,
+      savedAt: Date.now(),
+    };
+  }
 
   interface DuplicadoROS {
     id: string;
@@ -159,18 +203,190 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
 
   const effectivePlantillaId = useMemo(() => {
     if (!isBank) return plantillaId || defaultPlantilla;
-    const want = tipoCliente === 'natural'
+    const want = sujetoInvestigacion === 'natural'
       ? plantillas.find((p) => p.id === 'pl_bank_natural')
       : plantillas.find((p) => p.id === 'pl_bank_legal');
     return want?.id ?? plantillaId ?? defaultPlantilla;
-  }, [isBank, tipoCliente, plantillaId, plantillas, defaultPlantilla]);
+  }, [isBank, sujetoInvestigacion, plantillaId, plantillas, defaultPlantilla]);
 
-  const docList = docsByPlantilla[effectivePlantillaId] ?? [];
-  const cargados = Object.values(files).filter((f) => f).length;
-  const pct = docList.length > 0 ? Math.round((cargados / docList.length) * 100) : 0;
+  const camposDinamicos = camposByPlantilla[effectivePlantillaId] ?? [];
+  const camposDinamicosOk = camposDinamicos.every(
+    (c) => c.obligatorio !== 1 || (camposValores[c.id] ?? '').trim() !== '',
+  );
+  function setCampoValor(id: string, valor: string) {
+    setCamposValores((cur) => ({ ...cur, [id]: valor }));
+  }
+
+  const docList    = docsByPlantilla[effectivePlantillaId] ?? [];
+  const docListReq  = docList.filter((d) => d.tipo_requerimiento === 'requerido');
+  const docListCond = docList.filter((d) => d.tipo_requerimiento === 'condicional');
+  const docListOpt  = docList.filter((d) => d.tipo_requerimiento === 'opcional');
+  const cargados    = docList.filter((d) => files[d.id] || fileLabels[d.id]).length;
+  const cargadosReq = docListReq.filter((d) => files[d.id] || fileLabels[d.id]).length;
+  const pct = docListReq.length > 0 ? Math.round((cargadosReq / docListReq.length) * 100) : 100;
+  const todosDocumentosCargados = cargadosReq >= docListReq.length;
+
+  const docsOk = todosDocumentosCargados;
+  const camposBaseOk = Boolean(
+    oficial.trim() &&
+    isValidEmail(correoOficial) &&
+    fechaDeteccion &&
+    Number(monto) > 0 &&
+    senalAlerta.trim() &&
+    descripcion.trim().length >= 30 &&
+    docsOk,
+  );
+  function partyNameValid(p: PartyState): boolean {
+    return p.status === 'verified' || (p.status === 'not_found' && p.nombre.trim().length >= 2);
+  }
+
+  interface FaltaItem {
+    label: string;
+    icon: React.ReactNode;
+    categoria: 'generales' | 'verificacion' | 'datos' | 'adicional' | 'documentos';
+  }
+
+  function getFaltantesGenerales(): FaltaItem[] {
+    const faltantes: FaltaItem[] = [];
+    if (!oficial.trim()) faltantes.push({ label: 'Ingresar el nombre del oficial de cumplimiento', icon: <User size={14} />, categoria: 'generales' });
+    if (!correoOficial.trim() || !isValidEmail(correoOficial)) faltantes.push({ label: 'Ingresar un correo institucional válido', icon: <Mail size={14} />, categoria: 'generales' });
+    if (!fechaDeteccion) faltantes.push({ label: 'Seleccionar la fecha de detección', icon: <Calendar size={14} />, categoria: 'generales' });
+    return faltantes;
+  }
+
+  function getFaltantesVerificacionBanco(): FaltaItem[] {
+    if (!isBank) return [];
+    const faltantes: FaltaItem[] = [];
+    if (ordenante.status === 'idle') faltantes.push({ label: 'Verificar la cédula del ordenante', icon: <UserCheck size={14} />, categoria: 'verificacion' });
+    else if (ordenante.status === 'not_found' && ordenante.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del ordenante', icon: <User size={14} />, categoria: 'verificacion' });
+    if (beneficiario.status === 'idle') faltantes.push({ label: 'Verificar la cédula del beneficiario', icon: <UserCheck size={14} />, categoria: 'verificacion' });
+    else if (beneficiario.status === 'not_found' && beneficiario.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del beneficiario', icon: <User size={14} />, categoria: 'verificacion' });
+    return faltantes;
+  }
+
+  function getFaltantesVerificacionInmobiliaria(): FaltaItem[] {
+    if (!isRealEstate) return [];
+    const faltantes: FaltaItem[] = [];
+    if (comprador.status === 'idle') faltantes.push({ label: 'Verificar la cédula del comprador', icon: <UserCheck size={14} />, categoria: 'verificacion' });
+    else if (comprador.status === 'not_found' && comprador.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del comprador', icon: <User size={14} />, categoria: 'verificacion' });
+    return faltantes;
+  }
+
+  function getFaltantesVerificacionGenerica(): FaltaItem[] {
+    if (!isGeneric) return [];
+    const faltantes: FaltaItem[] = [];
+    if (cliente.status === 'idle') faltantes.push({ label: 'Verificar la cédula/RUC del cliente', icon: <UserCheck size={14} />, categoria: 'verificacion' });
+    else if (cliente.status === 'not_found' && cliente.nombre.trim().length < 2) faltantes.push({ label: 'Ingresar el nombre del cliente', icon: <User size={14} />, categoria: 'verificacion' });
+    return faltantes;
+  }
+
+  function getFaltantesDatos(): FaltaItem[] {
+    const faltantes: FaltaItem[] = [];
+    if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0) faltantes.push({ label: 'Ingresar un monto válido mayor a 0', icon: <DollarSign size={14} />, categoria: 'datos' });
+    if (!jurisdiccion.trim()) faltantes.push({ label: isRealEstate ? 'Ingresar la ubicación del bien inmueble' : 'Ingresar la jurisdicción relacionada', icon: <MapPin size={14} />, categoria: 'datos' });
+    if (!senalAlerta.trim()) faltantes.push({ label: 'Seleccionar el riesgo reportado', icon: <AlertCircle size={14} />, categoria: 'datos' });
+    if (isBank && !productoServicio.trim()) faltantes.push({ label: 'Ingresar el producto bancario involucrado', icon: <FileDigit size={14} />, categoria: 'datos' });
+    if (isRealEstate && !bienInmueble.trim()) faltantes.push({ label: 'Ingresar el bien inmueble involucrado', icon: <Building2 size={14} />, categoria: 'datos' });
+    if (isRealEstate && !formaPago.trim()) faltantes.push({ label: 'Ingresar la forma de pago', icon: <DollarSign size={14} />, categoria: 'datos' });
+    if (!descripcion.trim() || descripcion.length < 30) faltantes.push({ label: `Ampliar la descripción narrativa (mín. 30 caracteres, actual: ${descripcion.length})`, icon: <Type size={14} />, categoria: 'datos' });
+    return faltantes;
+  }
+
+  function getFaltantesAdicional(): FaltaItem[] {
+    const faltantes: FaltaItem[] = [];
+    const campoFaltante = camposDinamicos.find((c) => c.obligatorio === 1 && !(camposValores[c.id] ?? '').trim());
+    if (campoFaltante) faltantes.push({ label: `Completar el campo "${campoFaltante.nombre}"`, icon: <FileText size={14} />, categoria: 'adicional' });
+    return faltantes;
+  }
+
+  function getFaltantesDocumentos(): FaltaItem[] {
+    const faltantes: FaltaItem[] = [];
+    if (!todosDocumentosCargados) {
+      faltantes.push({ label: `Cargar ${docListReq.length - cargadosReq} documento(s) obligatorio(s)`, icon: <FileWarning size={14} />, categoria: 'documentos' });
+    }
+    const docsConNombreDuplicado = docList.filter((d) =>
+      fileWarnings[d.id]?.some((w) => w.startsWith('Nombre duplicado'))
+    );
+    for (const d of docsConNombreDuplicado) {
+      faltantes.push({ label: `Nombre de archivo duplicado en "${d.nombre}" — usa un archivo distinto`, icon: <AlertCircle size={14} />, categoria: 'documentos' });
+    }
+    const docsConNombreNoRelacionado = docList.filter((d) =>
+      fileWarnings[d.id]?.some((w) => w.startsWith('El nombre del archivo'))
+    );
+    for (const d of docsConNombreNoRelacionado) {
+      faltantes.push({ label: `Renombra el archivo de "${d.nombre}" — el nombre debe incluir una palabra de la sección`, icon: <AlertCircle size={14} />, categoria: 'documentos' });
+    }
+    return faltantes;
+  }
+
+  function getFaltantes(): FaltaItem[] {
+    return [
+      ...getFaltantesGenerales(),
+      ...getFaltantesVerificacionBanco(),
+      ...getFaltantesVerificacionInmobiliaria(),
+      ...getFaltantesVerificacionGenerica(),
+      ...getFaltantesDatos(),
+      ...getFaltantesAdicional(),
+      ...getFaltantesDocumentos(),
+    ];
+  }
+
+  const camposBancoOk = !isBank || Boolean(
+    ordenante.id.trim().length >= 3 && partyNameValid(ordenante) &&
+    beneficiario.id.trim().length >= 3 && partyNameValid(beneficiario) &&
+    jurisdiccion.trim() &&
+    productoServicio.trim(),
+  );
+  const camposInmobiliariaOk = !isRealEstate || Boolean(
+    comprador.id.trim().length >= 3 && partyNameValid(comprador) &&
+    jurisdiccion.trim() &&
+    bienInmueble.trim() &&
+    formaPago.trim(),
+  );
+  const camposGenericOk = !isGeneric || (cliente.id.trim().length >= 3 && partyNameValid(cliente));
+  // Bloqueos por documentos: nombre duplicado entre secciones y nombre no
+  // relacionado con la sección. Ambos impiden enviar (botón deshabilitado).
+  const hayNombreDuplicado = docList.some((d) =>
+    fileWarnings[d.id]?.some((w) => w.startsWith('Nombre duplicado'))
+  );
+  const hayNombreNoRelacionado = docList.some((d) =>
+    fileWarnings[d.id]?.some((w) => w.startsWith('El nombre del archivo'))
+  );
+  const documentosSinConflicto = !hayNombreDuplicado && !hayNombreNoRelacionado;
+  const formListo = camposBaseOk && camposBancoOk && camposInmobiliariaOk && camposGenericOk && camposDinamicosOk && documentosSinConflicto;
+  const hayAlgunDato = [
+    ordenante.id, beneficiario.id, comprador.id, cliente.id,
+    monto, descripcion, productoServicio, bienInmueble, formaPago, jurisdiccion,
+  ].some((v) => v.trim() !== '') || cargados > 0;
+
+  // Auto-save draft every 3s when there's data
+  useEffect(() => {
+    if (!hayAlgunDato) return;
+    const timer = setTimeout(() => saveDraft(collectDraft()), 3000);
+    return () => clearTimeout(timer);
+  }, [
+    hayAlgunDato, plantillaId, sujetoInvestigacion,
+    ordenante, beneficiario, comprador, cliente,
+    monto, jurisdiccion, senalAlerta, productoServicio, bienInmueble, formaPago,
+    descripcion, oficial, correoOficial, fechaDeteccion,
+    camposValores, observaciones, fileLabels,
+  ]);
+
+  // beforeunload: warn browser close/refresh
+  useEffect(() => {
+    if (!hayAlgunDato) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [hayAlgunDato]);
+
+  // Sync unsaved changes flag for navigation guard
+  useEffect(() => {
+    setUnsavedChanges(hayAlgunDato);
+  }, [hayAlgunDato, setUnsavedChanges]);
 
   async function verifyParty(
-    field: 'ordenante' | 'beneficiario' | 'comprador',
+    field: 'ordenante' | 'beneficiario' | 'comprador' | 'cliente',
     state: PartyState,
     setState: (s: PartyState) => void,
   ) {
@@ -190,9 +406,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         return;
       }
       if (data.found) {
-        setState({ id: state.id, status: 'verified', nombre: data.nombre });
+        setState({ id: state.id, tipo: state.tipo, status: 'verified', nombre: data.nombre });
       } else {
-        setState({ id: state.id, status: 'not_found', nombre: '', message: 'Sin coincidencia. La UAF validará con la documentación adjunta.' });
+        setState({ id: state.id, tipo: state.tipo, status: 'not_found', nombre: '', message: 'Sin coincidencia. Ingrese el nombre para registrarlo en el sistema.' });
       }
     } catch {
       setState({ ...state, status: 'error', message: 'No fue posible verificar en este momento.' });
@@ -203,12 +419,15 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     const partes: Array<{ rol: string; tipo: string; identificador: string; nombre_visible: string }> = [];
     if (isBank) {
       if (ordenante.id.trim())
-        partes.push({ rol: 'ordenante', tipo: tipoCliente, identificador: ordenante.id.trim(), nombre_visible: ordenante.nombre });
+        partes.push({ rol: 'ordenante', tipo: ordenante.tipo, identificador: ordenante.id.trim(), nombre_visible: ordenante.nombre });
       if (beneficiario.id.trim())
-        partes.push({ rol: 'beneficiario', tipo: tipoCliente, identificador: beneficiario.id.trim(), nombre_visible: beneficiario.nombre });
+        partes.push({ rol: 'beneficiario', tipo: beneficiario.tipo, identificador: beneficiario.id.trim(), nombre_visible: beneficiario.nombre });
     }
     if (isRealEstate && comprador.id.trim()) {
-      partes.push({ rol: 'comprador', tipo: 'natural', identificador: comprador.id.trim(), nombre_visible: comprador.nombre });
+      partes.push({ rol: 'comprador', tipo: comprador.tipo, identificador: comprador.id.trim(), nombre_visible: comprador.nombre });
+    }
+    if (isGeneric && cliente.id.trim()) {
+      partes.push({ rol: 'cliente', tipo: cliente.tipo, identificador: cliente.id.trim(), nombre_visible: cliente.nombre });
     }
     return partes;
   }
@@ -219,7 +438,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       oficial_cumplimiento: oficial,
       correo_oficial: correoOficial,
       fecha_deteccion: fechaDeteccion,
-      descripcion: esEdicion ? descripcion : descripcion,
+      descripcion,
+      observaciones,
       operacion: {
         monto: monto ? Number(monto) : 0,
         jurisdiccion,
@@ -230,10 +450,131 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         tipo_operacion: isBank ? 'bancaria' : 'inmobiliaria',
       },
       partes: buildPartes(),
+      campos: camposDinamicos.map((c) => ({ campo_plantilla_id: c.id, valor: camposValores[c.id] ?? '' })),
     };
   }
 
-  async function uploadFiles(rosId: string) {
+  // ── Validación de documentos ──────────────────────────────────────────────
+  const STOP_WORDS_ES = new Set([
+    'de','del','el','la','los','las','un','una','unos','unas','y','o','en',
+    'con','por','para','a','al','se','que','su','sus','este','esta','estos',
+    'estas','si','no','ya','lo','le','les','me','mi','tu','es','son','fue',
+  ]);
+
+  function extractKeywords(text: string): string[] {
+    return text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !STOP_WORDS_ES.has(w));
+  }
+
+  function checkFileRelevance(fileName: string, docNombre: string): string | null {
+    const nameWithoutExt = fileName.replace(/\.[^.]+$/, '');
+    const fileKws = extractKeywords(nameWithoutExt);
+    const docKws = extractKeywords(docNombre);
+    if (fileKws.length === 0 || docKws.length === 0) return null;
+    const match = fileKws.some((fk) => docKws.some((dk) => dk.includes(fk) || fk.includes(dk)));
+    if (!match) {
+      return `El nombre del archivo no parece relacionado con "${docNombre}". Confirma que sea el documento correcto.`;
+    }
+    return null;
+  }
+
+  async function analyzeDocContent(file: File, docNombre: string): Promise<string | null> {
+    const isPdf = file.type.includes('pdf') || file.name.toLowerCase().endsWith('.pdf');
+    const isImage = /image\/(jpe?g|png)/.test(file.type) || /\.(jpe?g|png)$/i.test(file.name);
+    if (!isPdf && !isImage) return null;
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('doc_nombre', docNombre);
+      const res = await fetch('/api/documentos/analyze', { method: 'POST', body: fd });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.contentWarning ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  function handleDocFileChange(docId: string, docNombre: string, f: File | null, currentFiles: Record<string, File | null>) {
+    const updatedFiles = { ...currentFiles, [docId]: f };
+    setFiles(updatedFiles);
+
+    // Re-evalúa advertencias sincrónicas de todos los docs (duplicados, nombre)
+    setFileWarnings((prev) => {
+      const next = { ...prev };
+
+      for (const doc of docList) {
+        const docFile = doc.id === docId ? f : currentFiles[doc.id];
+        const docWarns: string[] = [];
+
+        if (docFile) {
+          // Nombre duplicado en otra sección
+          for (const [otherId, otherFile] of Object.entries(updatedFiles)) {
+            if (otherId === doc.id || !otherFile) continue;
+            if (otherFile.name === docFile.name) {
+              const conflictDoc = docList.find((d) => d.id === otherId);
+              docWarns.push(`Nombre duplicado: "${docFile.name}" ya está asignado a "${conflictDoc?.nombre ?? 'otra sección'}". Usa archivos distintos por sección.`);
+              break;
+            }
+          }
+
+          // Relevancia por nombre (solo para el doc que cambia)
+          if (doc.id === docId) {
+            const relevanceWarn = checkFileRelevance(docFile.name, docNombre);
+            if (relevanceWarn) docWarns.push(relevanceWarn);
+          } else if (prev[doc.id]) {
+            const prevRelevance = prev[doc.id].find((w) => w.startsWith('El nombre'));
+            if (prevRelevance) docWarns.push(prevRelevance);
+          }
+        }
+
+        if (docWarns.length > 0) next[doc.id] = docWarns;
+        else delete next[doc.id];
+      }
+
+      return next;
+    });
+
+    // Verificación asíncrona del contenido (PDF o imagen) vía servidor (OCR).
+    // Para PDFs con capa de texto el análisis es casi instantáneo, así que se
+    // garantiza un tiempo mínimo visible del indicador para que no "parpadee".
+    if (f) {
+      const MIN_VISIBLE_MS = 650;
+      const startedAt = Date.now();
+      setDocAnalyzing((prev) => ({ ...prev, [docId]: true }));
+      analyzeDocContent(f, docNombre).then((contentWarn) => {
+        const applyResult = () => {
+          setDocAnalyzing((prev) => ({ ...prev, [docId]: false }));
+          setFileWarnings((prev) => {
+            const filtered = (prev[docId] ?? []).filter(
+              (w) => !w.startsWith('El PDF') && !w.startsWith('La imagen') &&
+                     !w.startsWith('El contenido') && !w.startsWith('El archivo')
+            );
+            if (filtered.length === 0 && !contentWarn) {
+              const next = { ...prev };
+              delete next[docId];
+              return next;
+            }
+            return contentWarn
+              ? { ...prev, [docId]: [...filtered, contentWarn] }
+              : { ...prev, [docId]: filtered };
+          });
+        };
+        const remaining = MIN_VISIBLE_MS - (Date.now() - startedAt);
+        if (remaining > 0) setTimeout(applyResult, remaining);
+        else applyResult();
+      });
+    } else {
+      setDocAnalyzing((prev) => ({ ...prev, [docId]: false }));
+    }
+  }
+
+  async function uploadFiles(rosId: string): Promise<true | false> {
     for (const docReq of docList) {
       const file = files[docReq.id];
       if (!file) continue;
@@ -293,7 +634,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           body: JSON.stringify({ ...body, submit: true }),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? 'Error al enviar el ROS.'); return; }
+        if (!res.ok) { setError(formatApiError(data, 'Error al enviar el ROS.')); return; }
         rosId = initialData!.rosId;
         numeroRos = data.numero_ros;
       } else {
@@ -303,13 +644,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           body: JSON.stringify(body),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? 'No fue posible crear el ROS.'); return; }
+        if (!res.ok) { setError(formatApiError(data, 'No fue posible crear el ROS.')); return; }
         rosId = data.id;
         numeroRos = data.numero_ros;
       }
 
-      const ok = await uploadFiles(rosId);
-      if (!ok) return;
+      const uploadResult = await uploadFiles(rosId);
+      if (uploadResult === false) return;
+
+      clearDraft();
+      setUnsavedChanges(false);
 
       setSuccess(`ROS ${numeroRos} enviado correctamente a la UAF.`);
       router.refresh();
@@ -321,26 +665,94 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     }
   }
 
+  function validateForm(): string | null {
+    if (!oficial.trim()) return 'El nombre del oficial de cumplimiento es obligatorio.';
+    if (!correoOficial.trim() || !isValidEmail(correoOficial))
+      return 'El correo institucional del oficial es obligatorio y debe tener un formato válido.';
+    if (!fechaDeteccion) return 'La fecha de detección es obligatoria.';
+    if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0)
+      return 'El monto debe ser un número mayor a 0.';
+    const bankError = validateBank();
+    if (bankError) return bankError;
+    const realEstateError = validateRealEstate();
+    if (realEstateError) return realEstateError;
+    const genericError = validateGeneric();
+    if (genericError) return genericError;
+    const campoFaltante = camposDinamicos.find((c) => c.obligatorio === 1 && !(camposValores[c.id] ?? '').trim());
+    if (campoFaltante) return `El campo "${campoFaltante.nombre}" es obligatorio.`;
+    if (!senalAlerta.trim()) return 'El riesgo reportado es obligatorio.';
+    if (!descripcion.trim() || descripcion.length < 30)
+      return 'La descripción narrativa debe tener al menos 30 caracteres.';
+    if (!todosDocumentosCargados)
+      return `Debe cargar todos los documentos obligatorios antes de enviar. Faltan ${docListReq.length - cargadosReq}.`;
+    const dupDoc = docList.find((d) =>
+      fileWarnings[d.id]?.some((w) => w.startsWith('Nombre duplicado'))
+    );
+    if (dupDoc) {
+      return `El documento "${dupDoc.nombre}" tiene el mismo nombre que otro archivo. Cada sección debe tener un archivo distinto.`;
+    }
+    const noRelDoc = docList.find((d) =>
+      fileWarnings[d.id]?.some((w) => w.startsWith('El nombre del archivo'))
+    );
+    if (noRelDoc) {
+      return `El nombre del archivo en "${noRelDoc.nombre}" no se relaciona con la sección. Renómbralo para que incluya al menos una palabra de la sección.`;
+    }
+    const analyzingDoc = docListReq.find((d) => docAnalyzing[d.id]);
+    if (analyzingDoc) {
+      return `Espera a que termine el análisis del documento "${analyzingDoc.nombre}".`;
+    }
+    const emptyDoc = docListReq.find((d) =>
+      fileWarnings[d.id]?.some((w) =>
+        w.startsWith('El PDF no contiene texto') || w.startsWith('La imagen no contiene texto'))
+    );
+    if (emptyDoc) {
+      return `El documento "${emptyDoc.nombre}" está vacío o no tiene texto legible. Reemplázalo antes de enviar.`;
+    }
+    return null;
+  }
+
+  function validateBank(): string | null {
+    if (!isBank) return null;
+    if (ordenante.id.trim().length < 3) return 'La cédula del ordenante debe tener al menos 3 caracteres.';
+    if (ordenante.status === 'idle') return 'Debe verificar la cédula del ordenante antes de enviar.';
+    if (ordenante.status === 'error') return 'Error en la verificación del ordenante. Intente de nuevo.';
+    if (ordenante.status === 'not_found' && ordenante.nombre.trim().length < 2) return 'El ordenante no fue encontrado. Debe ingresar el nombre manualmente.';
+    if (beneficiario.id.trim().length < 3) return 'La cédula del beneficiario debe tener al menos 3 caracteres.';
+    if (beneficiario.status === 'idle') return 'Debe verificar la cédula del beneficiario antes de enviar.';
+    if (beneficiario.status === 'error') return 'Error en la verificación del beneficiario. Intente de nuevo.';
+    if (beneficiario.status === 'not_found' && beneficiario.nombre.trim().length < 2) return 'El beneficiario no fue encontrado. Debe ingresar el nombre manualmente.';
+    if (!jurisdiccion.trim()) return 'La jurisdicción relacionada es obligatoria.';
+    if (!productoServicio.trim()) return 'El producto bancario involucrado es obligatorio.';
+    return null;
+  }
+
+  function validateRealEstate(): string | null {
+    if (!isRealEstate) return null;
+    if (comprador.id.trim().length < 3) return 'La cédula del cliente / comprador debe tener al menos 3 caracteres.';
+    if (comprador.status === 'idle') return 'Debe verificar la cédula del comprador antes de enviar.';
+    if (comprador.status === 'error') return 'Error en la verificación del comprador. Intente de nuevo.';
+    if (comprador.status === 'not_found' && comprador.nombre.trim().length < 2) return 'El comprador no fue encontrado. Debe ingresar el nombre manualmente.';
+    if (!jurisdiccion.trim()) return 'La ubicación del bien inmueble es obligatoria.';
+    if (!bienInmueble.trim()) return 'El bien inmueble involucrado es obligatorio.';
+    if (!formaPago.trim()) return 'La forma de pago es obligatoria.';
+    return null;
+  }
+
+  function validateGeneric(): string | null {
+    if (!isGeneric) return null;
+    if (cliente.id.trim().length < 3) return 'La cédula/RUC del cliente o parte involucrada debe tener al menos 3 caracteres.';
+    if (cliente.status === 'idle') return 'Debe verificar la cédula/RUC del cliente antes de enviar.';
+    if (cliente.status === 'error') return 'Error en la verificación del cliente. Intente de nuevo.';
+    if (cliente.status === 'not_found' && cliente.nombre.trim().length < 2) return 'El cliente no fue encontrado. Debe ingresar el nombre manualmente.';
+    return null;
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null); setSuccess(null);
 
-    if (!descripcion.trim() || descripcion.length < 30) {
-      setError('La descripción narrativa debe tener al menos 30 caracteres.');
-      return;
-    }
-    if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0) {
-      setError('El monto debe ser un número mayor a 0.');
-      return;
-    }
-    if (isBank && !ordenante.id.trim()) {
-      setError('Debe registrar al menos la cédula del ordenante.');
-      return;
-    }
-    if (isRealEstate && !comprador.id.trim()) {
-      setError('Debe registrar la cédula del comprador.');
-      return;
-    }
+    const validationError = validateForm();
+    if (validationError) { setError(validationError); return; }
 
     // A6 — Detección de posible duplicidad (solo en envío formal, no borradores)
     if (!confirmarPeseRef.current) {
@@ -358,8 +770,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
     await doSubmit();
   }
 
-  async function onSaveDraft(e: React.MouseEvent) {
-    e.preventDefault();
+  async function saveDraftAction() {
     setError(null); setSuccess(null);
     setSubmitting(true);
     try {
@@ -374,7 +785,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           body: JSON.stringify({ ...body, submit: false }),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? 'Error al guardar borrador.'); return; }
+        if (!res.ok) { throw new Error(formatApiError(data, 'Error al guardar borrador.')); }
         rosId = initialData!.rosId;
         numeroRos = data.numero_ros;
       } else {
@@ -384,14 +795,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           body: JSON.stringify({ ...body, modo: 'borrador' }),
         });
         const data = await res.json();
-        if (!res.ok) { setError(data.error ?? 'No fue posible guardar el borrador.'); return; }
+        if (!res.ok) { throw new Error(formatApiError(data, 'No fue posible guardar el borrador.')); }
         rosId = data.id;
         numeroRos = data.numero_ros;
       }
 
       const ok = await uploadFiles(rosId);
-      if (!ok) return;
+      if (!ok) throw new Error('Error al subir archivos.');
 
+      clearDraft();
+      setUnsavedChanges(false);
       setSuccess(`Borrador ${numeroRos} guardado.`);
       router.refresh();
       startTransition(() => {
@@ -401,6 +814,21 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
       setSubmitting(false);
     }
   }
+
+  async function onSaveDraft(e: React.MouseEvent) {
+    e.preventDefault();
+    try {
+      await saveDraftAction();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al guardar borrador.');
+    }
+  }
+
+  // Register save function with navigation guard (sin deps para tener la fn actualizada en cada render)
+  useEffect(() => {
+    registerSaveDraft(saveDraftAction);
+    return () => registerSaveDraft(null);
+  });
 
   return (
     <form className="card" onSubmit={onSubmit}>
@@ -413,20 +841,47 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         </div>
 
         <div className="field">
-          <label>Entidad reportante</label>
-          <input value={sujeto.nombre} disabled />
+          <label htmlFor="entidad-reportante">Entidad reportante</label>
+          <input id="entidad-reportante" value={sujeto.nombre} disabled />
         </div>
         <div className="field">
-          <label>Fecha de detección</label>
-          <input type="date" value={fechaDeteccion} onChange={(e) => setFechaDeteccion(e.target.value)} required />
+          <label htmlFor="fecha-deteccion">Fecha de detección <span className="req">*</span></label>
+          <div className="relative">
+            <DatePicker
+              id="fecha-deteccion"
+              selected={fechaDeteccion ? new Date(fechaDeteccion + 'T12:00:00') : null}
+              onChange={(date: Date | null) => {
+                if (date) {
+                  const yyyy = date.getFullYear();
+                  const mm = String(date.getMonth() + 1).padStart(2, '0');
+                  const dd = String(date.getDate()).padStart(2, '0');
+                  setFechaDeteccion(`${yyyy}-${mm}-${dd}`);
+                } else {
+                  setFechaDeteccion('');
+                }
+              }}
+              maxDate={new Date()}
+              locale="es"
+              dateFormat="yyyy-MM-dd"
+              className="w-full"
+              wrapperClassName="w-full"
+              placeholderText="Seleccione una fecha"
+              required
+              showPopperArrow={false}
+              autoComplete="off"
+              popperPlacement="bottom-start"
+              popperClassName="-translate-x-3 mt-1"
+            />
+            <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+          </div>
         </div>
         <div className="field">
-          <label>Oficial de cumplimiento</label>
-          <input value={oficial} onChange={(e) => setOficial(e.target.value)} required placeholder="Nombre completo" />
+          <label htmlFor="oficial-cumplimiento">Oficial de cumplimiento</label>
+          <input id="oficial-cumplimiento" value={oficial} disabled />
         </div>
         <div className="field">
-          <label>Correo institucional</label>
-          <input type="email" value={correoOficial} onChange={(e) => setCorreoOficial(e.target.value)} required placeholder="correo@entidad.com" />
+          <label htmlFor="correo-oficial">Correo institucional</label>
+          <input id="correo-oficial" type="email" value={correoOficial} disabled />
         </div>
 
         {/* ── Sección 2: Personas relacionadas ── */}
@@ -434,30 +889,40 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           <span className="section-num">2</span>
           Validación de personas relacionadas
         </div>
+        {isBank && (
+          <div className="field full">
+            <label id="sujeto-investigacion-label">Sujeto de la investigación</label>
+            <div className="segmented-control" role="group" aria-labelledby="sujeto-investigacion-label">
+              <button type="button" className={`segment ${sujetoInvestigacion === 'natural' ? 'active' : ''}`} onClick={() => setSujetoInvestigacion('natural')}>
+                Persona Natural
+              </button>
+              <button type="button" className={`segment ${sujetoInvestigacion === 'juridica' ? 'active' : ''}`} onClick={() => setSujetoInvestigacion('juridica')}>
+                Persona Jurídica
+              </button>
+            </div>
+            <div className="helper" style={{ marginTop: 6 }}>
+              ¿A quién investiga el banco? Esto determina la plantilla y los documentos requeridos.
+            </div>
+          </div>
+        )}
         <div className="notice" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
           <Shield size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
-          <strong>Privacidad (Ley 81/2019)</strong>: si una cédula/RUC ya existe en nuestros registros,
-          solo verás el <strong>nombre</strong> para corroboración. No se autocompletan datos sensibles.
+          <strong>Privacidad</strong>: si una cédula o RUC ya existe en nuestros registros,
+          solo verás el nombre o razón social para corroboración. No se autocompletan datos sensibles.
+          {' '}<strong>La verificación es obligatoria</strong> antes de enviar el ROS. Si no existe el identificador, ingrese el nombre manualmente tras verificar.
         </div>
 
         {isBank && (
           <>
-            <div className="field">
-              <label>Tipo de cliente</label>
-              <select value={tipoCliente} onChange={(e) => setTipoCliente(e.target.value as 'natural' | 'juridica')}>
-                <option value="natural">Persona Natural</option>
-                <option value="juridica">Persona Jurídica</option>
-              </select>
-            </div>
             <div className="field full">
               <div className="helper" style={{ marginBottom: 8 }}>
-                Para reportes bancarios, valide por separado al <strong>ordenante</strong> y al <strong>beneficiario</strong>.
+                Cada parte puede ser persona natural o jurídica. Seleccione el tipo y valide el identificador por separado.
               </div>
               <div className="lookup-grid">
-                <PartyCard label="Persona que realiza la transacción" role="Ordenante" icon={<User size={14} />}
+                <PartyCard label="Persona que realiza la transacción" role="Ordenante" icon={<User size={14} />} required
                   state={ordenante} setState={setOrdenante}
                   onVerify={() => verifyParty('ordenante', ordenante, setOrdenante)} />
-                <PartyCard label="Beneficiario" role="Beneficiario" icon={<User size={14} />}
+                <PartyCard label="Beneficiario" role="Beneficiario" icon={<User size={14} />} required
                   state={beneficiario} setState={setBeneficiario}
                   onVerify={() => verifyParty('beneficiario', beneficiario, setBeneficiario)} />
               </div>
@@ -471,9 +936,22 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
               Verifique al comprador. El sistema solo mostrará el nombre si la cédula existe en el directorio.
             </div>
             <div className="lookup-grid single">
-              <PartyCard label="Cliente / Comprador reportado" role="Comprador" icon={<Building2 size={14} />}
+              <PartyCard label="Cliente / Comprador reportado" role="Comprador" icon={<Building2 size={14} />} required
                 state={comprador} setState={setComprador}
                 onVerify={() => verifyParty('comprador', comprador, setComprador)} />
+            </div>
+          </div>
+        )}
+
+        {isGeneric && (
+          <div className="field full">
+            <div className="helper" style={{ marginBottom: 8 }}>
+              Verifique al cliente o parte involucrada. Seleccione si es persona natural o jurídica.
+            </div>
+            <div className="lookup-grid single">
+              <PartyCard label="Cliente / Parte involucrada" role="Cliente" icon={<User size={14} />} required
+                state={cliente} setState={setCliente}
+                onVerify={() => verifyParty('cliente', cliente, setCliente)} />
             </div>
           </div>
         )}
@@ -484,50 +962,80 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           Información de la operación sospechosa
         </div>
         <div className="field">
-          <label>Monto aproximado (USD)</label>
-          <input type="number" step="0.01" min="0" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="985000" required />
+          <label htmlFor="monto">Monto aproximado (USD) <span className="req">*</span></label>
+          <input id="monto" type="number" step="0.01" min="0" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="985000" required />
         </div>
         <div className="field">
-          <label>{isRealEstate ? 'Ubicación del bien inmueble' : 'Jurisdicción relacionada'}</label>
-          <input value={jurisdiccion} onChange={(e) => setJurisdiccion(e.target.value)} placeholder={isRealEstate ? 'Costa del Este, Panamá' : 'Panamá / Suiza'} />
+          <label htmlFor="jurisdiccion">{isRealEstate ? 'Ubicación del bien inmueble' : 'Jurisdicción relacionada'} <span className="req">*</span></label>
+          <input id="jurisdiccion" value={jurisdiccion} onChange={(e) => setJurisdiccion(e.target.value)} placeholder={isRealEstate ? 'Costa del Este, Panamá' : 'Panamá / Suiza'} />
         </div>
         <div className="field">
-          <label>Tipología / señal de alerta</label>
-          <select value={senalAlerta} onChange={(e) => setSenalAlerta(e.target.value)}>
+          <label>Riesgo reportado <span className="req">*</span></label>
+          <CustomSelect value={senalAlerta} onChange={(e) => setSenalAlerta(e.target.value)} placeholder="Seleccione una tipología...">
             <option>Movimientos incompatibles con el perfil</option>
             <option>Uso de terceros o testaferros</option>
             <option>Procedencia de fondos no sustentada</option>
             <option>Operaciones fraccionadas</option>
             <option>Transferencias internacionales inusuales</option>
-          </select>
+          </CustomSelect>
         </div>
         {isBank && (
           <div className="field">
-            <label>Producto bancario involucrado</label>
-            <input value={productoServicio} onChange={(e) => setProductoServicio(e.target.value)} placeholder="Cuenta, préstamo, tarjeta, transferencia…" />
+            <label htmlFor="producto-servicio">Producto bancario involucrado <span className="req">*</span></label>
+            <input id="producto-servicio" value={productoServicio} onChange={(e) => setProductoServicio(e.target.value)} placeholder="Cuenta, préstamo, tarjeta, transferencia…" />
           </div>
         )}
         {isRealEstate && (
           <>
             <div className="field">
-              <label>Bien inmueble involucrado</label>
-              <input value={bienInmueble} onChange={(e) => setBienInmueble(e.target.value)} placeholder="Apartamento, finca, casa, local…" />
+              <label htmlFor="bien-inmueble">Bien inmueble involucrado <span className="req">*</span></label>
+              <input id="bien-inmueble" value={bienInmueble} onChange={(e) => setBienInmueble(e.target.value)} placeholder="Apartamento, finca, casa, local…" />
             </div>
             <div className="field">
-              <label>Forma de pago</label>
-              <input value={formaPago} onChange={(e) => setFormaPago(e.target.value)} placeholder="Efectivo, transferencia, mixto…" />
+              <label htmlFor="forma-pago">Forma de pago <span className="req">*</span></label>
+              <input id="forma-pago" value={formaPago} onChange={(e) => setFormaPago(e.target.value)} placeholder="Efectivo, transferencia, mixto…" />
             </div>
           </>
         )}
         <div className="field full">
-          <label>Descripción narrativa de los hechos</label>
-          <textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required minLength={30}
+          <label htmlFor="descripcion">Descripción narrativa de los hechos <span className="req">*</span></label>
+          <textarea id="descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required minLength={30}
             placeholder="Explique la operación, la inusualidad detectada, las gestiones realizadas y por qué se considera sospechosa." />
           <div className="helper">
-            Mínimo 30 caracteres ({descripcion.length} escritos).
-            Una narrativa insuficiente puede generar solicitud de subsanación.
+            Mínimo 30 caracteres ({descripcion.length} escritos)
           </div>
         </div>
+
+        {/* ── Sección dinámica: campos definidos por la plantilla (RF-01, data-driven) ── */}
+        {camposDinamicos.length > 0 && (
+          <>
+            <div className="section-title">
+              <span className="section-num" aria-hidden="true">+</span>
+              Información adicional de la plantilla
+            </div>
+            {camposDinamicos.map((c) => {
+              const val = camposValores[c.id] ?? '';
+              const req = c.obligatorio === 1;
+              const fid = `campo-${c.id}`;
+              return (
+                <div className={`field${c.tipo_dato === 'textarea' ? ' full' : ''}`} key={c.id}>
+                  <label htmlFor={fid}>
+                    {c.nombre}{req && <span className="req"> *</span>}
+                  </label>
+                  {c.tipo_dato === 'textarea' ? (
+                    <textarea id={fid} value={val} required={req}
+                      onChange={(e) => setCampoValor(c.id, e.target.value)}
+                      placeholder="Información requerida por la plantilla" />
+                  ) : (
+                    <input id={fid} value={val} required={req}
+                      type={inputTypeFor(c.tipo_dato)}
+                      onChange={(e) => setCampoValor(c.id, e.target.value)} />
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
 
         {/* ── Sección 4: Sustento documental ── */}
         <div className="section-title">
@@ -536,27 +1044,47 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
         </div>
 
         <div className="field full">
-          {/* KPI summary */}
-          <div className="doc-summary">
-            <div className="info-box" style={{ borderColor: '#dbe8f6', background: 'var(--primary-soft)' }}>
-              <span style={{ color: 'var(--primary)' }}>Requeridos</span>
-              <strong style={{ color: 'var(--primary)' }}>{docList.length}</strong>
-            </div>
-            <div className="info-box" style={{ borderColor: cargados > 0 ? 'rgba(21,128,61,.3)' : undefined, background: cargados > 0 ? 'var(--green-soft)' : undefined }}>
-              <span style={{ color: cargados > 0 ? 'var(--green)' : undefined }}>Cargados</span>
-              <strong style={{ color: cargados > 0 ? 'var(--green)' : 'var(--primary)' }}>{cargados}</strong>
-            </div>
-            <div className="info-box" style={{ borderColor: docList.length - cargados > 0 ? '#fedf89' : 'rgba(21,128,61,.3)', background: docList.length - cargados > 0 ? 'var(--amber-soft)' : 'var(--green-soft)' }}>
-              <span style={{ color: docList.length - cargados > 0 ? 'var(--amber)' : 'var(--green)' }}>Pendientes</span>
-              <strong style={{ color: docList.length - cargados > 0 ? 'var(--amber)' : 'var(--green)' }}>{docList.length - cargados}</strong>
+          {/* Stat strip compacto */}
+          <div className="doc-stat-strip">
+            <span className="doc-stat req">
+              <span className="doc-stat-dot" />
+              <strong>{docListReq.length}</strong> obligatorios
+            </span>
+            {docListCond.length > 0 && (
+              <>
+                <span className="doc-stat-divider" />
+                <span className="doc-stat cond">
+                  <span className="doc-stat-dot" />
+                  <strong>{docListCond.length}</strong> condicionales
+                </span>
+              </>
+            )}
+            {docListOpt.length > 0 && (
+              <>
+                <span className="doc-stat-divider" />
+                <span className="doc-stat">
+                  <strong>{docListOpt.length}</strong> opcionales
+                </span>
+              </>
+            )}
+            <div className="doc-stat-right">
+              <span className="doc-stat-divider" />
+              <span className={`doc-stat${cargados > 0 ? ' ok' : ''}`}>
+                <span className="doc-stat-dot" style={{ background: cargados > 0 ? 'var(--green)' : '#cbd5e1' }} />
+                <strong>{cargados}</strong> cargados
+              </span>
+              <span className="doc-stat-divider" />
+              <span className={`doc-stat${docListReq.length - cargadosReq === 0 ? ' ok' : ' cond'}`}>
+                <strong>{docListReq.length - cargadosReq}</strong> pendientes oblig.
+              </span>
             </div>
           </div>
 
-          {/* Progress bar */}
+          {/* Barra de progreso */}
           {docList.length > 0 && (
             <div className="doc-progress">
               <div className="doc-progress-header">
-                <span className="doc-progress-label">Progreso de carga</span>
+                <span className="doc-progress-label">Progreso de carga obligatorios</span>
                 <span className="doc-progress-pct">{pct}%</span>
               </div>
               <div className="doc-progress-bar">
@@ -566,24 +1094,26 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           )}
         </div>
 
-        {/* Document cards */}
+        {/* Tarjetas de documentos agrupadas por tipo */}
         <div className="field full">
-          <div className="doc-grid">
-            {docList.map((d, i) => {
+          {(() => {
+            const renderCard = (d: DocReq, typeClass: string) => {
               const file = files[d.id] ?? null;
+              const analyzing = !!docAnalyzing[d.id];
               const uploaded = file || fileLabels[d.id];
+              const globalIdx = docList.findIndex(x => x.id === d.id) + 1;
               return (
-                <div key={d.id} className={`doc-card${file ? ' uploaded' : ''}`}>
+                <div key={d.id} className={`doc-card ${typeClass}${file && !analyzing ? ' uploaded' : ''}`}>
                   <div className="doc-top">
-                    <div className="doc-title">
-                      <FileText size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 5, opacity: .6 }} />
-                      {i + 1}. {d.nombre}
+                    <div className="doc-title" style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                      <span className="doc-num">{globalIdx}</span>
+                      {d.nombre}
                     </div>
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
-                      <span className={`badge ${uploaded ? 'green' : 'amber'}`}>
-                        {file ? 'Listo para subir' : fileLabels[d.id] ? 'Adjunto guardado' : 'Pendiente'}
+                    {(file || fileLabels[d.id] || d.tipo_requerimiento === 'requerido') && (
+                      <span className={`badge ${docBadgeClass(analyzing, !!uploaded, d.tipo_requerimiento === 'requerido')}`} style={{ flexShrink: 0, fontSize: 10 }}>
+                        {docBadgeText(analyzing, !!file, !!fileLabels[d.id])}
                       </span>
-                    </div>
+                    )}
                   </div>
                   {fileLabels[d.id] && !file ? (
                     <div className="upload-zone has-file">
@@ -591,41 +1121,90 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
                         <CheckCircle size={18} className="upload-zone-icon uploaded" />
                         <div>
                           <div className="upload-zone-filename">{fileLabels[d.id]}</div>
-                          <div className="upload-zone-size">Adjunto del borrador (reemplazar si se desea)</div>
+                          <div className="upload-zone-size">Adjunto guardado · reemplazar si se desea</div>
                         </div>
-                        <button
-                          type="button"
-                          className="upload-zone-remove"
+                        <button type="button" className="upload-zone-remove"
                           onClick={(e) => { e.stopPropagation(); setFileLabels({ ...fileLabels, [d.id]: '' }); }}
-                          aria-label="Quitar archivo"
-                        >×</button>
+                          aria-label="Quitar archivo">×</button>
                       </div>
                     </div>
                   ) : null}
-                  <FileDropZone
-                    file={file}
-                    onChange={(f) => setFiles({ ...files, [d.id]: f })}
-                  />
+                  {!fileLabels[d.id] && (
+                    <>
+                      <FileDropZone
+                        file={file}
+                        onChange={(f) => handleDocFileChange(d.id, d.nombre, f, files)}
+                        formatos={d.formatos_permitidos}
+                        maxMb={d.tamano_maximo_mb}
+                        analyzing={analyzing}
+                      />
+                      {fileWarnings[d.id]?.map((w) => (
+                        <div key={w} className="doc-warning" role="alert">
+                          <AlertCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+                          {w}
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
               );
-            })}
-          </div>
+            };
+            return (
+              <>
+                {docListReq.length > 0 && (
+                  <>
+                    <div className="doc-group-label req">
+                      <span className="doc-group-dot" />
+                      Obligatorios — {docListReq.length} documentos
+                      <span className="doc-group-line" />
+                    </div>
+                    <div className="doc-grid">{docListReq.map(d => renderCard(d, 'req-card'))}</div>
+                  </>
+                )}
+                {docListCond.length > 0 && (
+                  <>
+                    <div className="doc-group-label cond">
+                      <span className="doc-group-dot" />
+                      Condicionales — {docListCond.length} documentos
+                      <span className="doc-group-line" />
+                    </div>
+                    <div className="doc-grid">{docListCond.map(d => renderCard(d, 'cond-card'))}</div>
+                  </>
+                )}
+                {docListOpt.length > 0 && (
+                  <>
+                    <div className="doc-group-label opt">
+                      <span className="doc-group-dot" />
+                      Opcionales — {docListOpt.length} documentos
+                      <span className="doc-group-line" />
+                    </div>
+                    <div className="doc-grid">{docListOpt.map(d => renderCard(d, 'opt-card'))}</div>
+                  </>
+                )}
+              </>
+            );
+          })()}
         </div>
 
-        {/* Observaciones adicionales */}
+        {/* Observaciones adicionales — A3: permite enviar con docs faltantes si se justifica */}
         <div className="field full">
-          <label htmlFor="observaciones-adicionales">Observaciones adicionales</label>
+          <label htmlFor="observaciones-adicionales">
+            Observaciones adicionales
+          </label>
           <textarea
             id="observaciones-adicionales"
             value={observaciones}
             onChange={(e) => setObservaciones(e.target.value)}
             placeholder="Explique cualquier documento faltante, aclaración o información adicional relevante."
           />
+          <div className="helper" style={{ color: 'var(--muted)' }}>
+            Información adicional o aclaraciones generales sobre el caso.
+          </div>
         </div>
 
         {/* Extra evidence */}
         <div className="field full">
-          <label>Evidencia adicional no catalogada</label>
+          <label htmlFor="extras-input">Evidencia adicional no catalogada</label>
           <div
             className={`upload-zone${extras.length > 0 ? ' has-file' : ''}`}
             style={{ minHeight: 70 }}
@@ -635,8 +1214,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
               id="extras-input"
               type="file"
               multiple
+              accept=".pdf,.jpg,.jpeg,.png"
               style={{ display: 'none' }}
-              onChange={(e) => setExtras(Array.from(e.target.files ?? []))}
+              onChange={(e) => {
+                const valid = Array.from(e.target.files ?? []).filter((f) => isAllowedFile(f) && f.size <= MAX_BYTES);
+                setExtras(valid);
+              }}
             />
             {extras.length > 0 ? (
               <div className="upload-zone-content">
@@ -699,10 +1282,10 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
                   <tr key={d.id} style={{ borderTop: '1px solid #fde68a' }}>
                     <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#92400e' }}>{d.numero_ros}</td>
                     <td style={{ padding: '5px 8px', color: '#92400e' }}>
-                      {d.partes.map((p) => (
+                      {d.partes.map((p, pi) => (
                         <span key={p.enmascarada}>
                           {p.enmascarada} <span style={{ opacity: .7 }}>({p.rol})</span>
-                          {i < d.partes.length - 1 && <br />}
+                          {pi < d.partes.length - 1 && <br />}
                         </span>
                       ))}
                     </td>
@@ -748,8 +1331,9 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           </div>
         )}
 
-        <div className="action-row" style={{ gridColumn: '1 / -1' }}>
-          <button type="submit" className="btn primary" disabled={submitting || pending} style={{ minWidth: 200, justifyContent: 'center' }}>
+        {/* ── Botones de acción ── */}
+        <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <button type="submit" className="btn primary" disabled={submitting || pending || !formListo} style={{ minWidth: 200, justifyContent: 'center' }}>
             {submitting ? (
               <>Enviando ROS a la UAF…</>
             ) : (
@@ -762,19 +1346,94 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
           <button
             type="button"
             className="btn secondary"
-            disabled={submitting || pending}
+            disabled={submitting || pending || !hayAlgunDato}
             style={{ minWidth: 160, justifyContent: 'center' }}
             onClick={onSaveDraft}
           >
             <Save size={16} />
             {esEdicion ? 'Guardar borrador' : 'Guardar borrador'}
           </button>
-          {!esEdicion && docList.length > 0 && cargados < docList.length && (
-            <div className="helper" style={{ margin: 0, alignSelf: 'center' }}>
-              {docList.length - cargados} documento{docList.length - cargados > 1 ? 's' : ''} pendiente{docList.length - cargados > 1 ? 's' : ''} — puede enviar con documentos faltantes.
-            </div>
-          )}
         </div>
+
+        {/* ── Indicador de pasos faltantes ── */}
+        {!formListo && (
+          <div style={{
+            gridColumn: '1 / -1',
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '0.75rem',
+            padding: '1.25rem',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              marginBottom: '1rem',
+              color: '#991b1b',
+              fontSize: '0.875rem',
+              fontWeight: 700,
+            }}>
+              <ClipboardList size={16} />
+              Complete lo siguiente para habilitar el envío
+            </div>
+            {(() => {
+              const items = getFaltantes();
+              const cats: Record<string, FaltaItem[]> = {};
+              items.forEach((it) => { (cats[it.categoria] ??= []).push(it); });
+              const catMeta: Record<string, string> = {
+                generales: 'Datos generales del ROS',
+                verificacion: 'Verificación de identidad',
+                datos: 'Datos de la operación',
+                adicional: 'Información adicional',
+                documentos: 'Documentación',
+              };
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {Object.entries(cats).map(([cat, catItems]) => (
+                    <div key={cat}>
+                      <div style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        color: '#b91c1c',
+                        marginBottom: '0.5rem',
+                      }}>
+                        {catMeta[cat]}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                        {catItems.map((it) => (
+                          <div key={it.label} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.625rem',
+                            fontSize: '0.8125rem',
+                            color: '#7f1d1d',
+                          }}>
+                            <span style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '1.25rem',
+                              height: '1.25rem',
+                              borderRadius: '50%',
+                              background: '#fee2e2',
+                              color: '#dc2626',
+                              flexShrink: 0,
+                            }}>
+                              {it.icon}
+                            </span>
+                            {it.label}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
       </div>
 
@@ -783,41 +1442,70 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, oficialDefau
 }
 
 function PartyCard({
-  label, role, icon, state, setState, onVerify,
+  label, role, icon, required, state, setState, onVerify,
 }: {
   label: string;
   role: string;
   icon: React.ReactNode;
+  required?: boolean;
   state: PartyState;
   setState: (s: PartyState) => void;
   onVerify: () => void;
 }) {
+  const esJuridica = state.tipo === 'juridica';
+  const idLabel    = esJuridica ? 'RUC' : 'Cédula';
+  const nombreLabel = state.status === 'not_found'
+    ? (esJuridica ? 'Razón social' : 'Nombre')
+    : (esJuridica ? 'Razón social encontrada' : 'Nombre encontrado');
+  const coincidenciaMsg = esJuridica
+    ? `Coincidencia encontrada. Por privacidad, únicamente se muestra la razón social del ${role.toLowerCase()}.`
+    : `Coincidencia encontrada. Por privacidad, únicamente se muestra el nombre del ${role.toLowerCase()}.`;
+  const nombreInputId = `party-nombre-${role.toLowerCase().replace(/\s+/g, '-')}`;
+
   return (
     <div className="lookup-card">
       <div className="lookup-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {icon}
-        {label}
+        {label}{required && <span className="req">*</span>}
+      </div>
+      <div className="segmented-control" style={{ marginBottom: 10 }}>
+        <button type="button" className={`segment ${state.tipo === 'natural' ? 'active' : ''}`}
+          onClick={() => setState({ ...state, tipo: 'natural', id: '', nombre: '', status: 'idle' })}>
+          Persona Natural
+        </button>
+        <button type="button" className={`segment ${state.tipo === 'juridica' ? 'active' : ''}`}
+          onClick={() => setState({ ...state, tipo: 'juridica', id: '', nombre: '', status: 'idle' })}>
+          Persona Jurídica
+        </button>
       </div>
       <div className="lookup-row">
         <input
-          placeholder={`Cédula del ${role.toLowerCase()}`}
+          placeholder={`Ingrese ${idLabel} y haga clic en Verificar`}
           value={state.id}
           onChange={(e) => setState({ ...state, id: e.target.value, status: 'idle', nombre: '' })}
+          autoComplete="off"
+          maxLength={20}
         />
         <button type="button" className="btn secondary" onClick={onVerify} style={{ whiteSpace: 'nowrap' }}>
           Verificar
         </button>
       </div>
+      {state.status === 'idle' && state.id.trim().length >= 3 && (
+        <div className="client-status" style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#e0f2fe', borderColor: '#7dd3fc', color: '#0369a1' }}>
+          <Info size={13} style={{ flexShrink: 0 }} />
+          Haga clic en <strong>Verificar</strong> para validar este {idLabel} antes de continuar.
+        </div>
+      )}
       {state.status === 'verified' && (
         <div className="client-status found" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <CheckCircle size={13} style={{ flexShrink: 0 }} />
-          Coincidencia encontrada. Por privacidad, únicamente se muestra el nombre del {role.toLowerCase()}.
+          {coincidenciaMsg}
         </div>
       )}
       {state.status === 'not_found' && (
         <div className="client-status warning" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <AlertCircle size={13} style={{ flexShrink: 0 }} />
-          {state.message}
+          {state.message ?? 'Sin coincidencia. Ingrese el nombre para registrarlo en el sistema.'}
         </div>
       )}
       {state.status === 'error' && (
@@ -827,8 +1515,18 @@ function PartyCard({
         </div>
       )}
       <div className="field full">
-        <label>Nombre encontrado</label>
-        <input value={state.nombre} readOnly placeholder="Solo se mostrará el nombre si existe coincidencia" />
+        <label htmlFor={nombreInputId}>{nombreLabel}</label>
+        <input
+          id={nombreInputId}
+          value={state.nombre}
+          readOnly={state.status !== 'not_found'}
+          onChange={(e) => setState({ ...state, nombre: e.target.value })}
+          placeholder={
+            state.status === 'not_found'
+              ? `Ingrese ${esJuridica ? 'la razón social' : 'el nombre'} del ${role.toLowerCase()}`
+              : `Solo se mostrará ${esJuridica ? 'la razón social' : 'el nombre'} si existe coincidencia`
+          }
+        />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { generateSecret, buildQrDataUrl } from '@/lib/totp';
+import { encryptString, decryptString } from '@/lib/crypto';
 import { audit, extractRequestContext } from '@/lib/audit';
 
 interface UserRow { mfa_secret: string | null }
@@ -20,11 +21,11 @@ export async function POST(req: Request) {
     'SELECT mfa_secret FROM usuario WHERE id = ?',
   ).get(session.user.id);
 
-  const secret = existing?.mfa_secret ?? generateSecret();
+  const secret = existing?.mfa_secret ? decryptString(existing.mfa_secret) : generateSecret();
 
   if (!existing?.mfa_secret) {
     db.prepare('UPDATE usuario SET mfa_secret = ?, mfa_activo = 0 WHERE id = ?').run(
-      secret,
+      encryptString(secret),
       session.user.id,
     );
   }

@@ -11,7 +11,7 @@ export function KpiCard({ label, value, badge, tone = 'blue' }: Props) {
   return (
     <div className="card kpi">
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong style={tone !== 'gray' ? { color: `var(--${tone})` } : undefined}>{value}</strong>
       {badge && <div className={`badge ${tone}`}>{badge}</div>}
     </div>
   );

@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import { auth } from '@/auth';
+﻿import Link from 'next/link';
+import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
@@ -34,13 +34,55 @@ function parsearEntidad(detalle: string | null): string {
   try { return JSON.parse(detalle).nombre ?? '—'; } catch { return '—'; }
 }
 
-function parsearCambios(detalle: string | null): string {
-  if (!detalle) return '';
+const TIPO_LABEL: Record<string, string> = {
+  bank:       'Banco',
+  realestate: 'Inmobiliaria',
+  casino:     'Casino',
+  notarios:   'Notaría',
+};
+
+const SECTOR_LABEL: Record<string, string> = {
+  financiero:            'Financiero',
+  no_financiero:         'No financiero',
+  actividad_profesional: 'Act. profesional',
+  bienes_raices:         'Bienes raíces',
+  comercio:              'Comercio',
+  servicios:             'Servicios',
+};
+
+const ESTADO_LABEL: Record<string, string> = {
+  activo:   'Activo',
+  inactivo: 'Inactivo',
+};
+
+const CAMPO_LABEL: Record<string, string> = {
+  nombre:               'Nombre',
+  ruc:                  'RUC',
+  tipo:                 'Tipo',
+  sector:               'Sector',
+  organismo_supervisor: 'Organismo supervisor',
+  responsable_cumpl:    'Resp. cumplimiento',
+  estado:               'Estado',
+};
+
+function formatearValor(campo: string, valor: unknown): string {
+  const s = String(valor ?? '');
+  if (campo === 'tipo') return TIPO_LABEL[s] ?? s;
+  if (campo === 'sector') return SECTOR_LABEL[s] ?? s;
+  if (campo === 'estado') return ESTADO_LABEL[s] ?? s;
+  return s || '—';
+}
+
+function parsearCambios(detalle: string | null): Array<{ campo: string; valor: string }> {
+  if (!detalle) return [];
   try {
     const d = JSON.parse(detalle);
-    if (!d.cambios) return '';
-    return Object.entries(d.cambios).map(([k, v]) => `${k}: ${v}`).join(', ');
-  } catch { return ''; }
+    if (!d.cambios) return [];
+    return Object.entries(d.cambios).map(([k, v]) => ({
+      campo: CAMPO_LABEL[k] ?? k,
+      valor: formatearValor(k, v),
+    }));
+  } catch { return []; }
 }
 
 export const revalidate = 0;
@@ -57,13 +99,8 @@ interface Row {
   plantillas: number;
 }
 
-interface PlantillaAsig {
-  sujeto_obligado_id: string;
-  plantilla_id: string;
-}
-
 export default async function SujetosAdmin() {
-  const session = await auth();
+  const session = await getSession();
 
   const rows = db.prepare<[], Row>(
     `
@@ -75,25 +112,10 @@ export default async function SujetosAdmin() {
     `,
   ).all();
 
-  const plantillas = db.prepare<[], { id: string; nombre: string; tipo_sujeto_obligado: string }>(
-    `SELECT id, nombre, tipo_sujeto_obligado FROM plantilla_ros WHERE activa = 1 ORDER BY nombre`,
-  ).all();
-
   // RE-02: tipos disponibles cargados dinámicamente desde la DB (no hardcodeados)
   const tiposDisponibles = db.prepare<[], { tipo: string }>(
     `SELECT DISTINCT tipo_sujeto_obligado AS tipo FROM plantilla_ros WHERE activa = 1 ORDER BY tipo`,
   ).all().map((r) => r.tipo);
-
-  // Cargar todas las asociaciones para pasarlas al componente de edición
-  const asignaciones = db.prepare<[], PlantillaAsig>(
-    `SELECT sujeto_obligado_id, plantilla_id FROM sujeto_obligado_plantilla`,
-  ).all();
-
-  const plantillasPorSujeto: Record<string, string[]> = {};
-  for (const a of asignaciones) {
-    if (!plantillasPorSujeto[a.sujeto_obligado_id]) plantillasPorSujeto[a.sujeto_obligado_id] = [];
-    plantillasPorSujeto[a.sujeto_obligado_id].push(a.plantilla_id);
-  }
 
   // RE-03: últimas acciones sobre sujetos obligados para vista rápida
   const ultimasAcciones = db.prepare<[], AuditRow>(`
@@ -109,7 +131,7 @@ export default async function SujetosAdmin() {
       <TopBar
         eyebrow="Gestión de sujetos obligados"
         title="Sujetos obligados"
-        description="Registra, clasifica y administra sujetos obligados. Cada uno debe tener tipo, sector, estado y plantilla ROS asociada (RE-01). Todo cambio queda auditado (RE-03)."
+        description="Registra, clasifica y administra sujetos obligados. Cada uno debe tener tipo, sector, estado y plantilla ROS asociada. Todo cambio queda auditado."
       />
 
       <div className="card">
@@ -132,7 +154,7 @@ export default async function SujetosAdmin() {
               <tr key={r.id}>
                 <td><strong>{r.nombre}</strong></td>
                 <td className="small">{r.ruc ?? '—'}</td>
-                <td>{r.tipo}</td>
+                <td>{TIPO_LABEL[r.tipo] ?? r.tipo}</td>
                 <td>{r.sector}</td>
                 <td className="small">{r.organismo_supervisor ?? '—'}</td>
                 <td>{r.responsable_cumpl ?? '—'}</td>
@@ -149,9 +171,7 @@ export default async function SujetosAdmin() {
                       organismo_supervisor: r.organismo_supervisor,
                       responsable_cumpl: r.responsable_cumpl,
                       estado: r.estado,
-                      plantillasAsignadas: plantillasPorSujeto[r.id] ?? [],
                     }}
-                    todasPlantillas={plantillas}
                     tiposDisponibles={tiposDisponibles}
                   />
                 </td>
@@ -165,7 +185,7 @@ export default async function SujetosAdmin() {
       <div className="card" style={{ marginTop: 18 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div>
-            <h3 style={{ margin: 0 }}>Últimas acciones (RE-03)</h3>
+            <h3 style={{ margin: 0 }}>Últimas acciones</h3>
             <p className="small" style={{ margin: '2px 0 0' }}>Registro de creaciones, modificaciones y desactivaciones</p>
           </div>
           <Link href="/admin/auditoria" className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }}>
@@ -192,7 +212,26 @@ export default async function SujetosAdmin() {
                   <td style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{formatPanama(a.fecha_hora_servidor)}</td>
                   <td><Badge tone={accionTone(a.accion)}>{ACCION_LABEL[a.accion] ?? a.accion}</Badge></td>
                   <td><strong style={{ fontSize: 13 }}>{parsearEntidad(a.detalle)}</strong></td>
-                  <td style={{ fontSize: 12, color: 'var(--muted)' }}>{parsearCambios(a.detalle) || '—'}</td>
+                  <td style={{ fontSize: 12 }}>
+                    {(() => {
+                      const cambios = parsearCambios(a.detalle);
+                      if (cambios.length === 0) return <span style={{ color: 'var(--muted)' }}>—</span>;
+                      return (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {cambios.map(({ campo, valor }) => (
+                            <span key={campo} style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 3,
+                              background: 'var(--bg-subtle, #f3f4f6)', borderRadius: 4,
+                              padding: '2px 6px', fontSize: 11, whiteSpace: 'nowrap',
+                            }}>
+                              <span style={{ color: 'var(--muted)', fontWeight: 500 }}>{campo}:</span>
+                              <span style={{ fontWeight: 600 }}>{valor}</span>
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td style={{ fontSize: 12 }}>{a.usuario_correo ?? '—'}</td>
                   <td><Badge tone={a.resultado === 'exito' ? 'green' : 'red'}>{a.resultado}</Badge></td>
                 </tr>
@@ -205,9 +244,9 @@ export default async function SujetosAdmin() {
       <div className="card" style={{ marginTop: 18 }}>
         <h3 style={{ margin: 0 }}>Registrar nuevo sujeto obligado</h3>
         <p className="small" style={{ marginBottom: 14 }}>
-          Campos obligatorios: nombre, tipo, sector, estado y al menos una plantilla ROS (RE-01).
+          Campos obligatorios: nombre, tipo, sector y estado. Las plantillas ROS se asignan automáticamente según el tipo y sector.
         </p>
-        <NuevoSujetoForm plantillas={plantillas} tiposDisponibles={tiposDisponibles} />
+        <NuevoSujetoForm tiposDisponibles={tiposDisponibles} />
       </div>
     </>
   );

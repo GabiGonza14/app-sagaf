@@ -1,11 +1,22 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { PasswordInput } from '@/components/PasswordInput';
+import CustomSelect from '@/components/CustomSelect';
+import { SuccessModal } from '@/components/SuccessModal';
 
 interface Props {
   sujetos: Array<{ id: string; nombre: string }>;
   roles: Array<{ id: string; nombre: string }>;
 }
+
+const ROL_LABEL: Record<string, string> = {
+  sujeto_obligado: 'Sujeto Obligado',
+  analista: 'Analista',
+  supervisor: 'Supervisor',
+  auditor: 'Auditor',
+  admin: 'Administrador',
+};
 
 export function NuevoUsuarioForm({ sujetos, roles }: Props) {
   const router = useRouter();
@@ -17,15 +28,16 @@ export function NuevoUsuarioForm({ sujetos, roles }: Props) {
   const [sujetoId, setSujetoId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState(false);
 
-  const rolName = roles.find((r) => r.id === rolId)?.nombre;
+  const rolName = roles.find((r) => r.id === rolId)?.nombre ?? '';
   const requiresSujeto = rolName === 'sujeto_obligado';
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     if (requiresSujeto && !sujetoId) {
-      setError('Un usuario con rol "sujeto_obligado" debe estar asociado a una entidad.');
+      setError('Un usuario con rol "Sujeto Obligado" debe estar asociado a una entidad.');
       return;
     }
     setBusy(true);
@@ -41,11 +53,19 @@ export function NuevoUsuarioForm({ sujetos, roles }: Props) {
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? 'Error creando usuario.'); return; }
       setNombre(''); setCorreo(''); setPassword(''); setSujetoId('');
+      setSuccessModal(true);
       router.refresh();
     } finally { setBusy(false); }
   }
 
   return (
+    <>
+    <SuccessModal
+      isOpen={successModal}
+      title="Usuario creado"
+      message="El nuevo usuario fue registrado correctamente en el sistema."
+      onClose={() => setSuccessModal(false)}
+    />
     <form onSubmit={onSubmit}>
       <div className="form-grid">
         <div className="field">
@@ -58,21 +78,22 @@ export function NuevoUsuarioForm({ sujetos, roles }: Props) {
         </div>
         <div className="field">
           <label>Contraseña inicial</label>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+          <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
+          <span className="small" style={{ color: 'var(--muted)', marginTop: 4, display: 'block' }}>Mínimo 8 caracteres</span>
         </div>
         <div className="field">
           <label>Rol</label>
-          <select value={rolId} onChange={(e) => setRolId(e.target.value)} required>
-            {roles.map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
-          </select>
+          <CustomSelect value={rolId} onChange={(e) => setRolId(e.target.value)} required>
+            {roles.map((r) => <option key={r.id} value={r.id}>{ROL_LABEL[r.nombre] ?? r.nombre}</option>)}
+          </CustomSelect>
         </div>
         {requiresSujeto && (
           <div className="field full">
             <label>Sujeto obligado asociado</label>
-            <select value={sujetoId} onChange={(e) => setSujetoId(e.target.value)} required>
+            <CustomSelect value={sujetoId} onChange={(e) => setSujetoId(e.target.value)} required>
               <option value="">— seleccione —</option>
               {sujetos.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-            </select>
+            </CustomSelect>
           </div>
         )}
         {error && <div className="client-status error" style={{ gridColumn: '1 / -1' }}>{error}</div>}
@@ -83,5 +104,6 @@ export function NuevoUsuarioForm({ sujetos, roles }: Props) {
         </div>
       </div>
     </form>
+    </>
   );
 }

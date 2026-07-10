@@ -2,6 +2,9 @@ import { db } from '@/lib/db';
 import { Badge } from './Badge';
 import { formatPanama } from '@/lib/date';
 import { AuditFilters, type AuditFilterValues } from './AuditFilters';
+import { Pagination } from './Pagination';
+
+const PER_PAGE = 25;
 
 interface Row {
   id: string;
@@ -12,6 +15,7 @@ interface Row {
   accion: string;
   resultado: string;
   ip: string | null;
+  user_agent: string | null;
   recurso_afectado: string | null;
   criticidad: string;
   detalle: string | null;
@@ -20,46 +24,108 @@ interface Row {
 interface Props {
   filters: AuditFilterValues;
   modulosDisponibles?: string[];
+  page?: number;
 }
+
+const ROL_LABEL: Record<string, string> = {
+  sujeto_obligado: 'Sujeto Obligado',
+  analista:        'Analista',
+  supervisor:      'Supervisor',
+  auditor:         'Auditor',
+  admin:           'Admin',
+};
 
 const ACCION_LABEL: Record<string, string> = {
   // Autenticación
   login_password_ok:   'Inicio de sesión exitoso',
-  login_failed:        'Intento de inicio de sesión fallido',
+  login_failed:        'Inicio de sesión fallido',
   mfa_setup_iniciado:  'Configuración MFA iniciada',
   mfa_verify_ok:       'Verificación MFA exitosa',
   mfa_verify_failed:   'Verificación MFA fallida',
   // ROS
   crear_ros:           'Crear ROS',
   guardar_borrador:    'Guardar borrador ROS',
+  actualizar_borrador: 'Actualizar borrador ROS',
+  enviar_borrador:     'Enviar ROS',
+  descartar_borrador:  'Descartar borrador ROS',
+  acceso_ros:          'Acceso al ROS bloqueado',
+  cambio_estado:       'Cambio de estado',
+  reabrir_ros:         'Reapertura de ROS',
+  asignar_analista:    'Asignación de analista',
+  desasignar_analista: 'Desasignación de analista',
+  clasificar_riesgo:   'Clasificar riesgo',
+  revertir_riesgo:     'Revertir clasificación de riesgo',
+  // Expediente
+  consulta_expediente: 'Consulta de expediente',
+  // Identidad
   verificar_identidad: 'Verificar identidad de parte',
-  // Admin — sujetos obligados
+  // Sujetos obligados
   crear_sujeto_obligado:      'Crear sujeto obligado',
   actualizar_sujeto_obligado: 'Modificar sujeto obligado',
-  // Admin — plantillas
-  crear_plantilla_ros: 'Crear plantilla ROS',
-  // Admin — usuarios
-  crear_usuario:    'Crear usuario',
+  desactivar_sujeto_obligado: 'Desactivar sujeto obligado',
+  activar_sujeto_obligado:    'Activar sujeto obligado',
+  eliminar_sujeto_obligado:   'Eliminar sujeto obligado',
+  // Plantillas
+  crear_plantilla_ros:         'Crear plantilla ROS',
+  actualizar_plantilla_ros:    'Modificar plantilla ROS',
+  eliminar_plantilla_ros:      'Eliminar plantilla ROS',
+  agregar_campo_plantilla:     'Agregar campo a plantilla',
+  eliminar_campo_plantilla:    'Eliminar campo de plantilla',
+  agregar_documento_requerido: 'Agregar documento requerido',
+  eliminar_documento_requerido:'Eliminar documento requerido',
+  // Usuarios
+  crear_usuario:      'Crear usuario',
   actualizar_usuario: 'Modificar usuario',
+  desactivar_usuario: 'Desactivar usuario',
+  eliminar_usuario:   'Eliminar usuario',
   // Documentos
-  cargar_documento:    'Cargar documento',
+  cargar_documento:      'Cargar documento',
+  descarga_documento:    'Descarga de documento',
+  declarar_no_aplica:    'Documento declarado no aplica',
+  solicitar_subsanacion: 'Solicitar subsanación',
+  marcar_validado:       'Documento validado',
+  marcar_observado:      'Documento observado',
+  marcar_no_aplica:      'Documento marcado no aplica',
+  revertir_validado:     'Validación revertida',
+  revertir_observado:    'Observación revertida',
+  revertir_no_aplica:    'No aplica revertido',
   // Reportes
-  generar_reporte:     'Generar reporte',
+  generar_reporte:  'Generar reporte',
+  exportar_reporte: 'Exportar reporte',
+  // Vínculos
+  detectar_vinculos:  'Detección de vínculos',
+  crear_vinculo:      'Crear vínculo',
+  confirmar_vinculo:  'Confirmar vínculo',
+  descartar_vinculo:  'Descartar vínculo',
   // Auditoría
-  consulta_log:        'Consulta del log de auditoría',
+  consulta_log:     'Consulta del log de auditoría',
+  consulta_log_api: 'Consulta del log (API)',
   // Sistema
-  seed_inicial:        'Inicialización del sistema',
+  seed_inicial: 'Inicialización del sistema',
 };
 
 const MODULO_LABEL: Record<string, string> = {
   autenticacion: 'Autenticación',
   ros:           'ROS',
+  expediente:    'Expediente',
   admin:         'Administración',
   documentos:    'Documentos',
   reportes:      'Reportes',
   vinculos:      'Vínculos',
   auditoria:     'Auditoría',
   system:        'Sistema',
+};
+
+const RESULTADO_LABEL: Record<string, string> = {
+  exito:     'Éxito',
+  fallo:     'Fallo',
+  bloqueado: 'Bloqueado',
+};
+
+const CRITICIDAD_LABEL: Record<string, string> = {
+  normal:  'Normal',
+  alta:    'Alta',
+  critica: 'Crítica',
 };
 
 function parsearEntidad(accion: string, recurso: string | null, detalle: string | null): string {
@@ -81,10 +147,9 @@ function parsearCambios(detalle: string | null): string {
   try {
     const d = JSON.parse(detalle);
     if (d.cambios) {
-      const entradas = Object.entries(d.cambios)
+      return Object.entries(d.cambios)
         .map(([k, v]) => `${k}: ${v}`)
         .join(' · ');
-      return entradas;
     }
     if (d.tipo)         return `tipo: ${d.tipo}`;
     if (d.rol_asignado) return `rol: ${d.rol_asignado}`;
@@ -102,13 +167,17 @@ const TONO_CRITICIDAD: Record<string, 'gray' | 'amber' | 'red'> = {
 const TONO_MODULO: Record<string, 'blue' | 'teal' | 'amber' | 'red' | 'gray' | 'green'> = {
   autenticacion: 'blue',
   ros:           'teal',
+  expediente:    'teal',
   admin:         'amber',
   documentos:    'gray',
+  reportes:      'amber',
+  vinculos:      'blue',
   auditoria:     'green',
   system:        'gray',
 };
 
-export function AuditTable({ filters, modulosDisponibles }: Readonly<Props>) {
+export function AuditTable({ filters, modulosDisponibles, page = 1 }: Readonly<Props>) {
+  const currentPage = Math.max(1, page);
   const where: string[] = [];
   const params: unknown[] = [];
 
@@ -117,19 +186,36 @@ export function AuditTable({ filters, modulosDisponibles }: Readonly<Props>) {
     params.push(`%${filters.q}%`, `%${filters.q}%`, `%${filters.q}%`, `%${filters.q}%`);
   }
   if (filters.modulo)     { where.push('modulo = ?');      params.push(filters.modulo); }
+  if (filters.rol)        { where.push('rol = ?');         params.push(filters.rol); }
   if (filters.resultado)  { where.push('resultado = ?');   params.push(filters.resultado); }
   if (filters.criticidad) { where.push('criticidad = ?');  params.push(filters.criticidad); }
   if (filters.desde)      { where.push('fecha_hora_servidor >= ?'); params.push(filters.desde); }
   if (filters.hasta)      { where.push('fecha_hora_servidor <= ?'); params.push(filters.hasta + ' 23:59:59'); }
 
-  const sql = `
-    SELECT id, fecha_hora_servidor, usuario_correo, rol, modulo, accion, resultado, ip, recurso_afectado, criticidad, detalle
-      FROM evento_auditoria
-      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-     ORDER BY fecha_hora_servidor DESC
-     LIMIT 200
-  `;
-  const rows = db.prepare<unknown[], Row>(sql).all(...params);
+  const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+  const totalRow = db.prepare<unknown[], { c: number }>(
+    `SELECT COUNT(*) AS c FROM evento_auditoria ${whereClause}`,
+  ).get(...params);
+  const total = totalRow?.c ?? 0;
+  const totalPages = Math.ceil(total / PER_PAGE);
+
+  const rows = db.prepare<unknown[], Row>(
+    `SELECT id, fecha_hora_servidor, usuario_correo, rol, modulo, accion, resultado, ip, user_agent, recurso_afectado, criticidad, detalle
+       FROM evento_auditoria
+       ${whereClause}
+      ORDER BY fecha_hora_servidor DESC
+      LIMIT ? OFFSET ?`,
+  ).all(...params, PER_PAGE, (currentPage - 1) * PER_PAGE);
+
+  const filterParams: Record<string, string> = {};
+  if (filters.q)          filterParams.q = filters.q;
+  if (filters.modulo)     filterParams.modulo = filters.modulo;
+  if (filters.rol)        filterParams.rol = filters.rol;
+  if (filters.resultado)  filterParams.resultado = filters.resultado;
+  if (filters.criticidad) filterParams.criticidad = filters.criticidad;
+  if (filters.desde)      filterParams.desde = filters.desde;
+  if (filters.hasta)      filterParams.hasta = filters.hasta;
 
   return (
     <>
@@ -146,18 +232,21 @@ export function AuditTable({ filters, modulosDisponibles }: Readonly<Props>) {
                 <th>Usuario</th>
                 <th>Rol</th>
                 <th>Módulo</th>
-                <th>Acción</th>
-                <th>Entidad / Recurso</th>
+                <th style={{ minWidth: 180 }}>Acción</th>
+                <th style={{ whiteSpace: 'nowrap' }}>Entidad / Recurso</th>
                 <th>Cambios</th>
                 <th>Resultado</th>
                 <th>Criticidad</th>
                 <th>IP</th>
+                <th>Dispositivo</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => {
                 const cambios = parsearCambios(r.detalle);
                 const entidad = parsearEntidad(r.accion, r.recurso_afectado, r.detalle);
+                const uaSuffix = r.user_agent && r.user_agent.length > 40 ? '…' : '';
+                const uaLabel = r.user_agent ? r.user_agent.slice(0, 40) + uaSuffix : '—';
                 return (
                   <tr key={r.id}>
                     <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>
@@ -168,7 +257,7 @@ export function AuditTable({ filters, modulosDisponibles }: Readonly<Props>) {
                         ? r.usuario_correo
                         : <span className="small" style={{ color: 'var(--muted)' }}>sistema</span>}
                     </td>
-                    <td><span className="small">{r.rol ?? '—'}</span></td>
+                    <td><span className="small">{r.rol ? (ROL_LABEL[r.rol] ?? r.rol) : '—'}</span></td>
                     <td>
                       <Badge tone={TONO_MODULO[r.modulo] ?? 'gray'}>
                         {MODULO_LABEL[r.modulo] ?? r.modulo}
@@ -182,12 +271,16 @@ export function AuditTable({ filters, modulosDisponibles }: Readonly<Props>) {
                     <td style={{ fontSize: 13 }}>{entidad}</td>
                     <td style={{ fontSize: 12, color: 'var(--muted)' }}>{cambios || '—'}</td>
                     <td>
-                      <Badge tone={TONO_RESULTADO[r.resultado] ?? 'gray'}>{r.resultado}</Badge>
+                      <Badge tone={TONO_RESULTADO[r.resultado] ?? 'gray'}>{RESULTADO_LABEL[r.resultado] ?? r.resultado}</Badge>
                     </td>
                     <td>
-                      <Badge tone={TONO_CRITICIDAD[r.criticidad] ?? 'gray'}>{r.criticidad}</Badge>
+                      <Badge tone={TONO_CRITICIDAD[r.criticidad] ?? 'gray'}>{CRITICIDAD_LABEL[r.criticidad] ?? r.criticidad}</Badge>
                     </td>
                     <td style={{ fontSize: 11, color: 'var(--muted)' }}>{r.ip ?? '—'}</td>
+                    <td style={{ fontSize: 11, color: 'var(--muted)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        title={r.user_agent ?? undefined}>
+                      {uaLabel}
+                    </td>
                   </tr>
                 );
               })}
@@ -195,10 +288,14 @@ export function AuditTable({ filters, modulosDisponibles }: Readonly<Props>) {
           </table>
         </div>
       )}
-      <div className="notice" style={{ marginTop: 12 }}>
-        Mostrando los 200 eventos más recientes. El log es <strong>inmutable</strong> — los triggers
-        de base de datos bloquean cualquier modificación o eliminación.
-      </div>
+
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        basePath="/auditor"
+        params={filterParams}
+      />
     </>
   );
 }

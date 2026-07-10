@@ -1,0 +1,81 @@
+{
+  "config": {
+    "argv": [
+      "/home/asdf/.nvm/versions/node/v24.11.1/bin/node",
+      "/home/asdf/Downloads/app-sagaf/node_modules/@playwright/test/cli.js",
+      "test",
+      "casos-de-prueba.spec.ts",
+      "--reporter=json"
+    ],
+    "configFile": "/home/asdf/Downloads/app-sagaf/playwright.config.ts",
+    "rootDir": "/home/asdf/Downloads/app-sagaf/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/asdf/Downloads/app-sagaf/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {},
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/home/asdf/Downloads/app-sagaf/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.spec.ts"
+        ],
+        "timeout": 60000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.0",
+    "workers": 1,
+    "webServer": {
+      "command": "node --import tsx e2e/setup-test-db.ts && node node_modules/next/dist/bin/next dev --port 3099",
+      "url": "http://localhost:3099",
+      "timeout": 120000,
+      "reuseExistingServer": false,
+      "env": {
+        "DB_PATH": "./db/sagaf.test.db",
+        "E2E_TOTP_SECRET": "JBSWY3DPEHPK3PXP"
+      }
+    }
+  },
+  "suites": [],
+  "errors": [
+    {
+      "message": "Error: http://localhost:3099 is already used, make sure that nothing is running on the port/url or set reuseExistingServer:true in config.webServer.",
+      "stack": "Error: http://localhost:3099 is already used, make sure that nothing is running on the port/url or set reuseExistingServer:true in config.webServer."
+    }
+  ],
+  "stats": {
+    "startTime": "2026-06-24T19:37:34.754Z",
+    "duration": 72.45899999999995,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

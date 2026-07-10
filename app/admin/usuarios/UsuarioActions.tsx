@@ -2,46 +2,187 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { SuccessModal } from '@/components/SuccessModal';
+import { X } from 'lucide-react';
+import CustomSelect from '@/components/CustomSelect';
 
-export function UsuarioActions({ usuarioId, estadoActual }: { usuarioId: string; estadoActual: string }) {
+interface Rol { id: string; nombre: string }
+interface Sujeto { id: string; nombre: string }
+
+interface Props {
+  usuarioId: string;
+  nombreActual: string;
+  correoActual: string;
+  estadoActual: string;
+  rolActualId: string;
+  sujetoObligadoId: string | null;
+  roles: Rol[];
+  sujetos: Sujeto[];
+}
+
+const ROL_LABEL: Record<string, string> = {
+  sujeto_obligado: 'Sujeto Obligado',
+  analista: 'Analista',
+  supervisor: 'Supervisor',
+  auditor: 'Auditor',
+  admin: 'Administrador',
+};
+
+export function UsuarioActions({
+  usuarioId, nombreActual, correoActual, estadoActual, rolActualId,
+  sujetoObligadoId, roles, sujetos,
+}: Readonly<Props>) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [openEstado, setOpenEstado] = useState(false);
+  const [openEditar, setOpenEditar] = useState(false);
+  const [openEliminar, setOpenEliminar] = useState(false);
+
+  const [nombre, setNombre] = useState(nombreActual);
+  const [correo, setCorreo] = useState(correoActual);
+  const [rolId, setRolId] = useState(rolActualId);
+  const [sujetoId, setSujetoId] = useState(sujetoObligadoId ?? '');
+
+  const [error, setError] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState<{ title: string; message: string } | null>(null);
+  const [refreshOnClose, setRefreshOnClose] = useState(false);
 
   const desactivar = estadoActual === 'activo';
-  const nuevo = desactivar ? 'inactivo' : 'activo';
+  const nuevoEstado = desactivar ? 'inactivo' : 'activo';
+  const rolCambio = rolId !== rolActualId;
+  const rolName = roles.find((r) => r.id === rolId)?.nombre;
+  const requiresSujeto = rolName === 'sujeto_obligado';
 
-  async function toggle() {
+  async function toggleEstado() {
     setBusy(true);
-    setOpen(false);
+    setOpenEstado(false);
+    setError(null);
     try {
       const res = await fetch(`/api/usuarios/${usuarioId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ estado: nuevo }),
+        body: JSON.stringify({ estado: nuevoEstado }),
       });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        alert(d.error ?? 'Error.');
-        return;
-      }
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'No se pudo actualizar el estado del usuario.'); return; }
+      setSuccessModal({ title: 'Estado actualizado', message: `El usuario fue ${nuevoEstado === 'activo' ? 'activado' : 'desactivado'} correctamente.` });
       router.refresh();
+    } finally { setBusy(false); }
+  }
+
+  async function guardarEdicion(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const body: Record<string, unknown> = { nombre, correo };
+      if (rolCambio) {
+        body.rol_id = rolId;
+        body.sujeto_obligado_id = requiresSujeto ? (sujetoId || null) : null;
+      }
+      const res = await fetch(`/api/usuarios/${usuarioId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'No se pudo actualizar el usuario.'); return; }
+      setOpenEditar(false);
+      setSuccessModal({ title: 'Usuario actualizado', message: 'Los cambios del usuario fueron guardados correctamente.' });
+      router.refresh();
+    } finally { setBusy(false); }
+  }
+
+  async function eliminarUsuario() {
+    setBusy(true);
+    setOpenEliminar(false);
+    setError(null);
+    try {
+      const res = await fetch(`/api/usuarios/${usuarioId}`, { method: 'DELETE' });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error ?? 'No se pudo eliminar el usuario.'); return; }
+      setSuccessModal({ title: 'Usuario eliminado', message: 'El usuario fue eliminado del sistema correctamente.' });
+      setRefreshOnClose(true);
     } finally { setBusy(false); }
   }
 
   return (
     <>
-      <button
-        className={`btn ${desactivar ? 'amber' : 'green'}`}
-        onClick={() => setOpen(true)}
-        disabled={busy}
-        style={{ padding: '8px 12px', fontSize: 12 }}
-      >
-        {desactivar ? 'Desactivar' : 'Activar'}
-      </button>
+      {error && (
+        <div className="client-status error" role="alert" style={{ marginBottom: 6, fontWeight: 600, fontSize: 12 }}>
+          {error}
+          <button onClick={() => setError(null)} aria-label="Cerrar"
+            style={{ marginLeft: 8, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, color: 'inherit' }}>✕</button>
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button
+          className="btn primary"
+          onClick={() => setOpenEditar(true)}
+          disabled={busy}
+          style={{ padding: '5px 10px', fontSize: 12, minHeight: 32, borderRadius: 8 }}
+        >Editar</button>
+
+        <button
+          className="btn ghost"
+          onClick={() => setOpenEstado(true)}
+          disabled={busy}
+          style={{ padding: '5px 10px', fontSize: 12, minHeight: 32, borderRadius: 8, color: desactivar ? 'var(--amber)' : 'var(--green)' }}
+        >{desactivar ? 'Desactivar' : 'Activar'}</button>
+
+        <button
+          className="btn ghost"
+          onClick={() => setOpenEliminar(true)}
+          disabled={busy}
+          style={{ padding: '5px 10px', fontSize: 12, minHeight: 32, borderRadius: 8, color: 'var(--red)' }}
+        >Eliminar</button>
+      </div>
+
+      {/* Modal Editar */}
+      {openEditar && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => { if (e.target === e.currentTarget) { setOpenEditar(false); setNombre(nombreActual); setCorreo(correoActual); setRolId(rolActualId); setSujetoId(sujetoObligadoId ?? ''); setError(null); } }}
+          onKeyDown={(e) => { if (e.key === 'Escape') { setOpenEditar(false); setNombre(nombreActual); setCorreo(correoActual); setRolId(rolActualId); setSujetoId(sujetoObligadoId ?? ''); setError(null); } }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="modal-box" style={{ maxWidth: 480 }}>
+            <button type="button" className="modal-close" onClick={() => { setOpenEditar(false); setNombre(nombreActual); setCorreo(correoActual); setRolId(rolActualId); setSujetoId(sujetoObligadoId ?? ''); setError(null); }} aria-label="Cerrar"><X size={16} /></button>
+            <h3 className="modal-title">Editar usuario</h3>
+            <p className="modal-message">Modifique los datos del usuario. El correo debe ser único en el sistema.</p>
+            <form onSubmit={guardarEdicion} style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="field">
+                <label htmlFor="ue-nombre">Nombre completo</label>
+                <input id="ue-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
+              </div>
+              <div className="field">
+                <label htmlFor="ue-correo">Correo institucional</label>
+                <input id="ue-correo" type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} required />
+              </div>
+              <div className="field">
+                <label htmlFor="ue-rol">Rol</label>
+                <CustomSelect id="ue-rol" value={rolId} onChange={(e) => setRolId(e.target.value)} required>
+                  {roles.map((r) => <option key={r.id} value={r.id}>{ROL_LABEL[r.nombre] ?? r.nombre}</option>)}
+                </CustomSelect>
+              </div>
+              {requiresSujeto && (
+                <div className="field">
+                  <label htmlFor="ue-sujeto">Sujeto obligado asociado</label>
+                  <CustomSelect id="ue-sujeto" value={sujetoId} onChange={(e) => setSujetoId(e.target.value)} required>
+                    <option value="">— seleccione —</option>
+                    {sujetos.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+                  </CustomSelect>
+                </div>
+              )}
+              <div className="modal-actions" style={{ marginTop: 8 }}>
+                <button type="button" className="btn ghost" onClick={() => { setOpenEditar(false); setNombre(nombreActual); setCorreo(correoActual); setRolId(rolActualId); setSujetoId(sujetoObligadoId ?? ''); setError(null); }} disabled={busy}>Cancelar</button>
+                <button type="submit" className="btn primary" disabled={busy}>{busy ? 'Guardando…' : 'Guardar cambios'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
-        isOpen={open}
+        isOpen={openEstado}
         variant={desactivar ? 'warning' : 'success'}
         title={desactivar ? '¿Desactivar usuario?' : '¿Activar usuario?'}
         message={
@@ -52,8 +193,30 @@ export function UsuarioActions({ usuarioId, estadoActual }: { usuarioId: string;
         confirmLabel={desactivar ? 'Sí, desactivar' : 'Sí, activar'}
         cancelLabel="Cancelar"
         busy={busy}
-        onConfirm={toggle}
-        onCancel={() => setOpen(false)}
+        onConfirm={toggleEstado}
+        onCancel={() => setOpenEstado(false)}
+      />
+
+      <ConfirmModal
+        isOpen={openEliminar}
+        variant="danger"
+        title="¿Eliminar usuario?"
+        message="Esta acción es irreversible. El usuario será eliminado permanentemente del sistema y quedará registrado en auditoría."
+        confirmLabel="Sí, eliminar"
+        cancelLabel="Cancelar"
+        busy={busy}
+        onConfirm={eliminarUsuario}
+        onCancel={() => setOpenEliminar(false)}
+      />
+
+      <SuccessModal
+        isOpen={!!successModal}
+        title={successModal?.title ?? ''}
+        message={successModal?.message ?? ''}
+        onClose={() => {
+          setSuccessModal(null);
+          if (refreshOnClose) { setRefreshOnClose(false); router.refresh(); }
+        }}
       />
     </>
   );

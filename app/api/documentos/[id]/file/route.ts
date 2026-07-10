@@ -60,10 +60,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     detalle: { documento_adjunto_id: id, archivo: row.nombre_archivo },
   });
 
+  const safeFilename = row.nombre_archivo.replace(/[^\w.\-]/g, '_');
+  const encodedFilename = encodeURIComponent(row.nombre_archivo);
+
   return new NextResponse(buf, {
     headers: {
       'Content-Type': row.tipo_mime ?? 'application/octet-stream',
-      'Content-Disposition': `inline; filename="${row.nombre_archivo}"`,
+      'Content-Disposition': `inline; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
     },
   });
 }

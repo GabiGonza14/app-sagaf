@@ -8,6 +8,7 @@ import { audit, extractRequestContext } from '@/lib/audit';
 
 const schema = z.object({
   documento_adjunto_id: z.string().nullable().optional(),
+  documento_requerido_id: z.string().nullable().optional(),
   motivo: z.string().min(10),
 });
 
@@ -27,11 +28,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const subId = randomUUID();
   db.prepare(`
-    INSERT INTO solicitud_subsanacion (id, ros_id, documento_adjunto_id, motivo, estado, solicitada_por)
-    VALUES (?, ?, ?, ?, 'pendiente', ?)
-  `).run(subId, id, parsed.data.documento_adjunto_id ?? null, parsed.data.motivo, session.user.id);
+    INSERT INTO solicitud_subsanacion (id, ros_id, documento_adjunto_id, documento_requerido_id, motivo, estado, solicitada_por, fecha_limite)
+    VALUES (?, ?, ?, ?, ?, 'pendiente', ?, date('now', '+5 days'))
+  `).run(subId, id, parsed.data.documento_adjunto_id ?? null, parsed.data.documento_requerido_id ?? null, parsed.data.motivo, session.user.id);
 
-  // El ROS pasa a estado 'subsanacion' (RF-02)
+  // El ROS pasa a estado 'subsanacion'
   db.prepare('UPDATE ros SET estado = ? WHERE id = ?').run('subsanacion', id);
 
   const ctx = extractRequestContext(req);
