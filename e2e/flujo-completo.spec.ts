@@ -245,12 +245,11 @@ test.describe('BL-060: Flujo completo ROS', () => {
     await test.step('Verificar rastro en auditoría', async () => {
       // Filtrar por el recurso afectado (numeroRos o rosId)
       await page.fill('input[placeholder*="Recurso Afectado"]', rosId);
-      await page.waitForTimeout(1000); // esperar debounce o submit
-      
+
       // Deberíamos ver acciones como ros:create, ros:classify, doc:upload, subsanacion, ros:close
-      const textContent = await page.locator('table').textContent();
-      expect(textContent).toContain('ros:create');
-      expect(textContent).toContain('ros:close');
+      const table = page.locator('table');
+      await expect(table).toContainText('ros:create', { timeout: 10000 });
+      await expect(table).toContainText('ros:close');
     });
 
     await context.close();
