@@ -208,9 +208,6 @@ export function AuditTable({ filters, modulosDisponibles, page = 1 }: Readonly<P
       LIMIT ? OFFSET ?`,
   ).all(...params, PER_PAGE, (currentPage - 1) * PER_PAGE);
 
-  const inicio = total === 0 ? 0 : (currentPage - 1) * PER_PAGE + 1;
-  const fin = Math.min(currentPage * PER_PAGE, total);
-
   const filterParams: Record<string, string> = {};
   if (filters.q)          filterParams.q = filters.q;
   if (filters.modulo)     filterParams.modulo = filters.modulo;

@@ -12,7 +12,7 @@ interface Props {
   fh: string;
 }
 
-export function ReportesFilterForm({ tipo: initTipo, sector: initSector, estado: initEstado, fd: initFd, fh: initFh }: Props) {
+export function ReportesFilterForm({ tipo: initTipo, sector: initSector, estado: initEstado, fd: initFd, fh: initFh }: Readonly<Props>) {
   const router = useRouter();
   const [tipo, setTipo] = useState(initTipo);
   const [sector, setSector] = useState(initSector);
@@ -57,8 +57,8 @@ export function ReportesFilterForm({ tipo: initTipo, sector: initSector, estado:
       {showFilters && (
         <form onSubmit={apply} className="filter-grid" style={{ marginTop: 12 }}>
           <div className="filter-group">
-            <label className="filter-label">Tipo de reporte</label>
-            <CustomSelect value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            <label className="filter-label" htmlFor="rf-tipo">Tipo de reporte</label>
+            <CustomSelect id="rf-tipo" value={tipo} onChange={(e) => setTipo(e.target.value)}>
               <option value="operativo">Operativo</option>
               <option value="documental">Documental</option>
               <option value="estadistico">Estadístico</option>
@@ -66,8 +66,8 @@ export function ReportesFilterForm({ tipo: initTipo, sector: initSector, estado:
             </CustomSelect>
           </div>
           <div className="filter-group">
-            <label className="filter-label">Sector</label>
-            <CustomSelect value={sector} onChange={(e) => setSector(e.target.value)}>
+            <label className="filter-label" htmlFor="rf-sector">Sector</label>
+            <CustomSelect id="rf-sector" value={sector} onChange={(e) => setSector(e.target.value)}>
               <option value="">Todos</option>
               <option value="financiero">Financiero</option>
               <option value="no_financiero">No financiero</option>
@@ -75,8 +75,8 @@ export function ReportesFilterForm({ tipo: initTipo, sector: initSector, estado:
             </CustomSelect>
           </div>
           <div className="filter-group">
-            <label className="filter-label">Estado del ROS</label>
-            <CustomSelect value={estado} onChange={(e) => setEstado(e.target.value)}>
+            <label className="filter-label" htmlFor="rf-estado">Estado del ROS</label>
+            <CustomSelect id="rf-estado" value={estado} onChange={(e) => setEstado(e.target.value)}>
               <option value="">Todos</option>
               <option value="recibido">Recibido</option>
               <option value="en_analisis">En análisis</option>
@@ -88,12 +88,12 @@ export function ReportesFilterForm({ tipo: initTipo, sector: initSector, estado:
             </CustomSelect>
           </div>
           <div className="filter-group">
-            <label className="filter-label">Desde</label>
-            <input type="date" value={fd} onChange={(e) => setFd(e.target.value)} />
+            <label className="filter-label" htmlFor="rf-fd">Desde</label>
+            <input id="rf-fd" type="date" value={fd} onChange={(e) => setFd(e.target.value)} />
           </div>
           <div className="filter-group">
-            <label className="filter-label">Hasta</label>
-            <input type="date" value={fh} onChange={(e) => setFh(e.target.value)} />
+            <label className="filter-label" htmlFor="rf-fh">Hasta</label>
+            <input id="rf-fh" type="date" value={fh} onChange={(e) => setFh(e.target.value)} />
           </div>
           <div className="filter-group filter-group-actions">
             <div className="filter-group-actions-row">

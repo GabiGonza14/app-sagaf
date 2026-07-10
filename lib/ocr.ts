@@ -193,7 +193,7 @@ async function extractFromPdf(pdfBuffer: Buffer): Promise<PdfExtract> {
     await page.render({ canvasContext: context, viewport } as any).promise;
     const png = canvas.toBuffer('image/png');
     const pageText = await runTesseract(png);
-    console.log(`[OCR] Pág ${i} Tesseract: "${pageText.slice(0, 80).replace(/\n/g, ' ')}"`);
+    console.log(`[OCR] Pág ${i} Tesseract: "${pageText.slice(0, 80).replaceAll('\n', ' ')}"`);
     ocrText += ' ' + pageText;
   }
   return { text: ocrText.trim(), source: 'ocr' };

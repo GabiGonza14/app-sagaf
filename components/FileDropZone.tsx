@@ -29,7 +29,7 @@ function buildFromFormatos(formatos: string): { accept: string; mimes: Set<strin
   const exts = formatos.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
   const mimes = new Set(exts.flatMap(e => MIME_MAP[e] ? [MIME_MAP[e]] : []));
   const accept = exts.map(e => `.${e}`).join(',');
-  const extRe = new RegExp(`\\.(${exts.join('|')})$`, 'i');
+  const extRe = new RegExp(String.raw`\.(${exts.join('|')})$`, 'i');
   const label = exts.map(e => e.toUpperCase()).join(', ');
   return { accept, mimes, extRe, label };
 }

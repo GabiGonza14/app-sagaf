@@ -8,7 +8,7 @@ export interface PersonLookupResult {
 }
 
 function normalizeId(id: string): string {
-  return id.trim().replace(/\s+/g, '').replace(/-/g, '').toUpperCase();
+  return id.trim().replace(/\s+/g, '').replaceAll('-', '').toUpperCase();
 }
 
 /**

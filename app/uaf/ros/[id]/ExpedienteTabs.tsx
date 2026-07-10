@@ -650,7 +650,7 @@ export function RosExpedienteTabs({
               <div className="doc-stat-divider" />
               <div className="doc-stat">
                 <span className="doc-stat-dot" style={{ background: '#94a3b8' }} />
-                <strong>{docsReq.length - docsAdj.filter((d) => d.documento_requerido_id).length}</strong>
+                <strong>{docsReq.length - docsAdj.filter((d) => d.documento_requerido_id).length}</strong>{' '}
                 Pendientes
               </div>
               <div className="doc-stat-divider" />
@@ -996,7 +996,7 @@ export function RosExpedienteTabs({
                         </div>
                         <div className="field full">
                           <label>
-                            Justificación
+                            Justificación{' '}
                             <span style={{
                               marginLeft: 8, fontSize: 12, fontWeight: 400,
                               color: riesgoJustif.trim().length >= 15 ? 'var(--teal)' : 'var(--muted)',
@@ -1191,8 +1191,8 @@ export function RosExpedienteTabs({
                               )
                               .map(([k, v]) => (
                                 <span key={k} className="audit-detail-chip">
-                                  <span className="audit-detail-key">{k.replace(/_/g, ' ')}:</span>{' '}
-                                  {String(v).replace(/_/g, ' ')}
+                                  <span className="audit-detail-key">{k.replaceAll('_', ' ')}:</span>{' '}
+                                  {String(v).replaceAll('_', ' ')}
                                 </span>
                               ))}
                             {Boolean(detalleParsed.automatico) && (

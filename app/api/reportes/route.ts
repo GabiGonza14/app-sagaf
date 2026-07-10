@@ -4,13 +4,13 @@ import { db } from '@/lib/db';
 import { audit, extractRequestContext } from '@/lib/audit';
 
 function formatSector(s: string) {
-  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return s.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function h(s: unknown): string {
   if (s == null) return '';
-  const v = String(s);
-  return v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const v = typeof s === 'object' ? JSON.stringify(s) : String(s);
+  return v.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 }
 
 function buildFilter(f: Readonly<{
@@ -29,8 +29,14 @@ function buildFilter(f: Readonly<{
   };
 }
 
+function alignStyle(a: string): string {
+  if (a === 'center') return 'text-align:center;';
+  if (a === 'right') return 'text-align:right;';
+  return 'text-align:left;';
+}
+
 function tdCell(a: string, bg: string, v: string, bold?: boolean): string {
-  const al = a === 'center' ? 'text-align:center;' : a === 'right' ? 'text-align:right;' : 'text-align:left;';
+  const al = alignStyle(a);
   const st = `padding:8px 12px;border:1px solid #d0d7e2;${al}background:${bg}${bold ? ';font-weight:700' : ''}`;
   const nf = a === 'right' ? ' mso-number-format="#,##0"' : '';
   return `<td style="${st}"${nf}>${h(v)}</td>`;
@@ -85,10 +91,13 @@ export async function GET(req: Request) {
 
   const ctx = extractRequestContext(req);
 
-  const label = tipo === 'operativo' ? 'Reporte Operativo'
-    : tipo === 'documental' ? 'Reporte Documental'
-    : tipo === 'estadistico' ? 'Reporte Estadístico'
-    : 'Inteligencia Financiera';
+  const TIPO_LABEL: Record<string, string> = {
+    operativo: 'Reporte Operativo',
+    documental: 'Reporte Documental',
+    estadistico: 'Reporte Estadístico',
+    inteligencia: 'Inteligencia Financiera',
+  };
+  const label = TIPO_LABEL[tipo] ?? TIPO_LABEL.inteligencia;
 
   let sections = '';
   let rows = 0;
@@ -134,7 +143,7 @@ export async function GET(req: Request) {
       'Tiempos de atención (últimos 10)',
       ['ROS', 'Recibido', 'Estado', 'Tiempo (horas)'],
       ['left', 'center', 'center', 'right'],
-      tiempos.map((t) => [t.numero_ros, t.fecha_recepcion, t.estado.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()), t.tiempo_horas?.toFixed(1) ?? '—']),
+      tiempos.map((t) => [t.numero_ros, t.fecha_recepcion, formatSector(t.estado), t.tiempo_horas?.toFixed(1) ?? '—']),
     );
 
   } else if (tipo === 'documental') {

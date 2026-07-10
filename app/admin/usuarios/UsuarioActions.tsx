@@ -150,23 +150,23 @@ export function UsuarioActions({
             <p className="modal-message">Modifique los datos del usuario. El correo debe ser único en el sistema.</p>
             <form onSubmit={guardarEdicion} style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="field">
-                <label>Nombre completo</label>
-                <input value={nombre} onChange={(e) => setNombre(e.target.value)} required />
+                <label htmlFor="ue-nombre">Nombre completo</label>
+                <input id="ue-nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
               </div>
               <div className="field">
-                <label>Correo institucional</label>
-                <input type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} required />
+                <label htmlFor="ue-correo">Correo institucional</label>
+                <input id="ue-correo" type="email" value={correo} onChange={(e) => setCorreo(e.target.value)} required />
               </div>
               <div className="field">
-                <label>Rol</label>
-                <CustomSelect value={rolId} onChange={(e) => setRolId(e.target.value)} required>
+                <label htmlFor="ue-rol">Rol</label>
+                <CustomSelect id="ue-rol" value={rolId} onChange={(e) => setRolId(e.target.value)} required>
                   {roles.map((r) => <option key={r.id} value={r.id}>{ROL_LABEL[r.nombre] ?? r.nombre}</option>)}
                 </CustomSelect>
               </div>
               {requiresSujeto && (
                 <div className="field">
-                  <label>Sujeto obligado asociado</label>
-                  <CustomSelect value={sujetoId} onChange={(e) => setSujetoId(e.target.value)} required>
+                  <label htmlFor="ue-sujeto">Sujeto obligado asociado</label>
+                  <CustomSelect id="ue-sujeto" value={sujetoId} onChange={(e) => setSujetoId(e.target.value)} required>
                     <option value="">— seleccione —</option>
                     {sujetos.map((s) => <option key={s.id} value={s.id}>{s.nombre}</option>)}
                   </CustomSelect>

@@ -7,13 +7,18 @@ import { TopBar } from '@/components/TopBar';
 import { Badge, riskTone, estadoTone, estadoLabel } from '@/components/Badge';
 import { formatPanama } from '@/lib/date';
 import { InfoBox } from '@/components/InfoBox';
-import { Notice } from '@/components/Notice';
 
 import { ProgressList } from '@/components/ProgressBar';
 import { Timeline } from '@/components/Timeline';
 import { RosExpedienteTabs } from './ExpedienteTabs';
 
 export const revalidate = 0;
+
+function toneFromPct(pct: number): 'green' | 'amber' | 'red' {
+  if (pct === 100) return 'green';
+  if (pct >= 75) return 'amber';
+  return 'red';
+}
 
 interface RosRow {
   id: string;
@@ -192,9 +197,6 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
        FROM solicitud_subsanacion WHERE ros_id = ? ORDER BY fecha_solicitud DESC`,
   ).all(id);
 
-  const completitud = docsReq.length === 0
-    ? 0
-    : Math.round((docsAdj.filter((d) => d.documento_requerido_id).length / docsReq.length) * 100);
   const docsReqObligatorios = docsReq.filter((d) => d.tipo_requerimiento === 'requerido');
   const docsReqCondicionales = docsReq.filter((d) => d.tipo_requerimiento === 'condicional');
   const docsReqOpcionales = docsReq.filter((d) => d.tipo_requerimiento === 'opcional');
@@ -345,7 +347,7 @@ export default async function ExpedienteUaf({ params }: { params: Promise<{ id: 
                   label: 'Completitud documental obligatoria',
                   value: completitudObligatoria,
                   badge: `${obligatoriosCargados}/${docsReqObligatorios.length} obligatorios`,
-                  tone: completitudObligatoria === 100 ? 'green' : completitudObligatoria >= 75 ? 'amber' : 'red',
+                  tone: toneFromPct(completitudObligatoria),
                   detail: [
                     {
                       label: 'obligatorios',

@@ -3,7 +3,7 @@
 // Ejecutar con: npx tsx scripts/backup.ts
 
 import Database from 'better-sqlite3';
-import { resolve, dirname } from 'node:path';
+import { resolve } from 'node:path';
 import { existsSync, mkdirSync, copyFileSync } from 'node:fs';
 
 const dbPath = process.env.DB_PATH ?? resolve(process.cwd(), 'db/sagaf.db');

@@ -41,7 +41,7 @@ interface Doc {
   orden: number;
 }
 
-export default async function PlantillaDetalle({ params }: { params: Promise<{ id: string }> }) {
+export default async function PlantillaDetalle({ params }: Readonly<{ params: Promise<{ id: string }> }>) {
   const { id } = await params;
 
   const plantilla = db.prepare<[string], Plantilla>(

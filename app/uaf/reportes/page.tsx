@@ -170,13 +170,14 @@ export default async function ReportesPage({ searchParams }: { searchParams: Pro
     : [];
 
   interface Jurisdiccion { jurisdiccion: string; total: number }
+  const jurisdiccionWhere = f.where ? `${f.where} AND os.jurisdiccion IS NOT NULL` : 'WHERE os.jurisdiccion IS NOT NULL';
   const jurisdicciones = tipo === 'inteligencia'
     ? db.prepare<unknown[], Jurisdiccion>(
         `SELECT os.jurisdiccion, COUNT(*) AS total
            FROM operacion_sospechosa os
            JOIN ros r ON r.id = os.ros_id
            JOIN sujeto_obligado so ON so.id = r.sujeto_obligado_id
-           ${f.where ? f.where + ' AND os.jurisdiccion IS NOT NULL' : 'WHERE os.jurisdiccion IS NOT NULL'}
+           ${jurisdiccionWhere}
            GROUP BY os.jurisdiccion ORDER BY total DESC LIMIT 10`,
       ).all(...f.vals)
     : [];

@@ -110,6 +110,24 @@ function formatApiError(data: { error?: string; issues?: { fieldErrors?: Record<
   return detail || fallback;
 }
 
+function inputTypeFor(tipoDato: string): string {
+  if (tipoDato === 'number') return 'number';
+  if (tipoDato === 'date') return 'date';
+  return 'text';
+}
+
+function docBadgeClass(analyzing: boolean, uploaded: boolean, requerido: boolean): string {
+  if (analyzing) return 'amber';
+  if (uploaded) return 'green';
+  return requerido ? 'amber' : 'gray';
+}
+
+function docBadgeText(analyzing: boolean, hasFile: boolean, hasSavedLabel: boolean): string {
+  if (analyzing) return 'Analizando…';
+  if (hasFile) return 'Listo ✓';
+  return hasSavedLabel ? 'Guardado' : 'Pendiente';
+}
+
 export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlantilla = {}, oficialDefault, correoDefault, initialData }: Props) {
   const esEdicion = !!initialData;
   const router = useRouter();
@@ -144,7 +162,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
   const [oficial, setOficial] = useState(initialData?.oficial ?? oficialDefault);
   const [correoOficial, setCorreoOficial] = useState(initialData?.correoOficial ?? correoDefault);
   const [fechaDeteccion, setFechaDeteccion] = useState(initialData?.fechaDeteccion ?? new Date().toISOString().slice(0, 10));
-  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
   const [camposValores, setCamposValores] = useState<Record<string, string>>(initialData?.camposValores ?? {});
   const [observaciones, setObservaciones] = useState(initialData?.observaciones ?? '');
@@ -824,8 +841,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         </div>
 
         <div className="field">
-          <label>Entidad reportante</label>
-          <input value={sujeto.nombre} disabled />
+          <label htmlFor="entidad-reportante">Entidad reportante</label>
+          <input id="entidad-reportante" value={sujeto.nombre} disabled />
         </div>
         <div className="field">
           <label htmlFor="fecha-deteccion">Fecha de detección <span className="req">*</span></label>
@@ -874,8 +891,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         </div>
         {isBank && (
           <div className="field full">
-            <label>Sujeto de la investigación</label>
-            <div className="segmented-control">
+            <label id="sujeto-investigacion-label">Sujeto de la investigación</label>
+            <div className="segmented-control" role="group" aria-labelledby="sujeto-investigacion-label">
               <button type="button" className={`segment ${sujetoInvestigacion === 'natural' ? 'active' : ''}`} onClick={() => setSujetoInvestigacion('natural')}>
                 Persona Natural
               </button>
@@ -1011,7 +1028,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
                       placeholder="Información requerida por la plantilla" />
                   ) : (
                     <input id={fid} value={val} required={req}
-                      type={c.tipo_dato === 'number' ? 'number' : c.tipo_dato === 'date' ? 'date' : 'text'}
+                      type={inputTypeFor(c.tipo_dato)}
                       onChange={(e) => setCampoValor(c.id, e.target.value)} />
                   )}
                 </div>
@@ -1093,8 +1110,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
                       {d.nombre}
                     </div>
                     {(file || fileLabels[d.id] || d.tipo_requerimiento === 'requerido') && (
-                      <span className={`badge ${analyzing ? 'amber' : uploaded ? 'green' : d.tipo_requerimiento === 'requerido' ? 'amber' : 'gray'}`} style={{ flexShrink: 0, fontSize: 10 }}>
-                        {analyzing ? 'Analizando…' : file ? 'Listo ✓' : fileLabels[d.id] ? 'Guardado' : 'Pendiente'}
+                      <span className={`badge ${docBadgeClass(analyzing, !!uploaded, d.tipo_requerimiento === 'requerido')}`} style={{ flexShrink: 0, fontSize: 10 }}>
+                        {docBadgeText(analyzing, !!file, !!fileLabels[d.id])}
                       </span>
                     )}
                   </div>
@@ -1121,8 +1138,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
                         maxMb={d.tamano_maximo_mb}
                         analyzing={analyzing}
                       />
-                      {fileWarnings[d.id]?.map((w, i) => (
-                        <div key={i} className="doc-warning" role="alert">
+                      {fileWarnings[d.id]?.map((w) => (
+                        <div key={w} className="doc-warning" role="alert">
                           <AlertCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
                           {w}
                         </div>
@@ -1187,7 +1204,7 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
 
         {/* Extra evidence */}
         <div className="field full">
-          <label>Evidencia adicional no catalogada</label>
+          <label htmlFor="extras-input">Evidencia adicional no catalogada</label>
           <div
             className={`upload-zone${extras.length > 0 ? ' has-file' : ''}`}
             style={{ minHeight: 70 }}
@@ -1385,8 +1402,8 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
                         {catMeta[cat]}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                        {catItems.map((it, idx) => (
-                          <div key={idx} style={{
+                        {catItems.map((it) => (
+                          <div key={it.label} style={{
                             display: 'flex',
                             alignItems: 'center',
                             gap: '0.625rem',
@@ -1443,6 +1460,7 @@ function PartyCard({
   const coincidenciaMsg = esJuridica
     ? `Coincidencia encontrada. Por privacidad, únicamente se muestra la razón social del ${role.toLowerCase()}.`
     : `Coincidencia encontrada. Por privacidad, únicamente se muestra el nombre del ${role.toLowerCase()}.`;
+  const nombreInputId = `party-nombre-${role.toLowerCase().replace(/\s+/g, '-')}`;
 
   return (
     <div className="lookup-card">
@@ -1497,8 +1515,9 @@ function PartyCard({
         </div>
       )}
       <div className="field full">
-        <label>{nombreLabel}</label>
+        <label htmlFor={nombreInputId}>{nombreLabel}</label>
         <input
+          id={nombreInputId}
           value={state.nombre}
           readOnly={state.status !== 'not_found'}
           onChange={(e) => setState({ ...state, nombre: e.target.value })}

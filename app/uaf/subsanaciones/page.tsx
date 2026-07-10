@@ -3,7 +3,7 @@ import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
-import { formatPanamaShort, formatPanamaDate } from '@/lib/date';
+import { formatPanamaShort } from '@/lib/date';
 import { CheckCircle2, Clock, FileCheck } from 'lucide-react';
 
 export const revalidate = 0;

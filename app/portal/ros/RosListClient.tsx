@@ -29,7 +29,7 @@ interface Props {
   filtroEstado: string;
 }
 
-export function RosListClient({ ros, filtroEstado }: Props) {
+export function RosListClient({ ros, filtroEstado }: Readonly<Props>) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [selected, setSelected] = useState<Set<string>>(new Set());
