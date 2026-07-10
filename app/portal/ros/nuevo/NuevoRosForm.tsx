@@ -25,6 +25,14 @@ function clearDraft() {
 interface Plantilla { id: string; nombre: string; tipo_sujeto_obligado: string }
 interface DocReq    { id: string; plantilla_id: string; nombre: string; orden: number; tipo_requerimiento: string; formatos_permitidos: string; tamano_maximo_mb: number }
 interface CampoDin  { id: string; plantilla_id: string; nombre: string; tipo_dato: string; obligatorio: number; orden: number }
+interface DuplicadoROS {
+  id: string;
+  numero_ros: string;
+  estado: string;
+  fecha_recepcion: string;
+  monto: number;
+  partes: Array<{ enmascarada: string; rol: string }>;
+}
 
 interface PartyState {
   id: string;
@@ -114,6 +122,362 @@ function inputTypeFor(tipoDato: string): string {
   if (tipoDato === 'number') return 'number';
   if (tipoDato === 'date') return 'date';
   return 'text';
+}
+
+function ExtraEvidenceUpload({ extras, setExtras }: { extras: File[]; setExtras: (files: File[]) => void }) {
+  return (
+    <div className="field full">
+      <label htmlFor="extras-input">Evidencia adicional no catalogada</label>
+      <div
+        className={`upload-zone${extras.length > 0 ? ' has-file' : ''}`}
+        style={{ minHeight: 70 }}
+        onClick={() => document.getElementById('extras-input')?.click()}
+      >
+        <input
+          id="extras-input"
+          type="file"
+          multiple
+          accept=".pdf,.jpg,.jpeg,.png"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const valid = Array.from(e.target.files ?? []).filter((f) => isAllowedFile(f) && f.size <= MAX_BYTES);
+            setExtras(valid);
+          }}
+        />
+        {extras.length > 0 ? (
+          <div className="upload-zone-content">
+            <CheckCircle size={18} className="upload-zone-icon uploaded" />
+            <div>
+              <div className="upload-zone-filename">{extras.length} archivo{extras.length > 1 ? 's' : ''} seleccionado{extras.length > 1 ? 's' : ''}</div>
+              <div className="upload-zone-size">{extras.map((f) => f.name).join(', ')}</div>
+            </div>
+            <button
+              type="button"
+              className="upload-zone-remove"
+              onClick={(e) => { e.stopPropagation(); setExtras([]); }}
+              aria-label="Quitar archivos"
+            >×</button>
+          </div>
+        ) : (
+          <div className="upload-zone-content">
+            <FileCheck size={16} className="upload-zone-icon" />
+            <div className="upload-zone-empty">
+              <div className="upload-zone-hint">Seleccionar archivos adicionales (múltiples)</div>
+              <div className="upload-zone-types">Fotografías, notas, correos u otros archivos complementarios no incluidos en la plantilla</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DuplicidadWarning({
+  duplicados, onConfirmar, onCancelar,
+}: {
+  duplicados: DuplicadoROS[];
+  onConfirmar: () => void;
+  onCancelar: () => void;
+}) {
+  if (duplicados.length === 0) return null;
+  return (
+    <div style={{
+      gridColumn: '1 / -1',
+      border: '1.5px solid #f59e0b',
+      borderRadius: 10,
+      background: '#fffbeb',
+      padding: '16px 20px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <AlertCircle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
+        <strong style={{ color: '#92400e', fontSize: 14 }}>
+          Posible duplicidad detectada
+        </strong>
+      </div>
+      <p style={{ fontSize: 13, color: '#78350f', margin: '0 0 10px 0' }}>
+        Tu organización ya tiene {duplicados.length === 1 ? 'un ROS reciente' : `${duplicados.length} ROS recientes`} con
+        la misma parte involucrada y monto similar en los últimos 30 días.
+        Si se trata de una operación distinta, puedes continuar de todas formas.
+      </p>
+      <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', marginBottom: 14 }}>
+        <thead>
+          <tr style={{ background: '#fef3c7' }}>
+            <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Nº ROS</th>
+            <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Partes coincidentes</th>
+            <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Monto</th>
+            <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Fecha</th>
+            <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {duplicados.map((d) => (
+            <tr key={d.id} style={{ borderTop: '1px solid #fde68a' }}>
+              <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#92400e' }}>{d.numero_ros}</td>
+              <td style={{ padding: '5px 8px', color: '#92400e' }}>
+                {d.partes.map((p, pi) => (
+                  <span key={p.enmascarada}>
+                    {p.enmascarada} <span style={{ opacity: .7 }}>({p.rol})</span>
+                    {pi < d.partes.length - 1 && <br />}
+                  </span>
+                ))}
+              </td>
+              <td style={{ padding: '5px 8px', color: '#92400e' }}>${d.monto.toLocaleString()}</td>
+              <td style={{ padding: '5px 8px', color: '#92400e' }}>{new Date(d.fecha_recepcion).toLocaleDateString('es-PA')}</td>
+              <td style={{ padding: '5px 8px', color: '#92400e' }}>{d.estado}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <button
+          type="submit"
+          className="btn primary"
+          style={{ background: '#d97706', borderColor: '#d97706', fontSize: 13 }}
+          onClick={onConfirmar}
+        >
+          Continuar de todas formas
+        </button>
+        <button
+          type="button"
+          className="btn secondary"
+          style={{ fontSize: 13 }}
+          onClick={onCancelar}
+        >
+          Cancelar y revisar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DocProgressSummary({
+  docListReq, docListCond, docListOpt, docList, cargados, cargadosReq, pct,
+}: {
+  docListReq: DocReq[];
+  docListCond: DocReq[];
+  docListOpt: DocReq[];
+  docList: DocReq[];
+  cargados: number;
+  cargadosReq: number;
+  pct: number;
+}) {
+  return (
+    <div className="field full">
+      {/* Stat strip compacto */}
+      <div className="doc-stat-strip">
+        <span className="doc-stat req">
+          <span className="doc-stat-dot" />
+          <strong>{docListReq.length}</strong> obligatorios
+        </span>
+        {docListCond.length > 0 && (
+          <>
+            <span className="doc-stat-divider" />
+            <span className="doc-stat cond">
+              <span className="doc-stat-dot" />
+              <strong>{docListCond.length}</strong> condicionales
+            </span>
+          </>
+        )}
+        {docListOpt.length > 0 && (
+          <>
+            <span className="doc-stat-divider" />
+            <span className="doc-stat">
+              <strong>{docListOpt.length}</strong> opcionales
+            </span>
+          </>
+        )}
+        <div className="doc-stat-right">
+          <span className="doc-stat-divider" />
+          <span className={`doc-stat${cargados > 0 ? ' ok' : ''}`}>
+            <span className="doc-stat-dot" style={{ background: cargados > 0 ? 'var(--green)' : '#cbd5e1' }} />
+            <strong>{cargados}</strong> cargados
+          </span>
+          <span className="doc-stat-divider" />
+          <span className={`doc-stat${docListReq.length - cargadosReq === 0 ? ' ok' : ' cond'}`}>
+            <strong>{docListReq.length - cargadosReq}</strong> pendientes oblig.
+          </span>
+        </div>
+      </div>
+
+      {/* Barra de progreso */}
+      {docList.length > 0 && (
+        <div className="doc-progress">
+          <div className="doc-progress-header">
+            <span className="doc-progress-label">Progreso de carga obligatorios</span>
+            <span className="doc-progress-pct">{pct}%</span>
+          </div>
+          <div className="doc-progress-bar">
+            <div className="doc-progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PersonasRelacionadasSection({
+  isBank, isRealEstate, isGeneric,
+  sujetoInvestigacion, setSujetoInvestigacion,
+  ordenante, setOrdenante, beneficiario, setBeneficiario,
+  comprador, setComprador, cliente, setCliente,
+  verifyParty,
+}: {
+  isBank: boolean;
+  isRealEstate: boolean;
+  isGeneric: boolean;
+  sujetoInvestigacion: 'natural' | 'juridica';
+  setSujetoInvestigacion: (v: 'natural' | 'juridica') => void;
+  ordenante: PartyState; setOrdenante: (s: PartyState) => void;
+  beneficiario: PartyState; setBeneficiario: (s: PartyState) => void;
+  comprador: PartyState; setComprador: (s: PartyState) => void;
+  cliente: PartyState; setCliente: (s: PartyState) => void;
+  verifyParty: (field: 'ordenante' | 'beneficiario' | 'comprador' | 'cliente', state: PartyState, setState: (s: PartyState) => void) => void;
+}) {
+  return (
+    <>
+      {isBank && (
+        <div className="field full">
+          <label id="sujeto-investigacion-label">Sujeto de la investigación</label>
+          <div className="segmented-control" role="group" aria-labelledby="sujeto-investigacion-label">
+            <button type="button" className={`segment ${sujetoInvestigacion === 'natural' ? 'active' : ''}`} onClick={() => setSujetoInvestigacion('natural')}>
+              Persona Natural
+            </button>
+            <button type="button" className={`segment ${sujetoInvestigacion === 'juridica' ? 'active' : ''}`} onClick={() => setSujetoInvestigacion('juridica')}>
+              Persona Jurídica
+            </button>
+          </div>
+          <div className="helper" style={{ marginTop: 6 }}>
+            ¿A quién investiga el banco? Esto determina la plantilla y los documentos requeridos.
+          </div>
+        </div>
+      )}
+
+      <div className="notice" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
+        <Shield size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
+        <strong>Privacidad</strong>: si una cédula o RUC ya existe en nuestros registros,
+        solo verás el nombre o razón social para corroboración. No se autocompletan datos sensibles.
+        {' '}<strong>La verificación es obligatoria</strong> antes de enviar el ROS. Si no existe el identificador, ingrese el nombre manualmente tras verificar.
+      </div>
+
+      {isBank && (
+        <div className="field full">
+          <div className="helper" style={{ marginBottom: 8 }}>
+            Cada parte puede ser persona natural o jurídica. Seleccione el tipo y valide el identificador por separado.
+          </div>
+          <div className="lookup-grid">
+            <PartyCard label="Persona que realiza la transacción" role="Ordenante" icon={<User size={14} />} required
+              state={ordenante} setState={setOrdenante}
+              onVerify={() => verifyParty('ordenante', ordenante, setOrdenante)} />
+            <PartyCard label="Beneficiario" role="Beneficiario" icon={<User size={14} />} required
+              state={beneficiario} setState={setBeneficiario}
+              onVerify={() => verifyParty('beneficiario', beneficiario, setBeneficiario)} />
+          </div>
+        </div>
+      )}
+
+      {isRealEstate && (
+        <div className="field full">
+          <div className="helper" style={{ marginBottom: 8 }}>
+            Verifique al comprador. El sistema solo mostrará el nombre si la cédula existe en el directorio.
+          </div>
+          <div className="lookup-grid single">
+            <PartyCard label="Cliente / Comprador reportado" role="Comprador" icon={<Building2 size={14} />} required
+              state={comprador} setState={setComprador}
+              onVerify={() => verifyParty('comprador', comprador, setComprador)} />
+          </div>
+        </div>
+      )}
+
+      {isGeneric && (
+        <div className="field full">
+          <div className="helper" style={{ marginBottom: 8 }}>
+            Verifique al cliente o parte involucrada. Seleccione si es persona natural o jurídica.
+          </div>
+          <div className="lookup-grid single">
+            <PartyCard label="Cliente / Parte involucrada" role="Cliente" icon={<User size={14} />} required
+              state={cliente} setState={setCliente}
+              onVerify={() => verifyParty('cliente', cliente, setCliente)} />
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function OperacionCamposEspecificos({
+  isBank, isRealEstate,
+  productoServicio, setProductoServicio,
+  bienInmueble, setBienInmueble,
+  formaPago, setFormaPago,
+}: {
+  isBank: boolean;
+  isRealEstate: boolean;
+  productoServicio: string; setProductoServicio: (v: string) => void;
+  bienInmueble: string; setBienInmueble: (v: string) => void;
+  formaPago: string; setFormaPago: (v: string) => void;
+}) {
+  if (isBank) {
+    return (
+      <div className="field">
+        <label htmlFor="producto-servicio">Producto bancario involucrado <span className="req">*</span></label>
+        <input id="producto-servicio" value={productoServicio} onChange={(e) => setProductoServicio(e.target.value)} placeholder="Cuenta, préstamo, tarjeta, transferencia…" />
+      </div>
+    );
+  }
+  if (isRealEstate) {
+    return (
+      <>
+        <div className="field">
+          <label htmlFor="bien-inmueble">Bien inmueble involucrado <span className="req">*</span></label>
+          <input id="bien-inmueble" value={bienInmueble} onChange={(e) => setBienInmueble(e.target.value)} placeholder="Apartamento, finca, casa, local…" />
+        </div>
+        <div className="field">
+          <label htmlFor="forma-pago">Forma de pago <span className="req">*</span></label>
+          <input id="forma-pago" value={formaPago} onChange={(e) => setFormaPago(e.target.value)} placeholder="Efectivo, transferencia, mixto…" />
+        </div>
+      </>
+    );
+  }
+  return null;
+}
+
+function CamposDinamicosSection({
+  camposDinamicos, camposValores, setCampoValor,
+}: {
+  camposDinamicos: CampoDin[];
+  camposValores: Record<string, string>;
+  setCampoValor: (id: string, value: string) => void;
+}) {
+  if (camposDinamicos.length === 0) return null;
+  return (
+    <>
+      <div className="section-title">
+        <span className="section-num" aria-hidden="true">+</span>
+        Información adicional de la plantilla
+      </div>
+      {camposDinamicos.map((c) => {
+        const val = camposValores[c.id] ?? '';
+        const req = c.obligatorio === 1;
+        const fid = `campo-${c.id}`;
+        return (
+          <div className={`field${c.tipo_dato === 'textarea' ? ' full' : ''}`} key={c.id}>
+            <label htmlFor={fid}>
+              {c.nombre}{req && <span className="req"> *</span>}
+            </label>
+            {c.tipo_dato === 'textarea' ? (
+              <textarea id={fid} value={val} required={req}
+                onChange={(e) => setCampoValor(c.id, e.target.value)}
+                placeholder="Información requerida por la plantilla" />
+            ) : (
+              <input id={fid} value={val} required={req}
+                type={inputTypeFor(c.tipo_dato)}
+                onChange={(e) => setCampoValor(c.id, e.target.value)} />
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
 }
 
 function renderSavedFileBlock(nombreGuardado: string, onRemove: () => void) {
@@ -233,14 +597,6 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     };
   }
 
-  interface DuplicadoROS {
-    id: string;
-    numero_ros: string;
-    estado: string;
-    fecha_recepcion: string;
-    monto: number;
-    partes: Array<{ enmascarada: string; rol: string }>;
-  }
   const [duplicadosPendientes, setDuplicadosPendientes] = useState<DuplicadoROS[]>([]);
   const confirmarPeseRef = useRef(false);
 
@@ -932,72 +1288,15 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           <span className="section-num">2</span>
           Validación de personas relacionadas
         </div>
-        {isBank && (
-          <div className="field full">
-            <label id="sujeto-investigacion-label">Sujeto de la investigación</label>
-            <div className="segmented-control" role="group" aria-labelledby="sujeto-investigacion-label">
-              <button type="button" className={`segment ${sujetoInvestigacion === 'natural' ? 'active' : ''}`} onClick={() => setSujetoInvestigacion('natural')}>
-                Persona Natural
-              </button>
-              <button type="button" className={`segment ${sujetoInvestigacion === 'juridica' ? 'active' : ''}`} onClick={() => setSujetoInvestigacion('juridica')}>
-                Persona Jurídica
-              </button>
-            </div>
-            <div className="helper" style={{ marginTop: 6 }}>
-              ¿A quién investiga el banco? Esto determina la plantilla y los documentos requeridos.
-            </div>
-          </div>
-        )}
-        <div className="notice" style={{ gridColumn: '1 / -1', marginBottom: 0 }}>
-          <Shield size={14} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 6 }} />
-          <strong>Privacidad</strong>: si una cédula o RUC ya existe en nuestros registros,
-          solo verás el nombre o razón social para corroboración. No se autocompletan datos sensibles.
-          {' '}<strong>La verificación es obligatoria</strong> antes de enviar el ROS. Si no existe el identificador, ingrese el nombre manualmente tras verificar.
-        </div>
-
-        {isBank && (
-          <>
-            <div className="field full">
-              <div className="helper" style={{ marginBottom: 8 }}>
-                Cada parte puede ser persona natural o jurídica. Seleccione el tipo y valide el identificador por separado.
-              </div>
-              <div className="lookup-grid">
-                <PartyCard label="Persona que realiza la transacción" role="Ordenante" icon={<User size={14} />} required
-                  state={ordenante} setState={setOrdenante}
-                  onVerify={() => verifyParty('ordenante', ordenante, setOrdenante)} />
-                <PartyCard label="Beneficiario" role="Beneficiario" icon={<User size={14} />} required
-                  state={beneficiario} setState={setBeneficiario}
-                  onVerify={() => verifyParty('beneficiario', beneficiario, setBeneficiario)} />
-              </div>
-            </div>
-          </>
-        )}
-
-        {isRealEstate && (
-          <div className="field full">
-            <div className="helper" style={{ marginBottom: 8 }}>
-              Verifique al comprador. El sistema solo mostrará el nombre si la cédula existe en el directorio.
-            </div>
-            <div className="lookup-grid single">
-              <PartyCard label="Cliente / Comprador reportado" role="Comprador" icon={<Building2 size={14} />} required
-                state={comprador} setState={setComprador}
-                onVerify={() => verifyParty('comprador', comprador, setComprador)} />
-            </div>
-          </div>
-        )}
-
-        {isGeneric && (
-          <div className="field full">
-            <div className="helper" style={{ marginBottom: 8 }}>
-              Verifique al cliente o parte involucrada. Seleccione si es persona natural o jurídica.
-            </div>
-            <div className="lookup-grid single">
-              <PartyCard label="Cliente / Parte involucrada" role="Cliente" icon={<User size={14} />} required
-                state={cliente} setState={setCliente}
-                onVerify={() => verifyParty('cliente', cliente, setCliente)} />
-            </div>
-          </div>
-        )}
+        <PersonasRelacionadasSection
+          isBank={isBank} isRealEstate={isRealEstate} isGeneric={isGeneric}
+          sujetoInvestigacion={sujetoInvestigacion} setSujetoInvestigacion={setSujetoInvestigacion}
+          ordenante={ordenante} setOrdenante={setOrdenante}
+          beneficiario={beneficiario} setBeneficiario={setBeneficiario}
+          comprador={comprador} setComprador={setComprador}
+          cliente={cliente} setCliente={setCliente}
+          verifyParty={verifyParty}
+        />
 
         {/* ── Sección 3: Operación sospechosa ── */}
         <div className="section-title">
@@ -1022,24 +1321,12 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
             <option>Transferencias internacionales inusuales</option>
           </CustomSelect>
         </div>
-        {isBank && (
-          <div className="field">
-            <label htmlFor="producto-servicio">Producto bancario involucrado <span className="req">*</span></label>
-            <input id="producto-servicio" value={productoServicio} onChange={(e) => setProductoServicio(e.target.value)} placeholder="Cuenta, préstamo, tarjeta, transferencia…" />
-          </div>
-        )}
-        {isRealEstate && (
-          <>
-            <div className="field">
-              <label htmlFor="bien-inmueble">Bien inmueble involucrado <span className="req">*</span></label>
-              <input id="bien-inmueble" value={bienInmueble} onChange={(e) => setBienInmueble(e.target.value)} placeholder="Apartamento, finca, casa, local…" />
-            </div>
-            <div className="field">
-              <label htmlFor="forma-pago">Forma de pago <span className="req">*</span></label>
-              <input id="forma-pago" value={formaPago} onChange={(e) => setFormaPago(e.target.value)} placeholder="Efectivo, transferencia, mixto…" />
-            </div>
-          </>
-        )}
+        <OperacionCamposEspecificos
+          isBank={isBank} isRealEstate={isRealEstate}
+          productoServicio={productoServicio} setProductoServicio={setProductoServicio}
+          bienInmueble={bienInmueble} setBienInmueble={setBienInmueble}
+          formaPago={formaPago} setFormaPago={setFormaPago}
+        />
         <div className="field full">
           <label htmlFor="descripcion">Descripción narrativa de los hechos <span className="req">*</span></label>
           <textarea id="descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} required minLength={30}
@@ -1050,35 +1337,11 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         </div>
 
         {/* ── Sección dinámica: campos definidos por la plantilla (RF-01, data-driven) ── */}
-        {camposDinamicos.length > 0 && (
-          <>
-            <div className="section-title">
-              <span className="section-num" aria-hidden="true">+</span>
-              Información adicional de la plantilla
-            </div>
-            {camposDinamicos.map((c) => {
-              const val = camposValores[c.id] ?? '';
-              const req = c.obligatorio === 1;
-              const fid = `campo-${c.id}`;
-              return (
-                <div className={`field${c.tipo_dato === 'textarea' ? ' full' : ''}`} key={c.id}>
-                  <label htmlFor={fid}>
-                    {c.nombre}{req && <span className="req"> *</span>}
-                  </label>
-                  {c.tipo_dato === 'textarea' ? (
-                    <textarea id={fid} value={val} required={req}
-                      onChange={(e) => setCampoValor(c.id, e.target.value)}
-                      placeholder="Información requerida por la plantilla" />
-                  ) : (
-                    <input id={fid} value={val} required={req}
-                      type={inputTypeFor(c.tipo_dato)}
-                      onChange={(e) => setCampoValor(c.id, e.target.value)} />
-                  )}
-                </div>
-              );
-            })}
-          </>
-        )}
+        <CamposDinamicosSection
+          camposDinamicos={camposDinamicos}
+          camposValores={camposValores}
+          setCampoValor={setCampoValor}
+        />
 
         {/* ── Sección 4: Sustento documental ── */}
         <div className="section-title">
@@ -1086,56 +1349,10 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
           Sustento documental
         </div>
 
-        <div className="field full">
-          {/* Stat strip compacto */}
-          <div className="doc-stat-strip">
-            <span className="doc-stat req">
-              <span className="doc-stat-dot" />
-              <strong>{docListReq.length}</strong> obligatorios
-            </span>
-            {docListCond.length > 0 && (
-              <>
-                <span className="doc-stat-divider" />
-                <span className="doc-stat cond">
-                  <span className="doc-stat-dot" />
-                  <strong>{docListCond.length}</strong> condicionales
-                </span>
-              </>
-            )}
-            {docListOpt.length > 0 && (
-              <>
-                <span className="doc-stat-divider" />
-                <span className="doc-stat">
-                  <strong>{docListOpt.length}</strong> opcionales
-                </span>
-              </>
-            )}
-            <div className="doc-stat-right">
-              <span className="doc-stat-divider" />
-              <span className={`doc-stat${cargados > 0 ? ' ok' : ''}`}>
-                <span className="doc-stat-dot" style={{ background: cargados > 0 ? 'var(--green)' : '#cbd5e1' }} />
-                <strong>{cargados}</strong> cargados
-              </span>
-              <span className="doc-stat-divider" />
-              <span className={`doc-stat${docListReq.length - cargadosReq === 0 ? ' ok' : ' cond'}`}>
-                <strong>{docListReq.length - cargadosReq}</strong> pendientes oblig.
-              </span>
-            </div>
-          </div>
-
-          {/* Barra de progreso */}
-          {docList.length > 0 && (
-            <div className="doc-progress">
-              <div className="doc-progress-header">
-                <span className="doc-progress-label">Progreso de carga obligatorios</span>
-                <span className="doc-progress-pct">{pct}%</span>
-              </div>
-              <div className="doc-progress-bar">
-                <div className="doc-progress-fill" style={{ width: `${pct}%` }} />
-              </div>
-            </div>
-          )}
-        </div>
+        <DocProgressSummary
+          docListReq={docListReq} docListCond={docListCond} docListOpt={docListOpt}
+          docList={docList} cargados={cargados} cargadosReq={cargadosReq} pct={pct}
+        />
 
         {/* Tarjetas de documentos agrupadas por tipo */}
         <div className="field full">
@@ -1223,119 +1440,14 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
         </div>
 
         {/* Extra evidence */}
-        <div className="field full">
-          <label htmlFor="extras-input">Evidencia adicional no catalogada</label>
-          <div
-            className={`upload-zone${extras.length > 0 ? ' has-file' : ''}`}
-            style={{ minHeight: 70 }}
-            onClick={() => document.getElementById('extras-input')?.click()}
-          >
-            <input
-              id="extras-input"
-              type="file"
-              multiple
-              accept=".pdf,.jpg,.jpeg,.png"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const valid = Array.from(e.target.files ?? []).filter((f) => isAllowedFile(f) && f.size <= MAX_BYTES);
-                setExtras(valid);
-              }}
-            />
-            {extras.length > 0 ? (
-              <div className="upload-zone-content">
-                <CheckCircle size={18} className="upload-zone-icon uploaded" />
-                <div>
-                  <div className="upload-zone-filename">{extras.length} archivo{extras.length > 1 ? 's' : ''} seleccionado{extras.length > 1 ? 's' : ''}</div>
-                  <div className="upload-zone-size">{extras.map((f) => f.name).join(', ')}</div>
-                </div>
-                <button
-                  type="button"
-                  className="upload-zone-remove"
-                  onClick={(e) => { e.stopPropagation(); setExtras([]); }}
-                  aria-label="Quitar archivos"
-                >×</button>
-              </div>
-            ) : (
-              <div className="upload-zone-content">
-                <FileCheck size={16} className="upload-zone-icon" />
-                <div className="upload-zone-empty">
-                  <div className="upload-zone-hint">Seleccionar archivos adicionales (múltiples)</div>
-                  <div className="upload-zone-types">Fotografías, notas, correos u otros archivos complementarios no incluidos en la plantilla</div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <ExtraEvidenceUpload extras={extras} setExtras={setExtras} />
 
         {/* A6 — Alerta de posible duplicidad */}
-        {duplicadosPendientes.length > 0 && (
-          <div style={{
-            gridColumn: '1 / -1',
-            border: '1.5px solid #f59e0b',
-            borderRadius: 10,
-            background: '#fffbeb',
-            padding: '16px 20px',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <AlertCircle size={18} style={{ color: '#d97706', flexShrink: 0 }} />
-              <strong style={{ color: '#92400e', fontSize: 14 }}>
-                Posible duplicidad detectada
-              </strong>
-            </div>
-            <p style={{ fontSize: 13, color: '#78350f', margin: '0 0 10px 0' }}>
-              Tu organización ya tiene {duplicadosPendientes.length === 1 ? 'un ROS reciente' : `${duplicadosPendientes.length} ROS recientes`} con
-              la misma parte involucrada y monto similar en los últimos 30 días.
-              Si se trata de una operación distinta, puedes continuar de todas formas.
-            </p>
-            <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse', marginBottom: 14 }}>
-              <thead>
-                <tr style={{ background: '#fef3c7' }}>
-                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Nº ROS</th>
-                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Partes coincidentes</th>
-                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Monto</th>
-                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Fecha</th>
-                  <th style={{ textAlign: 'left', padding: '5px 8px', fontWeight: 600, color: '#78350f' }}>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {duplicadosPendientes.map((d) => (
-                  <tr key={d.id} style={{ borderTop: '1px solid #fde68a' }}>
-                    <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#92400e' }}>{d.numero_ros}</td>
-                    <td style={{ padding: '5px 8px', color: '#92400e' }}>
-                      {d.partes.map((p, pi) => (
-                        <span key={p.enmascarada}>
-                          {p.enmascarada} <span style={{ opacity: .7 }}>({p.rol})</span>
-                          {pi < d.partes.length - 1 && <br />}
-                        </span>
-                      ))}
-                    </td>
-                    <td style={{ padding: '5px 8px', color: '#92400e' }}>${d.monto.toLocaleString()}</td>
-                    <td style={{ padding: '5px 8px', color: '#92400e' }}>{new Date(d.fecha_recepcion).toLocaleDateString('es-PA')}</td>
-                    <td style={{ padding: '5px 8px', color: '#92400e' }}>{d.estado}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <button
-                type="submit"
-                className="btn primary"
-                style={{ background: '#d97706', borderColor: '#d97706', fontSize: 13 }}
-                onClick={() => { confirmarPeseRef.current = true; }}
-              >
-                Continuar de todas formas
-              </button>
-              <button
-                type="button"
-                className="btn secondary"
-                style={{ fontSize: 13 }}
-                onClick={() => setDuplicadosPendientes([])}
-              >
-                Cancelar y revisar
-              </button>
-            </div>
-          </div>
-        )}
+        <DuplicidadWarning
+          duplicados={duplicadosPendientes}
+          onConfirmar={() => { confirmarPeseRef.current = true; }}
+          onCancelar={() => setDuplicadosPendientes([])}
+        />
 
         {/* Feedback */}
         {error && (
