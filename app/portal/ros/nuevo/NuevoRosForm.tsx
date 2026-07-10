@@ -124,7 +124,7 @@ function inputTypeFor(tipoDato: string): string {
   return 'text';
 }
 
-function ExtraEvidenceUpload({ extras, setExtras }: { extras: File[]; setExtras: (files: File[]) => void }) {
+function ExtraEvidenceUpload({ extras, setExtras }: Readonly<{ extras: File[]; setExtras: (files: File[]) => void }>) {
   return (
     <div className="field full">
       <label htmlFor="extras-input">Evidencia adicional no catalogada</label>
@@ -174,11 +174,11 @@ function ExtraEvidenceUpload({ extras, setExtras }: { extras: File[]; setExtras:
 
 function DuplicidadWarning({
   duplicados, onConfirmar, onCancelar,
-}: {
+}: Readonly<{
   duplicados: DuplicadoROS[];
   onConfirmar: () => void;
   onCancelar: () => void;
-}) {
+}>) {
   if (duplicados.length === 0) return null;
   return (
     <div style={{
@@ -252,7 +252,7 @@ function DuplicidadWarning({
 
 function DocProgressSummary({
   docListReq, docListCond, docListOpt, docList, cargados, cargadosReq, pct,
-}: {
+}: Readonly<{
   docListReq: DocReq[];
   docListCond: DocReq[];
   docListOpt: DocReq[];
@@ -260,7 +260,7 @@ function DocProgressSummary({
   cargados: number;
   cargadosReq: number;
   pct: number;
-}) {
+}>) {
   return (
     <div className="field full">
       {/* Stat strip compacto */}
@@ -321,7 +321,7 @@ function PersonasRelacionadasSection({
   ordenante, setOrdenante, beneficiario, setBeneficiario,
   comprador, setComprador, cliente, setCliente,
   verifyParty,
-}: {
+}: Readonly<{
   isBank: boolean;
   isRealEstate: boolean;
   isGeneric: boolean;
@@ -332,7 +332,7 @@ function PersonasRelacionadasSection({
   comprador: PartyState; setComprador: (s: PartyState) => void;
   cliente: PartyState; setCliente: (s: PartyState) => void;
   verifyParty: (field: 'ordenante' | 'beneficiario' | 'comprador' | 'cliente', state: PartyState, setState: (s: PartyState) => void) => void;
-}) {
+}>) {
   return (
     <>
       {isBank && (
@@ -409,13 +409,13 @@ function OperacionCamposEspecificos({
   productoServicio, setProductoServicio,
   bienInmueble, setBienInmueble,
   formaPago, setFormaPago,
-}: {
+}: Readonly<{
   isBank: boolean;
   isRealEstate: boolean;
   productoServicio: string; setProductoServicio: (v: string) => void;
   bienInmueble: string; setBienInmueble: (v: string) => void;
   formaPago: string; setFormaPago: (v: string) => void;
-}) {
+}>) {
   if (isBank) {
     return (
       <div className="field">
@@ -443,11 +443,11 @@ function OperacionCamposEspecificos({
 
 function CamposDinamicosSection({
   camposDinamicos, camposValores, setCampoValor,
-}: {
+}: Readonly<{
   camposDinamicos: CampoDin[];
   camposValores: Record<string, string>;
   setCampoValor: (id: string, value: string) => void;
-}) {
+}>) {
   if (camposDinamicos.length === 0) return null;
   return (
     <>
