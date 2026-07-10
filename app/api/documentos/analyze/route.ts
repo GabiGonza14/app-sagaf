@@ -18,6 +18,20 @@ function extractKeywords(text: string): string[] {
     .filter((w) => w.length > 2 && !STOP_WORDS_ES.has(w));
 }
 
+// Match de palabras clave para detectar documentos equivocados. Aplica tanto a
+// la capa de texto del PDF como al OCR de imágenes: el preprocesado (sustracción
+// de fondo) hace el OCR de cédulas lo bastante fiable para validar el contenido.
+function buildContentMismatchWarning(text: string, docNombre: string, isImage: boolean): string | null {
+  const docKws = extractKeywords(docNombre);
+  if (docKws.length === 0) return null;
+
+  const textLower = text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const matched = docKws.filter((kw) => textLower.includes(kw));
+  if (matched.length > 0) return null;
+
+  return `El contenido de ${isImage ? 'la imagen' : 'el PDF'} no parece corresponder a "${docNombre}". Palabras esperadas: ${docKws.slice(0, 3).join(', ')}.`;
+}
+
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
@@ -50,20 +64,9 @@ export async function POST(req: Request) {
     });
   }
 
-  // Match de palabras clave para detectar documentos equivocados. Aplica tanto a
-  // la capa de texto del PDF como al OCR de imágenes: el preprocesado (sustracción
-  // de fondo) hace el OCR de cédulas lo bastante fiable para validar el contenido.
   if (result.status === 'ok' && docNombre) {
-    const docKws = extractKeywords(docNombre);
-    if (docKws.length > 0) {
-      const textLower = result.text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-      const matched = docKws.filter((kw) => textLower.includes(kw));
-      if (matched.length === 0) {
-        return NextResponse.json({
-          contentWarning: `El contenido de ${isImage ? 'la imagen' : 'el PDF'} no parece corresponder a "${docNombre}". Palabras esperadas: ${docKws.slice(0, 3).join(', ')}.`,
-        });
-      }
-    }
+    const warning = buildContentMismatchWarning(result.text, docNombre, isImage);
+    if (warning) return NextResponse.json({ contentWarning: warning });
   }
 
   return NextResponse.json({ contentWarning: null });
