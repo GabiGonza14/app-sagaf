@@ -51,7 +51,7 @@ async function globalSetup() {
   const { execSync } = require('node:child_process');
   
   try {
-    execSync('node --import tsx db/seed.ts', {
+    execSync(`"${process.execPath}" --import tsx db/seed.ts`, {
       env: { ...process.env, DB_PATH: dbPath },
       stdio: 'inherit'
     });

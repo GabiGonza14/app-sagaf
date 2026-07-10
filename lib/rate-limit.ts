@@ -1,4 +1,5 @@
 // lib/rate-limit.ts (BL-035: Prevención de fuerza bruta)
+import { randomInt } from 'node:crypto';
 
 interface RateLimitRecord {
   count: number;
@@ -21,7 +22,7 @@ export function checkRateLimit(ip: string | null, maxAttempts = 5, windowMs = 60
   const record = store.get(ip);
 
   // Limpieza periódica de IPs expiradas para evitar fuga de memoria
-  if (Math.random() < 0.05) {
+  if (randomInt(0, 100) < 5) {
     for (const [key, val] of store.entries()) {
       if (val.expires < now) store.delete(key);
     }

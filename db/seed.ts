@@ -7,7 +7,7 @@ import Database from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomInt } from 'node:crypto';
 
 const dbPath = process.env.DB_PATH ?? './db/sagaf.db';
 const schemaPath = resolve(process.cwd(), 'db/schema.sql');
@@ -330,7 +330,7 @@ const daysAgo = (n: number) => {
 };
 const deteccion = (n: number) => {
   const d = new Date(now);
-  d.setDate(d.getDate() - n - Math.floor(Math.random() * 15));
+  d.setDate(d.getDate() - n - randomInt(0, 15));
   return d.toISOString().replace('T', ' ').slice(0, 19);
 };
 
@@ -383,7 +383,7 @@ function fillRequiredDocs(rosId: string, plantillaId: string, rosEstado: string,
   const defaultEstado = docEstado(rosEstado);
   for (const docId of docs) {
     const estado = overrides[docId] || defaultEstado;
-    insertDocAdjunto.run(uid(), rosId, docId, `doc_${docId}.pdf`, `/var/uploads/auto/${docId}.pdf`, 'application/pdf', 100000 + Math.floor(Math.random() * 500000), estado, creadoPor, fechaRef);
+    insertDocAdjunto.run(uid(), rosId, docId, `doc_${docId}.pdf`, `/var/uploads/auto/${docId}.pdf`, 'application/pdf', 100000 + randomInt(0, 500000), estado, creadoPor, fechaRef);
   }
 }
 
