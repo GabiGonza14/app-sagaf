@@ -40,5 +40,11 @@ if (!riesgoCols.some((c) => c.name === 'anulado')) {
   console.log('[SAGAF] Migración: columnas de anulación añadidas a riesgo_caso');
 }
 
+const paqCols = db.pragma('table_info(solicitud_paquete)') as Array<{ name: string }>;
+if (paqCols.length > 0 && !paqCols.some((c) => c.name === 'detalle_json')) {
+  db.exec('ALTER TABLE solicitud_paquete ADD COLUMN detalle_json TEXT');
+  console.log('[SAGAF] Migración: detalle_json añadido a solicitud_paquete');
+}
+
 console.log(`[SAGAF] Base de datos inicializada en ${dbPath}`);
 db.close();

@@ -11,6 +11,7 @@ import { authConfig } from './auth.config';
 import { db } from './lib/db';
 import { audit, extractRequestContext } from './lib/audit';
 import { checkRateLimit, clearRateLimit } from './lib/rate-limit';
+import { FEATURES } from './lib/features';
 
 interface UsuarioRow {
   id: string;
@@ -95,6 +96,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             usuario_id: usuario.id, usuario_correo: usuario.correo, rol: usuario.rol_nombre,
             ip: ctx.ip, user_agent: ctx.user_agent,
             detalle: { motivo: 'password_invalido' },
+            criticidad: 'alta',
+          });
+          return null;
+        }
+
+        // PRD flujo-auditoria: rol auditor deshabilitado en MVP (código conservado).
+        if (!FEATURES.AUDITOR_UI && usuario.rol_nombre === 'auditor') {
+          audit({
+            modulo: 'autenticacion', accion: 'login_failed', resultado: 'bloqueado',
+            usuario_id: usuario.id, usuario_correo: usuario.correo, rol: usuario.rol_nombre,
+            ip: ctx.ip, user_agent: ctx.user_agent,
+            detalle: { motivo: 'rol_auditor_deshabilitado_mvp' },
             criticidad: 'alta',
           });
           return null;

@@ -6,5 +6,5 @@ export default NextAuth(authConfig).auth;
 
 export const config = {
   // Excluye archivos estáticos, _next y la carpeta uploads (servidas con auth en su endpoint)
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|public).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.svg|.*\\.svg$|public).*)'],
 };

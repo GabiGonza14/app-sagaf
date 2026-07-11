@@ -5,6 +5,7 @@ import { Badge } from '@/components/Badge';
 import { KpiCard } from '@/components/KpiCard';
 import { NuevaPlantillaForm } from './NuevaPlantillaForm';
 import { formatPanama } from '@/lib/date';
+import { FEATURES } from '@/lib/features';
 
 export const revalidate = 0;
 
@@ -153,9 +154,11 @@ export default async function PlantillasAdmin() {
             <h3 style={{ margin: 0 }}>Actividad reciente</h3>
             <p className="small" style={{ margin: '2px 0 0' }}>Cambios sobre plantillas, campos y documentos</p>
           </div>
-          <Link href="/admin/auditoria" className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }}>
-            Ver historial completo →
-          </Link>
+          {FEATURES.AUDIT_LOG_UI && (
+            <Link href="/admin/auditoria" className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }}>
+              Ver historial completo →
+            </Link>
+          )}
         </div>
         {ultimasAcciones.length === 0 ? (
           <div className="notice">Sin acciones registradas aún.</div>

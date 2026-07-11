@@ -5,7 +5,8 @@ import { TopBar } from '@/components/TopBar';
 import { KpiCard } from '@/components/KpiCard';
 import { Badge, estadoTone, estadoLabel, riskTone } from '@/components/Badge';
 import { formatPanamaMedium } from '@/lib/date';
-import { FileText, FilePlus, RefreshCw, AlertTriangle, CheckCircle, Clock, ArrowRight } from 'lucide-react';
+import { FileText, FilePlus, RefreshCw, AlertTriangle, CheckCircle, Clock, ArrowRight, Shield } from 'lucide-react';
+import { FEATURES } from '@/lib/features';
 
 export const revalidate = 0;
 
@@ -76,6 +77,13 @@ export default async function PortalHome() {
     )
     .all(soId);
 
+  const supervisionPendiente = FEATURES.SUPERVISION_SO
+    ? (db.prepare<[string], { n: number }>(
+        `SELECT COUNT(*) AS n FROM comunicacion_supervision
+          WHERE sujeto_obligado_id = ? AND estado IN ('recibida', 'en_analisis')`,
+      ).get(soId)?.n ?? 0)
+    : 0;
+
   const totales = {
     total: ros.length,
     enAnalisis: ros.filter((r) => r.estado === 'en_analisis').length,
@@ -102,6 +110,18 @@ export default async function PortalHome() {
             <strong>Organización inactiva.</strong> Su organización ha sido desactivada por el administrador del sistema.
             Puede consultar sus ROS anteriores pero no puede registrar nuevos hasta ser reactivada.
             Contacte al administrador para solicitar la reactivación.
+          </div>
+        </div>
+      )}
+
+      {FEATURES.SUPERVISION_SO && supervisionPendiente > 0 && (
+        <div className="notice amber" style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 18 }}>
+          <Shield size={18} style={{ flexShrink: 0, marginTop: 1 }} />
+          <div style={{ flex: 1 }}>
+            <strong>{supervisionPendiente} comunicación{supervisionPendiente > 1 ? 'es' : ''} de supervisión pendiente{supervisionPendiente > 1 ? 's' : ''}.</strong>
+            <Link href="/portal/supervision" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, fontWeight: 700 }}>
+              Ir a atención a supervisión <ArrowRight size={14} />
+            </Link>
           </div>
         </div>
       )}
@@ -166,6 +186,26 @@ export default async function PortalHome() {
                 ? <Badge tone="amber">{subsanacionesPendientes.length}</Badge>
                 : <CheckCircle size={16} style={{ color: 'var(--green)' }} />}
             </Link>
+
+            {FEATURES.SUPERVISION_SO && (
+              <Link href="/portal/supervision" style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', border: `1px solid ${supervisionPendiente > 0 ? 'rgba(183,121,31,.35)' : 'var(--line)'}`, borderRadius: 16, background: supervisionPendiente > 0 ? 'var(--amber-soft)' : '#fbfdff', textDecoration: 'none', color: 'inherit' }}
+                className="report-item">
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--primary-soft)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                  <Shield size={18} style={{ color: 'var(--primary)' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <strong style={{ display: 'block', fontSize: 14, color: '#102a43' }}>Atención a supervisión</strong>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    {supervisionPendiente > 0
+                      ? `${supervisionPendiente} oficio(s) pendiente(s)`
+                      : 'Oficios SBP / ISRNNF y paquetes acotados'}
+                  </span>
+                </div>
+                {supervisionPendiente > 0
+                  ? <Badge tone="amber">{supervisionPendiente}</Badge>
+                  : <ArrowRight size={16} style={{ color: 'var(--muted)' }} />}
+              </Link>
+            )}
           </div>
         </div>
 

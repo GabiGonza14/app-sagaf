@@ -2,6 +2,7 @@
 // Los tipos del usuario/sesión están extendidos en types/next-auth.d.ts
 import type { NextAuthConfig } from 'next-auth';
 import { createLogger } from './lib/logger';
+import { FEATURES } from './lib/features';
 
 const log = createLogger('auth');
 
@@ -54,8 +55,25 @@ export const authConfig: NextAuthConfig = {
         log.debug('Acceso denegado por rol', { path });
         return false;
       }
-      if (path.startsWith('/auditor') && role !== 'auditor') {
-        log.debug('Acceso denegado por rol', { path });
+      if (path.startsWith('/auditor')) {
+        // PRD flujo-auditoria: UI deshabilitada en MVP; código conservado para uso futuro.
+        if (!FEATURES.AUDITOR_UI) {
+          log.debug('Acceso denegado: módulo auditor deshabilitado', { path });
+          return false;
+        }
+        if (role !== 'auditor') {
+          log.debug('Acceso denegado por rol', { path });
+          return false;
+        }
+      }
+      if (path.startsWith('/admin/auditoria') || path.startsWith('/uaf/auditoria')) {
+        if (!FEATURES.AUDIT_LOG_UI) {
+          log.debug('Acceso denegado: vista de logs deshabilitada', { path });
+          return false;
+        }
+      }
+      if (path.startsWith('/api/supervision') && !FEATURES.SUPERVISION_SO) {
+        log.debug('Acceso denegado: API supervisión deshabilitada', { path });
         return false;
       }
       if (path.startsWith('/admin')   && role !== 'admin') {

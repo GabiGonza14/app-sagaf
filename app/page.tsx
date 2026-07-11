@@ -11,7 +11,8 @@ export default async function Home() {
     case 'sujeto_obligado': redirect('/portal');
     case 'analista':
     case 'supervisor':      redirect('/uaf');
-    case 'auditor':         redirect('/auditor');
+    // case 'auditor': redirect('/auditor'); — deshabilitado MVP (FEATURES.AUDITOR_UI)
+    case 'auditor':         redirect('/login');
     case 'admin':           redirect('/admin');
     default:                redirect('/login');
   }
