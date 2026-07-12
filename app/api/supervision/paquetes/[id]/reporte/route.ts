@@ -33,7 +33,7 @@ export async function GET(req: Request, { params }: Params) {
     sujeto_obligado_id: string;
   } | undefined;
 
-  if (!row || row.sujeto_obligado_id !== soId) {
+  if (row?.sujeto_obligado_id !== soId) {
     return NextResponse.json({ error: 'No encontrado' }, { status: 404 });
   }
 

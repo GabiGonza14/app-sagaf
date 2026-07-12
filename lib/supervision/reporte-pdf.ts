@@ -193,16 +193,19 @@ function wrapLines(font: PDFFont, text: string, maxWidth: number, size: number):
   return lines.length ? lines : ['—'];
 }
 
-function drawLines(
-  page: PDFPage,
-  font: PDFFont,
-  lines: string[],
-  x: number,
-  y: number,
-  size: number,
-  color: RGB,
-  lineHeight = LH,
-): number {
+interface DrawLinesOpts {
+  page: PDFPage;
+  font: PDFFont;
+  lines: string[];
+  x: number;
+  y: number;
+  size: number;
+  color: RGB;
+  lineHeight?: number;
+}
+
+function drawLines(opts: DrawLinesOpts): number {
+  const { page, font, lines, x, y, size, color, lineHeight = LH } = opts;
   let cy = y;
   for (const line of lines) {
     page.drawText(line, { x, y: cy, font, size, color });
@@ -314,7 +317,16 @@ class ReportePdfWriter {
       x: MARGIN, y, font: this.fontBold, size: 20, color: C.ink,
     });
     y -= 28;
-    y = drawLines(this.page, this.fontBold, wrapLines(this.fontBold, m.respuesta.titulo, CONTENT_W, 13), MARGIN, y, 13, C.inkSoft, 18);
+    y = drawLines({
+      page: this.page,
+      font: this.fontBold,
+      lines: wrapLines(this.fontBold, m.respuesta.titulo, CONTENT_W, 13),
+      x: MARGIN,
+      y,
+      size: 13,
+      color: C.inkSoft,
+      lineHeight: 18,
+    });
 
     y -= 24;
     this.page.drawRectangle({
@@ -392,7 +404,7 @@ class ReportePdfWriter {
       this.page.drawText(label, {
         x: MARGIN, y: this.y, font: this.fontBold, size: 9, color: C.muted,
       });
-      drawLines(this.page, this.font, lines, MARGIN + colLabel, this.y, BODY, C.ink, LH_SM);
+      drawLines({ page: this.page, font: this.font, lines, x: MARGIN + colLabel, y: this.y, size: BODY, color: C.ink, lineHeight: LH_SM });
       this.y -= blockH + 2;
       this.page.drawLine({
         start: { x: MARGIN, y: this.y + 4 },
@@ -410,7 +422,7 @@ class ReportePdfWriter {
       const lines = wrapLines(this.font, item, CONTENT_W - 22, BODY);
       this.ensureSpace(lines.length * LH + 8);
       this.page.drawText(prefix, { x: MARGIN, y: this.y, font: this.fontBold, size: BODY, color: C.brand });
-      this.y = drawLines(this.page, this.font, lines, MARGIN + 18, this.y, BODY, C.ink, LH);
+      this.y = drawLines({ page: this.page, font: this.font, lines, x: MARGIN + 18, y: this.y, size: BODY, color: C.ink, lineHeight: LH });
       this.y -= 6;
     });
     this.y -= 4;
@@ -419,7 +431,7 @@ class ReportePdfWriter {
   private prose(text: string) {
     const lines = wrapLines(this.font, text, CONTENT_W, BODY);
     this.ensureSpace(lines.length * LH + 8);
-    this.y = drawLines(this.page, this.font, lines, MARGIN, this.y, BODY, C.ink, LH);
+    this.y = drawLines({ page: this.page, font: this.font, lines, x: MARGIN, y: this.y, size: BODY, color: C.ink, lineHeight: LH });
     this.y -= 12;
   }
 
@@ -703,11 +715,16 @@ class ReportePdfWriter {
       x: MARGIN, y: this.y - 52, width: CONTENT_W, height: 58,
       borderColor: C.line, borderWidth: 0.75, color: C.zebra,
     });
-    drawLines(
-      this.page, this.font,
-      wrapLines(this.font, m.nota_legal, CONTENT_W - 24, SMALL),
-      MARGIN + 12, this.y - 10, SMALL, C.muted, LH_SM,
-    );
+    drawLines({
+      page: this.page,
+      font: this.font,
+      lines: wrapLines(this.font, m.nota_legal, CONTENT_W - 24, SMALL),
+      x: MARGIN + 12,
+      y: this.y - 10,
+      size: SMALL,
+      color: C.muted,
+      lineHeight: LH_SM,
+    });
     this.y -= 70;
   }
 }

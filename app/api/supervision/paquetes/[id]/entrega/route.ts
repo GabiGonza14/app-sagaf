@@ -31,7 +31,7 @@ export async function POST(req: Request, { params }: Params) {
       WHERE p.id = ?`,
   ).get(paqueteId) as { id: string; numero_solicitud: string; sujeto_obligado_id: string } | undefined;
 
-  if (!row || row.sujeto_obligado_id !== soId) {
+  if (row?.sujeto_obligado_id !== soId) {
     return NextResponse.json({ error: 'Paquete no encontrado' }, { status: 404 });
   }
 

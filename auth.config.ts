@@ -97,7 +97,7 @@ export const authConfig: NextAuthConfig = {
         token.rol = user.rol;
         token.sujetoObligadoId = user.sujetoObligadoId;
         token.mfaActivo = user.mfaActivo;
-        token.mfaVerified = isMfaRequired() ? false : true;
+        token.mfaVerified = !isMfaRequired();
       }
       // El cliente llama a session.update({ mfaVerified: true }) tras verificar TOTP
       if (trigger === 'update' && session && typeof session === 'object' && 'mfaVerified' in session) {
