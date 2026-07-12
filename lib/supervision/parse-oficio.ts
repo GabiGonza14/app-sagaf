@@ -92,13 +92,13 @@ export function parseFlexibleDate(raw: string): string | undefined {
   const s = raw.trim().replace(/\s+/g, ' ');
   if (!s) return undefined;
 
-  const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
   if (isoMatch) return iso(+isoMatch[1], +isoMatch[2], +isoMatch[3]);
 
-  const ymdSlash = s.match(/^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})$/);
+  const ymdSlash = /^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})$/.exec(s);
   if (ymdSlash) return iso(+ymdSlash[1], +ymdSlash[2], +ymdSlash[3]);
 
-  const dmy = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  const dmy = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(s);
   if (dmy) return iso(+dmy[3], +dmy[2], +dmy[1]);
 
   const dmyShort = new RegExp(String.raw`^(\d{1,2})[-/](${MESES_NOMBRE_RE})[-/](\d{4})$`, 'i').exec(s);
@@ -188,11 +188,15 @@ function extractNumeroOficio(text: string): string | undefined {
 function extractAsunto(text: string): string | undefined {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
   for (const line of lines) {
-    const m = /^asunto\s*[:-—]\s*(.{1,220})$/i.exec(line);
-    if (m) return m[1].slice(0, 220);
+    if (!line.toLowerCase().startsWith('asunto')) continue;
+    const rest = line.slice(6).replace(/^\s*[:-—]\s*/, '');
+    if (rest) return rest.slice(0, 220);
   }
-  const inline = /asunto\s*[:-—]\s*([^\n]{8,220})/i.exec(text);
-  return inline?.[1]?.trim();
+  const idx = text.toLowerCase().indexOf('asunto');
+  if (idx < 0) return undefined;
+  const rest = text.slice(idx + 6).replace(/^\s*[:-—]\s*/, '');
+  const chunk = rest.split('\n')[0]?.trim() ?? '';
+  return chunk.length >= 8 ? chunk.slice(0, 220) : undefined;
 }
 
 function resolveMes(nombre: string): number | undefined {
