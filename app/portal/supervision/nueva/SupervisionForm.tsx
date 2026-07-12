@@ -57,16 +57,21 @@ export function SupervisionForm({ soTipo }: Props) {
     if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
   }, []);
 
+  function inferFileMime(file: File): string | null {
+    if (file.type) return file.type;
+    const ext = file.name.toLowerCase();
+    if (ext.endsWith('.pdf')) return 'application/pdf';
+    if (ext.endsWith('.png')) return 'image/png';
+    if (/\.jpe?g$/.test(ext)) return 'image/jpeg';
+    return null;
+  }
+
   function setFilePreview(file: File) {
     if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
     const url = URL.createObjectURL(file);
     blobUrlRef.current = url;
     setFilePreviewUrl(url);
-    const ext = file.name.toLowerCase();
-    const mime =
-      file.type ||
-      (ext.endsWith('.pdf') ? 'application/pdf' : ext.match(/\.(jpe?g|png)$/) ? `image/${ext.endsWith('.png') ? 'png' : 'jpeg'}` : null);
-    setFileMime(mime);
+    setFileMime(inferFileMime(file));
   }
 
   async function runOcr(file: File) {

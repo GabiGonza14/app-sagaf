@@ -70,27 +70,34 @@ export { MAX_LISTA, MAX_MUESTRA };
 
 const MAX_MESES_PERIODO = 12;
 
-export function validarAlcance(input: AlcanceInput): string | null {
-  if (input.alcance_tipo === 'lista_ros') {
-    const nums: string[] = input.lista_ros ? JSON.parse(input.lista_ros) : [];
-    if (nums.length === 0) return 'Indique al menos un número de ROS';
-    if (nums.length > MAX_LISTA) return `Máximo ${MAX_LISTA} ROS por lista`;
-    return null;
-  }
-  if (input.alcance_tipo === 'muestra') {
-    const n = input.tamano_muestra ?? 0;
-    if (n < 1) return 'Indique el tamaño de la muestra';
-    if (n > MAX_MUESTRA) return `Máximo ${MAX_MUESTRA} ROS en muestra`;
-    return null;
-  }
-  const desde = input.fecha_desde;
-  const hasta = input.fecha_hasta ?? new Date().toISOString().slice(0, 10);
+function validarListaRos(listaRos: string | null | undefined): string | null {
+  const nums: string[] = listaRos ? JSON.parse(listaRos) : [];
+  if (nums.length === 0) return 'Indique al menos un número de ROS';
+  if (nums.length > MAX_LISTA) return `Máximo ${MAX_LISTA} ROS por lista`;
+  return null;
+}
+
+function validarMuestra(tamano: number | null | undefined): string | null {
+  const n = tamano ?? 0;
+  if (n < 1) return 'Indique el tamaño de la muestra';
+  if (n > MAX_MUESTRA) return `Máximo ${MAX_MUESTRA} ROS en muestra`;
+  return null;
+}
+
+function validarPeriodo(desde: string | null | undefined, hasta: string | null | undefined): string | null {
+  const hastaEff = hasta ?? new Date().toISOString().slice(0, 10);
   if (!desde) return 'Indique fecha desde para el periodo';
   const d0 = new Date(desde);
-  const d1 = new Date(hasta);
+  const d1 = new Date(hastaEff);
   if (Number.isNaN(d0.getTime()) || Number.isNaN(d1.getTime())) return 'Fechas inválidas';
   if (d0 > d1) return 'La fecha desde no puede ser posterior a hasta';
   const meses = (d1.getFullYear() - d0.getFullYear()) * 12 + (d1.getMonth() - d0.getMonth());
   if (meses > MAX_MESES_PERIODO) return `El periodo no puede exceder ${MAX_MESES_PERIODO} meses`;
   return null;
+}
+
+export function validarAlcance(input: AlcanceInput): string | null {
+  if (input.alcance_tipo === 'lista_ros') return validarListaRos(input.lista_ros);
+  if (input.alcance_tipo === 'muestra') return validarMuestra(input.tamano_muestra);
+  return validarPeriodo(input.fecha_desde, input.fecha_hasta);
 }

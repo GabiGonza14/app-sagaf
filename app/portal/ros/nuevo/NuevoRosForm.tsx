@@ -1158,13 +1158,49 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     }
   }
 
-  function validateForm(): string | null {
+  function findDocWithWarning(predicate: (warning: string) => boolean): DocReq | undefined {
+    return docList.find((d) => fileWarnings[d.id]?.some(predicate));
+  }
+
+  function validateDocumentosSubmit(): string | null {
+    if (!todosDocumentosCargados) {
+      return `Debe cargar todos los documentos obligatorios antes de enviar. Faltan ${docListReq.length - cargadosReq}.`;
+    }
+    const dupDoc = findDocWithWarning((w) => w.startsWith('Nombre duplicado'));
+    if (dupDoc) {
+      return `El documento "${dupDoc.nombre}" tiene el mismo nombre que otro archivo. Cada sección debe tener un archivo distinto.`;
+    }
+    const noRelDoc = findDocWithWarning((w) => w.startsWith('El nombre del archivo'));
+    if (noRelDoc) {
+      return `El nombre del archivo en "${noRelDoc.nombre}" no se relaciona con la sección. Renómbralo para que incluya al menos una palabra de la sección.`;
+    }
+    const analyzingDoc = docListReq.find((d) => docAnalyzing[d.id]);
+    if (analyzingDoc) {
+      return `Espera a que termine el análisis del documento "${analyzingDoc.nombre}".`;
+    }
+    const emptyDoc = findDocWithWarning(
+      (w) => w.startsWith('El PDF no contiene texto') || w.startsWith('La imagen no contiene texto'),
+    );
+    if (emptyDoc) {
+      return `El documento "${emptyDoc.nombre}" está vacío o no tiene texto legible. Reemplázalo antes de enviar.`;
+    }
+    const bloqueoDoc = findDocWithWarning((w) => w.startsWith('[bloqueo]'));
+    if (bloqueoDoc) {
+      const msg = fileWarnings[bloqueoDoc.id]?.find((w) => w.startsWith('[bloqueo]'));
+      return msg?.replace(/^\[bloqueo\]\s*/, '') ?? `Corrija el documento "${bloqueoDoc.nombre}" antes de enviar.`;
+    }
+    return null;
+  }
+
+  function validateFormCore(): string | null {
     if (!oficial.trim()) return 'El nombre del oficial de cumplimiento es obligatorio.';
-    if (!correoOficial.trim() || !isValidEmail(correoOficial))
+    if (!correoOficial.trim() || !isValidEmail(correoOficial)) {
       return 'El correo institucional del oficial es obligatorio y debe tener un formato válido.';
+    }
     if (!fechaDeteccion) return 'La fecha de detección es obligatoria.';
-    if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0)
+    if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0) {
       return 'El monto debe ser un número mayor a 0.';
+    }
     const bankError = validateBank();
     if (bankError) return bankError;
     const realEstateError = validateRealEstate();
@@ -1174,41 +1210,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     const campoFaltante = camposDinamicos.find((c) => c.obligatorio === 1 && !(camposValores[c.id] ?? '').trim());
     if (campoFaltante) return `El campo "${campoFaltante.nombre}" es obligatorio.`;
     if (!senalAlerta.trim()) return 'El riesgo reportado es obligatorio.';
-    if (!descripcion.trim() || descripcion.length < 30)
+    if (!descripcion.trim() || descripcion.length < 30) {
       return 'La descripción narrativa debe tener al menos 30 caracteres.';
-    if (!todosDocumentosCargados)
-      return `Debe cargar todos los documentos obligatorios antes de enviar. Faltan ${docListReq.length - cargadosReq}.`;
-    const dupDoc = docList.find((d) =>
-      fileWarnings[d.id]?.some((w) => w.startsWith('Nombre duplicado'))
-    );
-    if (dupDoc) {
-      return `El documento "${dupDoc.nombre}" tiene el mismo nombre que otro archivo. Cada sección debe tener un archivo distinto.`;
-    }
-    const noRelDoc = docList.find((d) =>
-      fileWarnings[d.id]?.some((w) => w.startsWith('El nombre del archivo'))
-    );
-    if (noRelDoc) {
-      return `El nombre del archivo en "${noRelDoc.nombre}" no se relaciona con la sección. Renómbralo para que incluya al menos una palabra de la sección.`;
-    }
-    const analyzingDoc = docListReq.find((d) => docAnalyzing[d.id]);
-    if (analyzingDoc) {
-      return `Espera a que termine el análisis del documento "${analyzingDoc.nombre}".`;
-    }
-    const emptyDoc = docListReq.find((d) =>
-      fileWarnings[d.id]?.some((w) =>
-        w.startsWith('El PDF no contiene texto') || w.startsWith('La imagen no contiene texto'))
-    );
-    if (emptyDoc) {
-      return `El documento "${emptyDoc.nombre}" está vacío o no tiene texto legible. Reemplázalo antes de enviar.`;
-    }
-    const bloqueoDoc = docList.find((d) =>
-      fileWarnings[d.id]?.some((w) => w.startsWith('[bloqueo]'))
-    );
-    if (bloqueoDoc) {
-      const msg = fileWarnings[bloqueoDoc.id]?.find((w) => w.startsWith('[bloqueo]'));
-      return msg?.replace(/^\[bloqueo\]\s*/, '') ?? `Corrija el documento "${bloqueoDoc.nombre}" antes de enviar.`;
     }
     return null;
+  }
+
+  function validateForm(): string | null {
+    const coreError = validateFormCore();
+    if (coreError) return coreError;
+    return validateDocumentosSubmit();
   }
 
   function validateBank(): string | null {

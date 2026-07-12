@@ -1,7 +1,6 @@
 // auth.config.ts — Configuración compartida (edge-safe) para NextAuth v5
 // Los tipos del usuario/sesión están extendidos en types/next-auth.d.ts
-import type { NextAuthConfig } from 'next-auth';
-import type { Session } from 'next-auth';
+import type { NextAuthConfig, Session } from 'next-auth';
 import { createLogger } from './lib/logger';
 import { FEATURES } from './lib/features';
 import { isMfaRequired } from './lib/mfa-config';
