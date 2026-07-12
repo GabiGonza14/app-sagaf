@@ -84,9 +84,8 @@ export function matchPartesEnTexto(text: string, partes: ParteRef[]): Coincidenc
     if (tokens.length === 0) continue;
 
     const hits = tokens.filter((t) => textoBusqueda.includes(t));
-    if (tokens.length >= 2 && hits.length >= 2) {
-      nombres_coincidentes.push(nombre);
-    } else if (tokens.length === 1 && hits.length === 1) {
+    const minHits = tokens.length >= 2 ? 2 : 1;
+    if (hits.length >= minHits) {
       nombres_coincidentes.push(nombre);
     }
   }

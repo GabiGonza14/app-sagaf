@@ -94,11 +94,18 @@ function fmtDateTime(iso: string): string {
   }
 }
 
+function scalarString(v: unknown): string | null {
+  if (v == null || v === '') return null;
+  if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return null;
+}
+
 function fmtMonto(monto: unknown, moneda: unknown): string {
   if (monto == null || monto === '') return '—';
   const n = Number(monto);
-  const cur = moneda ? String(moneda) : 'USD';
-  if (Number.isNaN(n)) return String(monto);
+  const cur = scalarString(moneda) ?? 'USD';
+  const montoStr = scalarString(monto);
+  if (Number.isNaN(n)) return montoStr ?? '—';
   return `${cur} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -141,9 +148,15 @@ function labelEstadoRos(e: string): string {
   return map[e] ?? e.replace(/_/g, ' ');
 }
 
+function fmtPct(v: unknown): string {
+  if (v == null || typeof v === 'object') return '—';
+  return `${v}%`;
+}
+
 function str(v: unknown, max = 500): string {
-  if (v == null || v === '') return '—';
-  const s = String(v).trim();
+  const raw = scalarString(v);
+  if (raw == null) return '—';
+  const s = raw.trim();
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
@@ -487,9 +500,7 @@ class ReportePdfWriter {
       ['Producto / servicio', str(det.producto_servicio, 120)],
       ['Forma de pago', str(det.forma_pago, 80)],
       ['Jurisdicción', str(det.jurisdiccion, 80)],
-      ['Índice documentación obligatoria', det.indice_documentacion_obligatoria_pct != null
-        ? `${det.indice_documentacion_obligatoria_pct}%`
-        : '—'],
+      ['Índice documentación obligatoria', fmtPct(det.indice_documentacion_obligatoria_pct)],
     ]);
 
     if (det.descripcion) {
@@ -642,7 +653,7 @@ class ReportePdfWriter {
           labelEstadoRos(exp.estado),
           fmtDate(exp.fecha_recepcion),
           fmtMonto(det.monto, det.moneda),
-          det.indice_documentacion_obligatoria_pct != null ? `${det.indice_documentacion_obligatoria_pct}%` : '—',
+          fmtPct(det.indice_documentacion_obligatoria_pct),
           riesgo ?? '—',
           String(docs),
         ];

@@ -5,14 +5,18 @@ import { requireSupervisionSo } from '@/lib/supervision/auth';
 import { parseOficioText } from '@/lib/supervision/parse-oficio';
 import { aplicarAlcanceDesdeOficio } from '@/lib/supervision/aplicar-alcance';
 
+function formFieldString(value: FormDataEntryValue | null): string {
+  return typeof value === 'string' ? value : '';
+}
+
 export async function POST(req: Request) {
   const guard = await requireSupervisionSo();
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
   const form = await req.formData();
   const file = form.get('file');
-  const tipoHint = String(form.get('tipo_comunicacion') ?? '');
-  const soTipo = String(form.get('so_tipo') ?? 'bank');
+  const tipoHint = formFieldString(form.get('tipo_comunicacion'));
+  const soTipo = formFieldString(form.get('so_tipo')) || 'bank';
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: 'Archivo requerido' }, { status: 400 });

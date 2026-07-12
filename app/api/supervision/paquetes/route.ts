@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { audit, extractRequestContext } from '@/lib/audit';
 import { db } from '@/lib/db';
-import { nextNumeroSolicitud, resolveRosAlcance, validarAlcance } from '@/lib/supervision/alcance';
+import { nextNumeroSolicitud, validarAlcance } from '@/lib/supervision/alcance';
 import { requireSupervisionSo } from '@/lib/supervision/auth';
 import { detallePaqueteSchema } from '@/lib/supervision/detalle';
 import { buildPaquete } from '@/lib/supervision/paquete-builder';

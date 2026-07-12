@@ -132,43 +132,56 @@ function extractAsunto(text: string): string | undefined {
   return inline?.[1]?.trim();
 }
 
-function extractPeriodo(text: string): { desde: string; hasta: string } | undefined {
-  const rango1 = text.match(
+function resolveMes(nombre: string): number | undefined {
+  const key = nombre.toLowerCase();
+  return MESES[key] ?? MESES[key.slice(0, 3)];
+}
+
+function extractPeriodoRangoFechas(text: string): { desde: string; hasta: string } | undefined {
+  const rango = text.match(
     /(?:entre|del?)\s*(?:el\s*)?(\d{1,2}[-/][a-z]{3,}[-/]\d{4}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})\s*(?:y|al?|hasta)\s*(?:el\s*)?(\d{1,2}[-/][a-z]{3,}[-/]\d{4}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})/i,
   );
-  if (rango1) {
-    const desde = parseFlexibleDate(rango1[1]);
-    const hasta = parseFlexibleDate(rango1[2]);
-    if (desde && hasta) return { desde, hasta };
-  }
+  if (!rango) return undefined;
+  const desde = parseFlexibleDate(rango[1]);
+  const hasta = parseFlexibleDate(rango[2]);
+  return desde && hasta ? { desde, hasta } : undefined;
+}
 
+function extractPeriodoMesesNombre(text: string): { desde: string; hasta: string } | undefined {
   const mesesRango = text.match(
     /(?:periodo\s+)?([a-záéíóú]+)\s*[-–a]\s*([a-záéíóú]+)\s+(?:de\s+)?(\d{4})/i,
   );
-  if (mesesRango) {
-    const m1 = MESES[mesesRango[1].toLowerCase()];
-    const m2 = MESES[mesesRango[2].toLowerCase()];
-    const y = +mesesRango[3];
-    if (m1 && m2) {
-      const desde = iso(y, m1, 1);
-      const hasta = iso(y, m2, new Date(y, m2, 0).getDate());
-      if (desde && hasta) return { desde, hasta };
-    }
-  }
+  if (!mesesRango) return undefined;
 
+  const m1 = resolveMes(mesesRango[1]);
+  const m2 = resolveMes(mesesRango[2]);
+  const y = +mesesRango[3];
+  if (!m1 || !m2) return undefined;
+
+  const desde = iso(y, m1, 1);
+  const hasta = iso(y, m2, new Date(y, m2, 0).getDate());
+  return desde && hasta ? { desde, hasta } : undefined;
+}
+
+function extractPeriodoEntreMeses(text: string): { desde: string; hasta: string } | undefined {
   const entreMeses = text.match(
     /entre\s+(?:el\s+)?(\d{1,2})[-/]([a-z]{3,})[-/](\d{4})\s+y\s+(?:el\s+)?(\d{1,2})[-/]([a-z]{3,})[-/](\d{4})/i,
   );
-  if (entreMeses) {
-    const m1 = MESES[entreMeses[2].toLowerCase()] ?? MESES[entreMeses[2].toLowerCase().slice(0, 3)];
-    const m2 = MESES[entreMeses[5].toLowerCase()] ?? MESES[entreMeses[5].toLowerCase().slice(0, 3)];
-    if (m1 && m2) {
-      const desde = iso(+entreMeses[3], m1, +entreMeses[1]);
-      const hasta = iso(+entreMeses[6], m2, +entreMeses[4]);
-      if (desde && hasta) return { desde, hasta };
-    }
-  }
-  return undefined;
+  if (!entreMeses) return undefined;
+
+  const m1 = resolveMes(entreMeses[2]);
+  const m2 = resolveMes(entreMeses[5]);
+  if (!m1 || !m2) return undefined;
+
+  const desde = iso(+entreMeses[3], m1, +entreMeses[1]);
+  const hasta = iso(+entreMeses[6], m2, +entreMeses[4]);
+  return desde && hasta ? { desde, hasta } : undefined;
+}
+
+function extractPeriodo(text: string): { desde: string; hasta: string } | undefined {
+  return extractPeriodoRangoFechas(text)
+    ?? extractPeriodoMesesNombre(text)
+    ?? extractPeriodoEntreMeses(text);
 }
 
 function extractRosList(text: string): string[] {
