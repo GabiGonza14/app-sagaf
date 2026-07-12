@@ -6,6 +6,7 @@ import { Badge } from '@/components/Badge';
 import { NuevoSujetoForm } from './NuevoSujetoForm';
 import { SujetoActions } from './SujetoActions';
 import { formatPanama } from '@/lib/date';
+import { FEATURES } from '@/lib/features';
 
 interface AuditRow {
   id: string;
@@ -188,9 +189,11 @@ export default async function SujetosAdmin() {
             <h3 style={{ margin: 0 }}>Últimas acciones</h3>
             <p className="small" style={{ margin: '2px 0 0' }}>Registro de creaciones, modificaciones y desactivaciones</p>
           </div>
-          <Link href="/admin/auditoria" className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }}>
-            Ver historial completo →
-          </Link>
+          {FEATURES.AUDIT_LOG_UI && (
+            <Link href="/admin/auditoria" className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }}>
+              Ver historial completo →
+            </Link>
+          )}
         </div>
         {ultimasAcciones.length === 0 ? (
           <div className="notice">Sin acciones registradas aún.</div>

@@ -1,9 +1,75 @@
 // auth.config.ts — Configuración compartida (edge-safe) para NextAuth v5
 // Los tipos del usuario/sesión están extendidos en types/next-auth.d.ts
-import type { NextAuthConfig } from 'next-auth';
+import type { NextAuthConfig, Session } from 'next-auth';
 import { createLogger } from './lib/logger';
+import { FEATURES } from './lib/features';
+import { isMfaRequired } from './lib/mfa-config';
 
 const log = createLogger('auth');
+
+type AuthUser = NonNullable<Session['user']>;
+
+function isPublicPath(path: string): boolean {
+  return path.startsWith('/login') || path.startsWith('/api/auth');
+}
+
+function isMfaPath(path: string): boolean {
+  return path.startsWith('/mfa') || path.startsWith('/api/mfa');
+}
+
+function isRoleDenied(path: string, role: AuthUser['rol']): boolean {
+  if (path.startsWith('/portal') && role !== 'sujeto_obligado') return true;
+  if (path.startsWith('/uaf') && !['analista', 'supervisor'].includes(role)) return true;
+  if (path.startsWith('/admin') && role !== 'admin') return true;
+  return false;
+}
+
+function isAuditorDenied(path: string, role: AuthUser['rol']): boolean {
+  if (!path.startsWith('/auditor')) return false;
+  if (!FEATURES.AUDITOR_UI) return true;
+  return role !== 'auditor';
+}
+
+function isAuditLogDenied(path: string): boolean {
+  if (!path.startsWith('/admin/auditoria') && !path.startsWith('/uaf/auditoria')) return false;
+  return !FEATURES.AUDIT_LOG_UI;
+}
+
+function isSupervisionApiDenied(path: string): boolean {
+  return path.startsWith('/api/supervision') && !FEATURES.SUPERVISION_SO;
+}
+
+function checkAuthorized(
+  path: string,
+  user: AuthUser,
+  requestUrl: URL,
+): boolean | Response {
+  if (isMfaPath(path)) return true;
+
+  if (isMfaRequired() && user.mfaVerified !== true) {
+    log.debug('Redirigiendo a /mfa/verify: MFA no verificado', { path });
+    return Response.redirect(new URL('/mfa/verify', requestUrl));
+  }
+
+  if (isRoleDenied(path, user.rol)) {
+    log.debug('Acceso denegado por rol', { path });
+    return false;
+  }
+  if (isAuditorDenied(path, user.rol)) {
+    log.debug('Acceso denegado: módulo auditor o rol', { path });
+    return false;
+  }
+  if (isAuditLogDenied(path)) {
+    log.debug('Acceso denegado: vista de logs deshabilitada', { path });
+    return false;
+  }
+  if (isSupervisionApiDenied(path)) {
+    log.debug('Acceso denegado: API supervisión deshabilitada', { path });
+    return false;
+  }
+
+  return true;
+}
 
 export const authConfig: NextAuthConfig = {
   secret: process.env.AUTH_SECRET,
@@ -16,54 +82,14 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     authorized({ auth, request }) {
       const path = request.nextUrl.pathname;
-      const isLoggedIn = Boolean(auth?.user);
 
-      // Rutas públicas (las APIs de auth y la propia página de login)
-      if (path.startsWith('/login') || path.startsWith('/api/auth')) {
-        return true;
-      }
-
-      if (!isLoggedIn) {
+      if (isPublicPath(path)) return true;
+      if (!auth?.user) {
         log.debug('Acceso denegado: no autenticado', { path });
         return false;
       }
 
-      const role = auth!.user.rol;
-      const mfaVerified = auth!.user.mfaVerified === true;
-
-      // El flujo de MFA siempre es accesible para usuario autenticado.
-      // Incluye los endpoints API (sin esto, el fetch desde /mfa/setup se
-      // redirigiría a /mfa/verify y devolvería HTML en vez de JSON).
-      if (path.startsWith('/mfa') || path.startsWith('/api/mfa')) {
-        return true;
-      }
-
-      // MFA obligatorio (RNF-01): bloquea acceso a vistas hasta completar 2FA
-      if (!mfaVerified) {
-        log.debug('Redirigiendo a /mfa/verify: MFA no verificado', { path });
-        const url = new URL('/mfa/verify', request.nextUrl);
-        return Response.redirect(url);
-      }
-
-      // Control por rol (RF-05)
-      if (path.startsWith('/portal')  && role !== 'sujeto_obligado') {
-        log.debug('Acceso denegado por rol', { path });
-        return false;
-      }
-      if (path.startsWith('/uaf')     && !['analista', 'supervisor'].includes(role)) {
-        log.debug('Acceso denegado por rol', { path });
-        return false;
-      }
-      if (path.startsWith('/auditor') && role !== 'auditor') {
-        log.debug('Acceso denegado por rol', { path });
-        return false;
-      }
-      if (path.startsWith('/admin')   && role !== 'admin') {
-        log.debug('Acceso denegado por rol', { path });
-        return false;
-      }
-
-      return true;
+      return checkAuthorized(path, auth.user, request.nextUrl);
     },
     jwt({ token, user, trigger, session }) {
       if (user) {
@@ -71,7 +97,7 @@ export const authConfig: NextAuthConfig = {
         token.rol = user.rol;
         token.sujetoObligadoId = user.sujetoObligadoId;
         token.mfaActivo = user.mfaActivo;
-        token.mfaVerified = false;
+        token.mfaVerified = !isMfaRequired();
       }
       // El cliente llama a session.update({ mfaVerified: true }) tras verificar TOTP
       if (trigger === 'update' && session && typeof session === 'object' && 'mfaVerified' in session) {

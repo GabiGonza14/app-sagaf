@@ -4,10 +4,17 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/lib/db';
 import { audit, extractRequestContext } from '@/lib/audit';
+import { FEATURES } from '@/lib/features';
 
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+
+  // PRD flujo-auditoria: consulta libre de logs deshabilitada en MVP.
+  if (!FEATURES.AUDIT_LOG_UI) {
+    return NextResponse.json({ error: 'Consulta de auditoría no disponible' }, { status: 403 });
+  }
+
   if (!['auditor', 'supervisor', 'admin'].includes(session.user.rol)) {
     const ctx403 = extractRequestContext(req);
     audit({

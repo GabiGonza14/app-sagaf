@@ -504,6 +504,7 @@ function renderDropzoneBlock(
   onFileChange: (f: File | null) => void,
   warnings: string[] | undefined,
 ) {
+  const isBlock = (w: string) => w.startsWith('[bloqueo]');
   return (
     <>
       <FileDropZone
@@ -513,7 +514,13 @@ function renderDropzoneBlock(
         maxMb={d.tamano_maximo_mb}
         analyzing={analyzing}
       />
-      {warnings?.map((w) => (
+      {warnings?.filter(isBlock).map((w) => (
+        <div key={w} className="doc-error" role="alert">
+          <AlertCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
+          {w.replace(/^\[bloqueo\]\s*/, '')}
+        </div>
+      ))}
+      {warnings?.filter((w) => !isBlock(w)).map((w) => (
         <div key={w} className="doc-warning" role="alert">
           <AlertCircle size={13} style={{ flexShrink: 0, marginTop: 1 }} />
           {w}
@@ -715,6 +722,13 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     for (const d of docsConNombreNoRelacionado) {
       faltantes.push({ label: `Renombra el archivo de "${d.nombre}" — el nombre debe incluir una palabra de la sección`, icon: <AlertCircle size={14} />, categoria: 'documentos' });
     }
+    const docsBloqueados = docList.filter((d) =>
+      fileWarnings[d.id]?.some((w) => w.startsWith('[bloqueo]'))
+    );
+    for (const d of docsBloqueados) {
+      const msg = fileWarnings[d.id]?.find((w) => w.startsWith('[bloqueo]'))?.replace(/^\[bloqueo\]\s*/, '');
+      faltantes.push({ label: msg ?? `Corrija el documento "${d.nombre}"`, icon: <AlertCircle size={14} />, categoria: 'documentos' });
+    }
     return faltantes;
   }
 
@@ -751,7 +765,10 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
   const hayNombreNoRelacionado = docList.some((d) =>
     fileWarnings[d.id]?.some((w) => w.startsWith('El nombre del archivo'))
   );
-  const documentosSinConflicto = !hayNombreDuplicado && !hayNombreNoRelacionado;
+  const hayBloqueoDocumento = docList.some((d) =>
+    fileWarnings[d.id]?.some((w) => w.startsWith('[bloqueo]'))
+  );
+  const documentosSinConflicto = !hayNombreDuplicado && !hayNombreNoRelacionado && !hayBloqueoDocumento;
   const formListo = camposBaseOk && camposBancoOk && camposInmobiliariaOk && camposGenericOk && camposDinamicosOk && documentosSinConflicto;
   const hayAlgunDato = [
     ordenante.id, beneficiario.id, comprador.id, cliente.id,
@@ -882,21 +899,88 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     return null;
   }
 
-  async function analyzeDocContent(file: File, docNombre: string): Promise<string | null> {
+  async function sha256Hex(file: File): Promise<string> {
+    const buf = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  function formatDetectadoHint(
+    detectado: { identificadores_en_texto?: string[]; partes_coincidentes?: string[] } | null,
+  ): string | null {
+    if (!detectado) return null;
+    const partes: string[] = [];
+    if (detectado.identificadores_en_texto?.length) {
+      partes.push(`Cédulas/RUC detectadas: ${detectado.identificadores_en_texto.join(', ')}`);
+    }
+    if (detectado.partes_coincidentes?.length) {
+      partes.push(`Coincide con: ${detectado.partes_coincidentes.join(', ')}`);
+    }
+    return partes.length ? partes.join(' · ') : null;
+  }
+
+  function isContentIssueWarning(w: string): boolean {
+    return (
+      w.startsWith('[bloqueo]') ||
+      w.startsWith('El PDF') ||
+      w.startsWith('La imagen') ||
+      w.startsWith('El contenido') ||
+      w.startsWith('El archivo') ||
+      w.startsWith('La Debida Diligencia') ||
+      w.startsWith('Este archivo es idéntico') ||
+      w.startsWith('Cédulas/RUC detectadas:')
+    );
+  }
+
+  async function analyzeDocContent(
+    file: File,
+    docNombre: string,
+  ): Promise<{
+    error: string | null;
+    warning: string | null;
+    detectado: { identificadores_en_texto: string[]; partes_coincidentes: string[] } | null;
+  }> {
     const isPdf = file.type.includes('pdf') || file.name.toLowerCase().endsWith('.pdf');
     const isImage = /image\/(jpe?g|png)/.test(file.type) || /\.(jpe?g|png)$/i.test(file.name);
-    if (!isPdf && !isImage) return null;
+    if (!isPdf && !isImage) {
+      return { error: null, warning: null, detectado: null };
+    }
     try {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('doc_nombre', docNombre);
+      fd.append('partes', JSON.stringify(buildPartes()));
       const res = await fetch('/api/documentos/analyze', { method: 'POST', body: fd });
-      if (!res.ok) return null;
+      if (!res.ok) return { error: null, warning: null, detectado: null };
       const data = await res.json();
-      return data.contentWarning ?? null;
+      return {
+        error: data.contentError ?? null,
+        warning: data.contentWarning ?? null,
+        detectado: data.detectado ?? null,
+      };
     } catch {
-      return null;
+      return { error: null, warning: null, detectado: null };
     }
+  }
+
+  async function findContentDuplicateWarning(
+    updatedFiles: Record<string, File | null>,
+    currentDocId: string,
+  ): Promise<string | null> {
+    const current = updatedFiles[currentDocId];
+    if (!current) return null;
+    const currentHash = await sha256Hex(current);
+    for (const [otherId, otherFile] of Object.entries(updatedFiles)) {
+      if (otherId === currentDocId || !otherFile) continue;
+      const otherHash = await sha256Hex(otherFile);
+      if (otherHash === currentHash) {
+        const conflictDoc = docList.find((d) => d.id === otherId);
+        return `[bloqueo] Este archivo es idéntico al ya seleccionado para "${conflictDoc?.nombre ?? 'otra sección'}". Cada sección requiere un documento distinto.`;
+      }
+    }
+    return null;
   }
 
   function handleDocFileChange(docId: string, docNombre: string, f: File | null, currentFiles: Record<string, File | null>) {
@@ -940,28 +1024,32 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     });
 
     // Verificación asíncrona del contenido (PDF o imagen) vía servidor (OCR).
-    // Para PDFs con capa de texto el análisis es casi instantáneo, así que se
-    // garantiza un tiempo mínimo visible del indicador para que no "parpadee".
     if (f) {
       const MIN_VISIBLE_MS = 650;
       const startedAt = Date.now();
       setDocAnalyzing((prev) => ({ ...prev, [docId]: true }));
-      analyzeDocContent(f, docNombre).then((contentWarn) => {
+
+      Promise.all([
+        findContentDuplicateWarning(updatedFiles, docId),
+        analyzeDocContent(f, docNombre),
+      ]).then(([dupWarn, analysis]) => {
         const applyResult = () => {
           setDocAnalyzing((prev) => ({ ...prev, [docId]: false }));
           setFileWarnings((prev) => {
-            const filtered = (prev[docId] ?? []).filter(
-              (w) => !w.startsWith('El PDF') && !w.startsWith('La imagen') &&
-                     !w.startsWith('El contenido') && !w.startsWith('El archivo')
-            );
-            if (filtered.length === 0 && !contentWarn) {
+            const filtered = (prev[docId] ?? []).filter((w) => !isContentIssueWarning(w));
+            const nextMsgs = [...filtered];
+            if (dupWarn) nextMsgs.push(dupWarn);
+            if (analysis.error) nextMsgs.push(`[bloqueo] ${analysis.error}`);
+            else if (analysis.warning) nextMsgs.push(analysis.warning);
+            const hint = formatDetectadoHint(analysis.detectado);
+            if (hint && !analysis.error) nextMsgs.push(hint);
+
+            if (nextMsgs.length === 0) {
               const next = { ...prev };
               delete next[docId];
               return next;
             }
-            return contentWarn
-              ? { ...prev, [docId]: [...filtered, contentWarn] }
-              : { ...prev, [docId]: filtered };
+            return { ...prev, [docId]: nextMsgs };
           });
         };
         const remaining = MIN_VISIBLE_MS - (Date.now() - startedAt);
@@ -982,10 +1070,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
       fd.append('ros_id', rosId);
       fd.append('documento_requerido_id', docReq.id);
       const up = await fetch('/api/documentos/upload', { method: 'POST', body: fd });
+      const upData = await up.json().catch(() => ({}));
       if (!up.ok) {
-        const upErr = await up.json().catch(() => ({}));
-        setError(`Error subiendo "${docReq.nombre}": ${upErr.error ?? 'Error de subida'}`);
+        setError(`Error subiendo "${docReq.nombre}": ${upData.error ?? 'Error de subida'}`);
         return false;
+      }
+      if (upData.contentWarning) {
+        setFileWarnings((prev) => ({
+          ...prev,
+          [docReq.id]: [...(prev[docReq.id] ?? []).filter((w) => !w.startsWith('La Debida Diligencia')), upData.contentWarning],
+        }));
       }
     }
     for (const extra of extras) {
@@ -1064,13 +1158,49 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     }
   }
 
-  function validateForm(): string | null {
+  function findDocWithWarning(predicate: (warning: string) => boolean): DocReq | undefined {
+    return docList.find((d) => fileWarnings[d.id]?.some(predicate));
+  }
+
+  function validateDocumentosSubmit(): string | null {
+    if (!todosDocumentosCargados) {
+      return `Debe cargar todos los documentos obligatorios antes de enviar. Faltan ${docListReq.length - cargadosReq}.`;
+    }
+    const dupDoc = findDocWithWarning((w) => w.startsWith('Nombre duplicado'));
+    if (dupDoc) {
+      return `El documento "${dupDoc.nombre}" tiene el mismo nombre que otro archivo. Cada sección debe tener un archivo distinto.`;
+    }
+    const noRelDoc = findDocWithWarning((w) => w.startsWith('El nombre del archivo'));
+    if (noRelDoc) {
+      return `El nombre del archivo en "${noRelDoc.nombre}" no se relaciona con la sección. Renómbralo para que incluya al menos una palabra de la sección.`;
+    }
+    const analyzingDoc = docListReq.find((d) => docAnalyzing[d.id]);
+    if (analyzingDoc) {
+      return `Espera a que termine el análisis del documento "${analyzingDoc.nombre}".`;
+    }
+    const emptyDoc = findDocWithWarning(
+      (w) => w.startsWith('El PDF no contiene texto') || w.startsWith('La imagen no contiene texto'),
+    );
+    if (emptyDoc) {
+      return `El documento "${emptyDoc.nombre}" está vacío o no tiene texto legible. Reemplázalo antes de enviar.`;
+    }
+    const bloqueoDoc = findDocWithWarning((w) => w.startsWith('[bloqueo]'));
+    if (bloqueoDoc) {
+      const msg = fileWarnings[bloqueoDoc.id]?.find((w) => w.startsWith('[bloqueo]'));
+      return msg?.replace(/^\[bloqueo\]\s*/, '') ?? `Corrija el documento "${bloqueoDoc.nombre}" antes de enviar.`;
+    }
+    return null;
+  }
+
+  function validateFormCore(): string | null {
     if (!oficial.trim()) return 'El nombre del oficial de cumplimiento es obligatorio.';
-    if (!correoOficial.trim() || !isValidEmail(correoOficial))
+    if (!correoOficial.trim() || !isValidEmail(correoOficial)) {
       return 'El correo institucional del oficial es obligatorio y debe tener un formato válido.';
+    }
     if (!fechaDeteccion) return 'La fecha de detección es obligatoria.';
-    if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0)
+    if (!monto || Number.isNaN(Number(monto)) || Number(monto) <= 0) {
       return 'El monto debe ser un número mayor a 0.';
+    }
     const bankError = validateBank();
     if (bankError) return bankError;
     const realEstateError = validateRealEstate();
@@ -1080,34 +1210,16 @@ export function NuevoRosForm({ sujeto, plantillas, docsByPlantilla, camposByPlan
     const campoFaltante = camposDinamicos.find((c) => c.obligatorio === 1 && !(camposValores[c.id] ?? '').trim());
     if (campoFaltante) return `El campo "${campoFaltante.nombre}" es obligatorio.`;
     if (!senalAlerta.trim()) return 'El riesgo reportado es obligatorio.';
-    if (!descripcion.trim() || descripcion.length < 30)
+    if (!descripcion.trim() || descripcion.length < 30) {
       return 'La descripción narrativa debe tener al menos 30 caracteres.';
-    if (!todosDocumentosCargados)
-      return `Debe cargar todos los documentos obligatorios antes de enviar. Faltan ${docListReq.length - cargadosReq}.`;
-    const dupDoc = docList.find((d) =>
-      fileWarnings[d.id]?.some((w) => w.startsWith('Nombre duplicado'))
-    );
-    if (dupDoc) {
-      return `El documento "${dupDoc.nombre}" tiene el mismo nombre que otro archivo. Cada sección debe tener un archivo distinto.`;
-    }
-    const noRelDoc = docList.find((d) =>
-      fileWarnings[d.id]?.some((w) => w.startsWith('El nombre del archivo'))
-    );
-    if (noRelDoc) {
-      return `El nombre del archivo en "${noRelDoc.nombre}" no se relaciona con la sección. Renómbralo para que incluya al menos una palabra de la sección.`;
-    }
-    const analyzingDoc = docListReq.find((d) => docAnalyzing[d.id]);
-    if (analyzingDoc) {
-      return `Espera a que termine el análisis del documento "${analyzingDoc.nombre}".`;
-    }
-    const emptyDoc = docListReq.find((d) =>
-      fileWarnings[d.id]?.some((w) =>
-        w.startsWith('El PDF no contiene texto') || w.startsWith('La imagen no contiene texto'))
-    );
-    if (emptyDoc) {
-      return `El documento "${emptyDoc.nombre}" está vacío o no tiene texto legible. Reemplázalo antes de enviar.`;
     }
     return null;
+  }
+
+  function validateForm(): string | null {
+    const coreError = validateFormCore();
+    if (coreError) return coreError;
+    return validateDocumentosSubmit();
   }
 
   function validateBank(): string | null {

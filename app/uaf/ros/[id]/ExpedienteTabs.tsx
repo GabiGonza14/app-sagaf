@@ -9,6 +9,7 @@ import { maskDescriptionText } from '@/lib/masking';
 import { formatPanama, formatPanamaShort } from '@/lib/date';
 import CustomSelect from '@/components/CustomSelect';
 import { ClipboardList, Link2, CheckCircle, FileText } from 'lucide-react';
+import { FEATURES } from '@/lib/features';
 
 const ROL_LABEL: Record<string, string> = {
   sujeto_obligado: 'Sujeto Obligado',
@@ -82,9 +83,10 @@ const WORKFLOW_STEPS: StepDef[] = [
 const RANGO_RIESGO = { bajo: [0, 33], medio: [34, 66], alto: [67, 100] } as const;
 const DEFAULT_PUNTAJE = { bajo: 20, medio: 50, alto: 80 } as const;
 
-const EXTRA_TABS: { key: Tab; label: string; icon: ReactNode }[] = [
-  { key: 'auditoria', label: 'Auditoría', icon: <ClipboardList size={15} strokeWidth={2.4} /> },
-];
+// Pestaña auditoría: código conservado; oculta en MVP — logs solo vía paquete SO.
+const EXTRA_TABS: { key: Tab; label: string; icon: ReactNode }[] = FEATURES.AUDIT_LOG_UI
+  ? [{ key: 'auditoria', label: 'Auditoría', icon: <ClipboardList size={15} strokeWidth={2.4} /> }]
+  : [];
 
 export function RosExpedienteTabs({
   rosId, numeroRos, estadoActual, canClassify, canClose, canReopen, canRevertRiesgo, canAssign,

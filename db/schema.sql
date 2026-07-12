@@ -345,3 +345,80 @@ BEGIN
   SELECT RAISE(ABORT, 'evento_auditoria es inmutable (RF-03 RE-01)');
 END;
 
+-- ------------------------------------------------------------------
+-- Atención a supervisión (SBP / ISRNNF) — PRD flujo-auditoria
+-- La evidencia de logs solo se expone vía paquetes generados por el SO.
+-- ------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS comunicacion_supervision (
+  id                      TEXT PRIMARY KEY,
+  sujeto_obligado_id       TEXT NOT NULL,
+  organismo               TEXT NOT NULL,             -- sbp | isrnnf | otro
+  tipo_comunicacion       TEXT NOT NULL,
+  numero_oficio           TEXT,
+  asunto                  TEXT,
+  fecha_oficio            TEXT,
+  fecha_limite_respuesta  TEXT,
+  archivo_path            TEXT NOT NULL,
+  texto_ocr               TEXT,                      -- JSON
+  estado                  TEXT NOT NULL DEFAULT 'recibida',
+  registrado_por          TEXT NOT NULL,
+  fecha_registro          TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (sujeto_obligado_id) REFERENCES sujeto_obligado(id),
+  FOREIGN KEY (registrado_por) REFERENCES usuario(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_com_sup_so ON comunicacion_supervision(sujeto_obligado_id);
+CREATE INDEX IF NOT EXISTS idx_com_sup_estado ON comunicacion_supervision(estado);
+
+CREATE TABLE IF NOT EXISTS solicitud_paquete (
+  id                      TEXT PRIMARY KEY,
+  numero_solicitud        TEXT NOT NULL UNIQUE,
+  comunicacion_id         TEXT,
+  sujeto_obligado_id      TEXT NOT NULL,
+  solicitante_id          TEXT NOT NULL,
+  alcance_tipo            TEXT NOT NULL,             -- periodo | lista_ros | muestra
+  fecha_desde             TEXT,
+  fecha_hasta             TEXT,
+  lista_ros               TEXT,                      -- JSON
+  tamano_muestra          INTEGER,
+  semilla_muestra         TEXT,
+  nivel_contenido         TEXT NOT NULL DEFAULT 'metadatos',
+  incluir_documentos      INTEGER NOT NULL DEFAULT 0,
+  incluir_log             INTEGER NOT NULL DEFAULT 0,
+  detalle_json            TEXT,                      -- titulo, ítems, fundamento, flags extra
+  estado                  TEXT NOT NULL DEFAULT 'borrador',
+  fecha_creacion          TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (comunicacion_id) REFERENCES comunicacion_supervision(id),
+  FOREIGN KEY (sujeto_obligado_id) REFERENCES sujeto_obligado(id),
+  FOREIGN KEY (solicitante_id) REFERENCES usuario(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_paq_so ON solicitud_paquete(sujeto_obligado_id);
+
+CREATE TABLE IF NOT EXISTS paquete_generado (
+  id                      TEXT PRIMARY KEY,
+  solicitud_id            TEXT NOT NULL UNIQUE,
+  ruta_archivo            TEXT NOT NULL,
+  nombre_archivo          TEXT NOT NULL,
+  hash_sha256             TEXT NOT NULL,
+  tamano_bytes            INTEGER NOT NULL,
+  resumen_json            TEXT NOT NULL,
+  generado_por            TEXT NOT NULL,
+  fecha_generacion        TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (solicitud_id) REFERENCES solicitud_paquete(id),
+  FOREIGN KEY (generado_por) REFERENCES usuario(id)
+);
+
+CREATE TABLE IF NOT EXISTS entrega_paquete (
+  id                      TEXT PRIMARY KEY,
+  paquete_id              TEXT NOT NULL,
+  usuario_id              TEXT NOT NULL,
+  accion                  TEXT NOT NULL,
+  canal_entrega           TEXT,
+  observacion             TEXT,
+  fecha_hora              TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (paquete_id) REFERENCES paquete_generado(id),
+  FOREIGN KEY (usuario_id) REFERENCES usuario(id)
+);
+

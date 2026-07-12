@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { TopBar } from '@/components/TopBar';
 import { Badge } from '@/components/Badge';
 import { formatPanama } from '@/lib/date';
+import { FEATURES } from '@/lib/features';
 import { NuevoSujetoForm } from '@/app/admin/sujetos-obligados/NuevoSujetoForm';
 import { SujetoActions } from '@/app/admin/sujetos-obligados/SujetoActions';
 
@@ -152,9 +153,11 @@ export default async function SujetosObligadosSupervisor() {
             <h3 style={{ margin: 0 }}>Últimas acciones</h3>
             <p className="small" style={{ margin: '2px 0 0' }}>Registro de creaciones, modificaciones y desactivaciones</p>
           </div>
-          <Link href="/uaf/auditoria" className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }}>
-            Ver historial completo →
-          </Link>
+          {FEATURES.AUDIT_LOG_UI && (
+            <Link href="/uaf/auditoria" className="btn ghost" style={{ fontSize: 12, padding: '6px 12px' }}>
+              Ver historial completo →
+            </Link>
+          )}
         </div>
         {ultimasAcciones.length === 0 ? (
           <div className="notice">Sin acciones registradas aún.</div>

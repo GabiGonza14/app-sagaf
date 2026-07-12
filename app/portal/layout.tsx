@@ -2,7 +2,8 @@
 import { getSession } from '@/lib/session';
 import { db } from '@/lib/db';
 import { AppShell, type NavItem } from '@/components/AppShell';
-import { Home, ClipboardList, FilePlus, RefreshCw } from 'lucide-react';
+import { Home, ClipboardList, FilePlus, RefreshCw, Shield } from 'lucide-react';
+import { FEATURES } from '@/lib/features';
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -16,11 +17,27 @@ export default async function PortalLayout({ children }: { children: React.React
       WHERE r.sujeto_obligado_id = ? AND s.estado = 'pendiente'`,
   ).get(session.user.sujetoObligadoId ?? '')?.n) ?? 0;
 
+  const supervisionPend = FEATURES.SUPERVISION_SO
+    ? ((db.prepare<[string], { n: number }>(
+        `SELECT COUNT(*) AS n FROM comunicacion_supervision
+          WHERE sujeto_obligado_id = ? AND estado IN ('recibida', 'en_analisis')`,
+      ).get(session.user.sujetoObligadoId ?? '')?.n) ?? 0)
+    : 0;
+
   const navItems: NavItem[] = [
     { href: '/portal',                label: 'Inicio',         icon: <Home size={16} /> },
     { href: '/portal/ros',            label: 'Mis ROS',        icon: <ClipboardList size={16} /> },
     { href: '/portal/ros/nuevo',      label: 'Registrar ROS',  icon: <FilePlus size={16} /> },
     { href: '/portal/subsanaciones',  label: 'Subsanaciones',  icon: <RefreshCw size={16} />, badge: pendientes || undefined, badgeTone: 'amber' },
+    ...(FEATURES.SUPERVISION_SO
+      ? [{
+          href: '/portal/supervision',
+          label: 'Supervisión',
+          icon: <Shield size={16} />,
+          badge: supervisionPend || undefined,
+          badgeTone: 'amber' as const,
+        }]
+      : []),
   ];
 
   const userInitials = (session.user.name ?? 'SO').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();

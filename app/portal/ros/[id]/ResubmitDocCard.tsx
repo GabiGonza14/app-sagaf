@@ -50,9 +50,11 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [warn, setWarn] = useState<string | null>(null);
 
   async function onUpload(file: File) {
     setErr(null);
+    setWarn(null);
     setUploading(true);
     try {
       const fd = new FormData();
@@ -60,11 +62,12 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
       fd.append('ros_id', rosId);
       fd.append('documento_requerido_id', docReqId);
       const res = await fetch('/api/documentos/upload', { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         setErr(data.error ?? 'Error al subir el documento.');
         return;
       }
+      if (data.contentWarning) setWarn(data.contentWarning);
       router.refresh();
     } finally {
       setUploading(false);
@@ -150,6 +153,7 @@ export function ResubmitDocCard({ rosId, docReqId, index, nombre, adjunto, readO
             <FileDropZone file={null} onChange={(f) => { if (f) onUpload(f); }} formatos={formatos} maxMb={maxMb} />
             {uploading && <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Subiendo…</div>}
             {err && <div style={{ color: 'var(--red,#dc2626)', fontSize: '0.75rem' }}>{err}</div>}
+            {warn && <div className="doc-warning" style={{ marginTop: 4 }}>{warn}</div>}
           </div>
         </div>
       ) : (
