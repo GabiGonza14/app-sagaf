@@ -15,15 +15,12 @@ const PALABRAS_NUMERO_RE = Object.keys(NUMEROS_EN_PALABRA)
   .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
   .join('|');
 
-const RE_FECHA_VERBAL = new RegExp(
-  String.raw`(\d{1,2}\s+de\s+(?:${MESES_NOMBRE_RE})\s+de\s+\d{4})`,
-  'i',
-);
-
 const RE_VERBAL_DATE_PARTS = new RegExp(
   String.raw`^(\d{1,2})\s+de\s+(${MESES_NOMBRE_RE})\s+de\s+(\d{4})$`,
   'i',
 );
+
+const RE_VERBAL_DATE_START = /\d{1,2}\s+de\s+/i;
 
 const RE_RANGO_FECHAS_NUM = new RegExp(
   String.raw`(?:entre|de)\s*(?:el\s*)?(\d{1,2}[/.-]\d{1,2}[/.-]\d{4})\s*(?:y|a|al|hasta)\s*(?:el\s*)?(\d{1,2}[/.-]\d{1,2}[/.-]\d{4})`,
@@ -55,10 +52,12 @@ const RE_DIAS_PALABRA = new RegExp(
   'i',
 );
 
-const RE_VENCE_FECHA = new RegExp(
-  String.raw`vence\s+(?:el\s+)?(\d{1,2}\s+de\s+(?:${MESES_NOMBRE_RE})\s+de\s+\d{4})`,
-  'i',
-);
+function extractVenceDate(source: string): string | undefined {
+  const hit = /vence\s+(?:el\s+)?/i.exec(source);
+  if (hit?.index == null) return undefined;
+  const verbal = extractVerbalDateFragment(source.slice(hit.index + hit[0].length));
+  return verbal ? parseFlexibleDate(verbal) : undefined;
+}
 
 export interface OficioParse {
   numero_oficio?: string;
@@ -117,45 +116,51 @@ export function parseFlexibleDate(raw: string): string | undefined {
   return undefined;
 }
 
+function extractVerbalDateFragment(text: string): string | undefined {
+  const start = text.search(RE_VERBAL_DATE_START);
+  if (start < 0) return undefined;
+  const line = text.slice(start).split('\n')[0]?.trim().slice(0, 40) ?? '';
+  return RE_VERBAL_DATE_PARTS.exec(line)?.[0];
+}
+
 function extractDateFromFragment(fragment: string): string | undefined {
   const cleaned = fragment.trim().replace(/[.;]+$/, '');
-  const verbalFrag = RE_FECHA_VERBAL.exec(cleaned);
+  const verbal = extractVerbalDateFragment(cleaned);
+  const dmyInline = /\d{1,2}[/.-]\d{1,2}[/.-]\d{4}/.exec(cleaned)?.[0];
+  const isoInline = /\d{4}-\d{2}-\d{2}/.exec(cleaned)?.[0];
   return parseFlexibleDate(cleaned)
-    ?? (verbalFrag ? parseFlexibleDate(verbalFrag[1]) : undefined)
-    ?? parseFlexibleDate(cleaned.match(/(\d{1,2}[/.-]\d{1,2}[/.-]\d{4})/)?.[1] ?? '')
-    ?? parseFlexibleDate(cleaned.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? '');
+    ?? (verbal ? parseFlexibleDate(verbal) : undefined)
+    ?? (dmyInline ? parseFlexibleDate(dmyInline) : undefined)
+    ?? (isoInline ? parseFlexibleDate(isoInline) : undefined);
 }
 
 function extractLabeledDate(text: string, labels: readonly string[]): string | undefined {
+  const lower = text.toLowerCase();
   for (const label of labels) {
-    const re = new RegExp(`${label}\\s*[:\\-—]?\\s*([^\\n.;]{4,55})`, 'i');
-    const m = text.match(re);
-    if (m) {
-      const d = extractDateFromFragment(m[1]);
-      if (d) return d;
-    }
+    const pos = lower.indexOf(label.toLowerCase());
+    if (pos < 0) continue;
+    const fragment = text.slice(pos + label.length).replace(/^\s*[:-—]?\s*/, '');
+    const d = extractDateFromFragment(fragment.slice(0, 55));
+    if (d) return d;
   }
   return undefined;
 }
 
 function extractFechaCiudadVerbal(text: string): string | undefined {
-  const patterns = [
-    /ciudad\s+de\s+panam[aá]\s*,\s*(\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{4})/i,
-    /panam[aá]\s*,\s*(\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{4})/i,
-  ];
-  for (const p of patterns) {
-    const m = text.match(p);
-    if (m) {
-      const d = parseFlexibleDate(m[1]);
-      if (d) return d;
+  const markers = [/ciudad\s+de\s+panam[aá]\s*,/i, /panam[aá]\s*,/i];
+  for (const marker of markers) {
+    const hit = marker.exec(text);
+    if (hit?.index != null) {
+      const rest = text.slice(hit.index + hit[0].length).split('\n')[0]?.trim().slice(0, 40) ?? '';
+      const verbal = RE_VERBAL_DATE_PARTS.exec(rest);
+      if (verbal) {
+        const d = parseFlexibleDate(verbal[0]);
+        if (d) return d;
+      }
     }
   }
-  const head = text.slice(0, 900);
-  const firstVerbal = head.match(/\b(\d{1,2}\s+de\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+de\s+\d{4})\b/i);
-  if (firstVerbal) {
-    const d = parseFlexibleDate(firstVerbal[1]);
-    if (d) return d;
-  }
+  const verbal = extractVerbalDateFragment(text.slice(0, 900));
+  if (verbal) return parseFlexibleDate(verbal);
   return undefined;
 }
 
@@ -168,13 +173,13 @@ function extractFechaOficio(text: string, flat: string): string | undefined {
 
 function extractNumeroOficio(text: string): string | undefined {
   const patterns = [
-    /(?:oficio|ref\.?|referencia)\s*(?:n[°º.]?\s*)?([A-Z]{2,5}[-/][A-Z0-9][\w./-]{4,40})/i,
-    /\b(SBP[-/][\w./-]{4,40})\b/i,
-    /\b(UAF[-/][\w./-]{4,40})\b/i,
-    /\b(ISRNNF[-/][\w./-]{4,40})\b/i,
+    /(?:oficio|ref\.?|referencia)\s*(?:n[°º.]?\s*)?([A-Z]{2,5}[-/][A-Z0-9][A-Z0-9._/-]{4,40})/i,
+    /\b(SBP[-/][A-Z0-9._/-]{4,40})\b/i,
+    /\b(UAF[-/][A-Z0-9._/-]{4,40})\b/i,
+    /\b(ISRNNF[-/][A-Z0-9._/-]{4,40})\b/i,
   ];
   for (const p of patterns) {
-    const m = text.match(p);
+    const m = p.exec(text);
     if (m) return m[1].trim();
   }
   return undefined;
@@ -183,16 +188,15 @@ function extractNumeroOficio(text: string): string | undefined {
 function extractAsunto(text: string): string | undefined {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
   for (const line of lines) {
-    const m = line.match(/^asunto\s*[:\-—]\s*(.+)$/i);
+    const m = /^asunto\s*[:-—]\s*(.{1,220})$/i.exec(line);
     if (m) return m[1].slice(0, 220);
   }
-  const inline = text.match(/asunto\s*[:\-—]\s*([^\n]{8,220})/i);
+  const inline = /asunto\s*[:-—]\s*([^\n]{8,220})/i.exec(text);
   return inline?.[1]?.trim();
 }
 
 function resolveMes(nombre: string): number | undefined {
-  const key = nombre.toLowerCase();
-  return MESES[key] ?? MESES[key.slice(0, 3)];
+  return monthFromName(nombre);
 }
 
 function extractPeriodoRangoFechas(text: string): { desde: string; hasta: string } | undefined {
@@ -251,10 +255,10 @@ function extractItems(text: string): string[] {
   const lines = text.split('\n');
   for (const line of lines) {
     const t = line.trim();
-    const num = t.match(/^\d{1,2}[\.)]\s+(.+)$/);
-    if (num && num[1].length > 8) items.push(num[1].trim());
-    const bullet = t.match(/^[•\-*]\s+(.+)$/);
-    if (bullet && bullet[1].length > 8) items.push(bullet[1].trim());
+    const num = /^(\d{1,2})[.)]\s+(.{8,500})$/.exec(t);
+    if (num) items.push(num[2].trim());
+    const bullet = /^[•*-]\s+(.{8,500})$/.exec(t);
+    if (bullet) items.push(bullet[1].trim());
   }
   return items.slice(0, 15);
 }
@@ -321,11 +325,8 @@ function extractPlazo(
     ?? extractLabeledDate(flat, ETIQUETAS_PLAZO_RESPUESTA);
   if (explicit) return explicit;
 
-  const vence = RE_VENCE_FECHA.exec(text) ?? RE_VENCE_FECHA.exec(flat);
-  if (vence) {
-    const d = parseFlexibleDate(vence[1]);
-    if (d) return d;
-  }
+  const vence = extractVenceDate(text) ?? extractVenceDate(flat);
+  if (vence) return vence;
 
   const dias = parseDiasHabilesMencionados(text) ?? parseDiasHabilesMencionados(flat);
   if (dias && fechaOficio) {
