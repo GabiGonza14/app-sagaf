@@ -77,10 +77,9 @@ function validarListaRos(listaRos: string | null | undefined): string | null {
   return null;
 }
 
-function validarMuestra(tamano: number | null | undefined): string | null {
-  const n = tamano ?? 0;
-  if (n < 1) return 'Indique el tamaño de la muestra';
-  if (n > MAX_MUESTRA) return `Máximo ${MAX_MUESTRA} ROS en muestra`;
+function validarMuestra(tamano = 0): string | null {
+  if (tamano < 1) return 'Indique el tamaño de la muestra';
+  if (tamano > MAX_MUESTRA) return `Máximo ${MAX_MUESTRA} ROS en muestra`;
   return null;
 }
 
@@ -98,6 +97,6 @@ function validarPeriodo(desde: string | null | undefined, hasta: string | null |
 
 export function validarAlcance(input: AlcanceInput): string | null {
   if (input.alcance_tipo === 'lista_ros') return validarListaRos(input.lista_ros);
-  if (input.alcance_tipo === 'muestra') return validarMuestra(input.tamano_muestra);
+  if (input.alcance_tipo === 'muestra') return validarMuestra(input.tamano_muestra ?? 0);
   return validarPeriodo(input.fecha_desde, input.fecha_hasta);
 }

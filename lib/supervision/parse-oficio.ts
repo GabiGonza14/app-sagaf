@@ -7,6 +7,59 @@ import {
   PLAZO_DIAS_POR_TIPO,
 } from './diccionario-oficio';
 
+const MESES_NOMBRE_RE =
+  'enero|febrero|marzo|abril|mayo|junio|julio|agosto|sept(?:iembre)?|setiembre|octubre|noviembre|diciembre|ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic';
+
+const PALABRAS_NUMERO_RE = Object.keys(NUMEROS_EN_PALABRA)
+  .sort((a, b) => b.length - a.length)
+  .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  .join('|');
+
+const RE_FECHA_VERBAL = new RegExp(
+  String.raw`(\d{1,2}\s+de\s+(?:${MESES_NOMBRE_RE})\s+de\s+\d{4})`,
+  'i',
+);
+
+const RE_VERBAL_DATE_PARTS = new RegExp(
+  String.raw`^(\d{1,2})\s+de\s+(${MESES_NOMBRE_RE})\s+de\s+(\d{4})$`,
+  'i',
+);
+
+const RE_RANGO_FECHAS_NUM = new RegExp(
+  String.raw`(?:entre|de)\s*(?:el\s*)?(\d{1,2}[/.-]\d{1,2}[/.-]\d{4})\s*(?:y|a|al|hasta)\s*(?:el\s*)?(\d{1,2}[/.-]\d{1,2}[/.-]\d{4})`,
+  'i',
+);
+
+const RE_RANGO_FECHAS_TXT = new RegExp(
+  String.raw`(?:entre|de)\s*(?:el\s*)?(\d{1,2}[-/](?:${MESES_NOMBRE_RE})[-/]\d{4})\s*(?:y|a|al|hasta)\s*(?:el\s*)?(\d{1,2}[-/](?:${MESES_NOMBRE_RE})[-/]\d{4})`,
+  'i',
+);
+
+const RE_PERIODO_MESES = new RegExp(
+  String.raw`(?:periodo\s+)?(${MESES_NOMBRE_RE})\s*[-–a]\s*(${MESES_NOMBRE_RE})\s+(?:de\s+)?(\d{4})`,
+  'i',
+);
+
+const RE_ENTRE_MESES = new RegExp(
+  String.raw`entre\s+(?:el\s+)?(\d{1,2})[-/](${MESES_NOMBRE_RE})[-/](\d{4})\s+y\s+(?:el\s+)?(\d{1,2})[-/](${MESES_NOMBRE_RE})[-/](\d{4})`,
+  'i',
+);
+
+const RE_DIAS_PALABRA_PAREN = new RegExp(
+  String.raw`(${PALABRAS_NUMERO_RE})\s*\(\d{1,3}\)\s*d[ií]as?\s*h[aá]biles`,
+  'i',
+);
+
+const RE_DIAS_PALABRA = new RegExp(
+  String.raw`(${PALABRAS_NUMERO_RE})\s+d[ií]as?\s+h[aá]biles`,
+  'i',
+);
+
+const RE_VENCE_FECHA = new RegExp(
+  String.raw`vence\s+(?:el\s+)?(\d{1,2}\s+de\s+(?:${MESES_NOMBRE_RE})\s+de\s+\d{4})`,
+  'i',
+);
+
 export interface OficioParse {
   numero_oficio?: string;
   asunto?: string;
@@ -31,6 +84,11 @@ function iso(y: number, m: number, d: number): string | undefined {
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
+function monthFromName(nombre: string): number | undefined {
+  const key = nombre.toLowerCase();
+  return MESES[key] ?? MESES[key.slice(0, 3)];
+}
+
 export function parseFlexibleDate(raw: string): string | undefined {
   const s = raw.trim().replace(/\s+/g, ' ');
   if (!s) return undefined;
@@ -44,17 +102,16 @@ export function parseFlexibleDate(raw: string): string | undefined {
   const dmy = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
   if (dmy) return iso(+dmy[3], +dmy[2], +dmy[1]);
 
-  const dmyShort = s.match(/^(\d{1,2})[-/]([a-záéíóúñ]{3,})[-/](\d{4})$/i);
+  const dmyShort = new RegExp(String.raw`^(\d{1,2})[-/](${MESES_NOMBRE_RE})[-/](\d{4})$`, 'i').exec(s);
   if (dmyShort) {
     const key = dmyShort[2].toLowerCase();
     const m = MESES[key] ?? MESES[key.slice(0, 3)];
     if (m) return iso(+dmyShort[3], m, +dmyShort[1]);
   }
 
-  const verbal = s.match(/(\d{1,2})\s+de\s+([a-záéíóúñ]+)\s+de\s+(\d{4})/i);
+  const verbal = RE_VERBAL_DATE_PARTS.exec(s);
   if (verbal) {
-    const key = verbal[2].toLowerCase();
-    const m = MESES[key] ?? MESES[key.slice(0, 3)];
+    const m = monthFromName(verbal[2]);
     if (m) return iso(+verbal[3], m, +verbal[1]);
   }
   return undefined;
@@ -62,8 +119,9 @@ export function parseFlexibleDate(raw: string): string | undefined {
 
 function extractDateFromFragment(fragment: string): string | undefined {
   const cleaned = fragment.trim().replace(/[.;]+$/, '');
+  const verbalFrag = RE_FECHA_VERBAL.exec(cleaned);
   return parseFlexibleDate(cleaned)
-    ?? parseFlexibleDate(cleaned.match(/(\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{4})/i)?.[1] ?? '')
+    ?? (verbalFrag ? parseFlexibleDate(verbalFrag[1]) : undefined)
     ?? parseFlexibleDate(cleaned.match(/(\d{1,2}[/.-]\d{1,2}[/.-]\d{4})/)?.[1] ?? '')
     ?? parseFlexibleDate(cleaned.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? '');
 }
@@ -138,9 +196,7 @@ function resolveMes(nombre: string): number | undefined {
 }
 
 function extractPeriodoRangoFechas(text: string): { desde: string; hasta: string } | undefined {
-  const rango = text.match(
-    /(?:entre|del?)\s*(?:el\s*)?(\d{1,2}[-/][a-z]{3,}[-/]\d{4}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})\s*(?:y|al?|hasta)\s*(?:el\s*)?(\d{1,2}[-/][a-z]{3,}[-/]\d{4}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})/i,
-  );
+  const rango = RE_RANGO_FECHAS_NUM.exec(text) ?? RE_RANGO_FECHAS_TXT.exec(text);
   if (!rango) return undefined;
   const desde = parseFlexibleDate(rango[1]);
   const hasta = parseFlexibleDate(rango[2]);
@@ -148,13 +204,11 @@ function extractPeriodoRangoFechas(text: string): { desde: string; hasta: string
 }
 
 function extractPeriodoMesesNombre(text: string): { desde: string; hasta: string } | undefined {
-  const mesesRango = text.match(
-    /(?:periodo\s+)?([a-záéíóú]+)\s*[-–a]\s*([a-záéíóú]+)\s+(?:de\s+)?(\d{4})/i,
-  );
+  const mesesRango = RE_PERIODO_MESES.exec(text);
   if (!mesesRango) return undefined;
 
-  const m1 = resolveMes(mesesRango[1]);
-  const m2 = resolveMes(mesesRango[2]);
+  const m1 = monthFromName(mesesRango[1]);
+  const m2 = monthFromName(mesesRango[2]);
   const y = +mesesRango[3];
   if (!m1 || !m2) return undefined;
 
@@ -164,13 +218,11 @@ function extractPeriodoMesesNombre(text: string): { desde: string; hasta: string
 }
 
 function extractPeriodoEntreMeses(text: string): { desde: string; hasta: string } | undefined {
-  const entreMeses = text.match(
-    /entre\s+(?:el\s+)?(\d{1,2})[-/]([a-z]{3,})[-/](\d{4})\s+y\s+(?:el\s+)?(\d{1,2})[-/]([a-z]{3,})[-/](\d{4})/i,
-  );
+  const entreMeses = RE_ENTRE_MESES.exec(text);
   if (!entreMeses) return undefined;
 
-  const m1 = resolveMes(entreMeses[2]);
-  const m2 = resolveMes(entreMeses[5]);
+  const m1 = monthFromName(entreMeses[2]);
+  const m2 = monthFromName(entreMeses[5]);
   if (!m1 || !m2) return undefined;
 
   const desde = iso(+entreMeses[3], m1, +entreMeses[1]);
@@ -244,21 +296,18 @@ export function plazoFromDiasHabiles(fechaOficio: string, dias: number): string 
 }
 
 function parseDiasHabilesMencionados(text: string): number | undefined {
-  const paren = text.match(/\((\d{1,3})\)\s*d[ií]as?\s*h[aá]biles/i);
+  const paren = /\((\d{1,3})\)\s*d[ií]as?\s*h[aá]biles/i.exec(text);
   if (paren) return Math.min(+paren[1], 90);
 
-  const num = text.match(/(\d{1,3})\s*\(?\d{0,3}\)?\s*d[ií]as?\s*h[aá]biles/i);
+  const num = /(\d{1,3})\s+d[ií]as?\s+h[aá]biles/i.exec(text);
   if (num) return Math.min(+num[1], 90);
 
-  const wordMatch = text.match(/([a-záéíóúñ\s]+?)\s*\(\d{1,3}\)\s*d[ií]as?\s*h[aá]biles/i)
-    ?? text.match(/([a-záéíóúñ]+)\s+d[ií]as?\s+h[aá]biles/i);
-  if (wordMatch) {
-    const phrase = wordMatch[1].trim().toLowerCase();
-    if (NUMEROS_EN_PALABRA[phrase] != null) return NUMEROS_EN_PALABRA[phrase];
-    const tokens = phrase.split(/\s+/);
-    const last = tokens[tokens.length - 1];
-    if (NUMEROS_EN_PALABRA[last] != null) return NUMEROS_EN_PALABRA[last];
-  }
+  const wordParen = RE_DIAS_PALABRA_PAREN.exec(text);
+  if (wordParen) return NUMEROS_EN_PALABRA[wordParen[1].trim().toLowerCase()];
+
+  const wordSimple = RE_DIAS_PALABRA.exec(text);
+  if (wordSimple) return NUMEROS_EN_PALABRA[wordSimple[1].trim().toLowerCase()];
+
   return undefined;
 }
 
@@ -272,8 +321,7 @@ function extractPlazo(
     ?? extractLabeledDate(flat, ETIQUETAS_PLAZO_RESPUESTA);
   if (explicit) return explicit;
 
-  const vence = text.match(/vence\s+(?:el\s+)?(\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{4})/i)
-    ?? flat.match(/vence\s+(?:el\s+)?(\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{4})/i);
+  const vence = RE_VENCE_FECHA.exec(text) ?? RE_VENCE_FECHA.exec(flat);
   if (vence) {
     const d = parseFlexibleDate(vence[1]);
     if (d) return d;
@@ -299,7 +347,7 @@ function extractPlazo(
 /** Análisis completo del texto del oficio (OCR o capa PDF). */
 export function parseOficioText(text: string): OficioParse {
   const parse: OficioParse = {};
-  const flat = text.replace(/\r\n/g, '\n').replace(/\n+/g, ' ').replace(/\s+/g, ' ');
+  const flat = text.replaceAll('\r\n', '\n').replaceAll('\n', ' ').replace(/\s+/g, ' ');
 
   parse.numero_oficio = extractNumeroOficio(text);
   parse.asunto = extractAsunto(text);
