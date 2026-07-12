@@ -10,8 +10,19 @@ import { Badge, estadoTone } from '@/components/Badge';
 import { FEATURES } from '@/lib/features';
 import { labelTipoComunicacion } from '@/lib/supervision/constants';
 import { PaqueteForm } from './PaqueteForm';
+import { PaqueteDownloadLinks } from './PaqueteDownloadLinks';
 
 export const revalidate = 0;
+
+function labelEstadoSupervision(estado: string): string {
+  const map: Record<string, string> = {
+    recibida: 'Recibida',
+    en_analisis: 'En análisis',
+    atendida: 'Atendida',
+    entregada: 'Entregada',
+  };
+  return map[estado] ?? estado.replace(/_/g, ' ');
+}
 
 function estadoSupervisionTone(estado: string) {
   if (estado === 'atendida' || estado === 'entregada') return 'green' as const;
@@ -200,57 +211,100 @@ export default async function SupervisionPage() {
         {comunicaciones.length === 0 ? (
           <p className="small">No hay oficios registrados. Use <strong>Registrar oficio</strong> para cargar el PDF y extraer texto con OCR.</p>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Oficio</th>
-                <th>Tipo</th>
-                <th>Estado</th>
-                <th>Plazo</th>
-                <th>Paquete</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {comunicaciones.map((c) => {
-                const dias = diasHasta(c.fecha_limite_respuesta);
-                const plazoUrgente = c.estado !== 'atendida' && dias !== null && dias < 0;
-                const plazoProximo = c.estado !== 'atendida' && dias !== null && dias >= 0 && dias <= 7;
-                return (
-                  <tr key={c.id} style={plazoUrgente ? { background: 'var(--red-soft, #fff5f5)' } : undefined}>
+          <div className="table-wrapper">
+            <table className="table" style={{ minWidth: 880 }}>
+              <colgroup>
+                <col style={{ width: '28%' }} />
+                <col style={{ width: '22%' }} />
+                <col style={{ width: '14%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '12%' }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Oficio</th>
+                  <th>Tipo</th>
+                  <th>Estado</th>
+                  <th>Plazo</th>
+                  <th>Paquete</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {comunicaciones.map((c) => {
+                  const dias = diasHasta(c.fecha_limite_respuesta);
+                  const plazoUrgente = c.estado !== 'atendida' && dias !== null && dias < 0;
+                  const plazoProximo = c.estado !== 'atendida' && dias !== null && dias >= 0 && dias <= 7;
+                  return (
+                    <tr key={c.id} style={plazoUrgente ? { background: 'var(--red-soft, #fff5f5)' } : undefined}>
+                      <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <Link
+                              href={`/portal/supervision/${c.id}`}
+                              style={{
+                                color: '#0f3e69',
+                                fontFamily: 'Consolas, monospace',
+                                fontWeight: 700,
+                                textDecoration: 'none',
+                                wordBreak: 'break-word',
+                              }}
+                            >
+                              {c.numero_oficio ?? 'Sin número'}
+                            </Link>
+                            {plazoUrgente && <Badge tone="red">Vencido</Badge>}
+                            {plazoProximo && !plazoUrgente && <Badge tone="amber">{dias}d</Badge>}
+                          </div>
+                          {c.asunto && (
+                            <span
+                              className="small"
+                              style={{
+                                color: 'var(--muted)',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                              }}
+                              title={c.asunto}
+                            >
+                              {c.asunto}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ verticalAlign: 'top' }}>
+                        <span style={{ display: 'block', lineHeight: 1.45 }}>
+                          {labelTipoComunicacion(c.tipo_comunicacion)}
+                        </span>
+                      </td>
+                      <td style={{ verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                        <Badge tone={estadoSupervisionTone(c.estado)}>{labelEstadoSupervision(c.estado)}</Badge>
+                      </td>
+                      <td style={{ verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                        {c.fecha_limite_respuesta?.slice(0, 10) ?? '—'}
+                      </td>
+                      <td style={{ verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                        {c.paquetes_vinculados > 0 ? (
+                          <span className="small">
+                            <FileCheck size={14} style={{ verticalAlign: -2, marginRight: 4 }} />
+                            {c.paquetes_vinculados}
+                          </span>
+                        ) : (
+                          <span className="small" style={{ color: 'var(--amber)' }}>Sin paquete</span>
+                        )}
+                      </td>
                     <td>
-                      {c.numero_oficio ?? '—'}
-                      {plazoUrgente && (
-                        <Badge tone="red" className="ml-2">Vencido</Badge>
-                      )}
-                      {plazoProximo && !plazoUrgente && (
-                        <Badge tone="amber" className="ml-2">{dias}d</Badge>
-                      )}
+                      <Link href={`/portal/supervision/${c.id}`} className="btn ghost" style={{ fontSize: 12, padding: '5px 10px', minHeight: 32 }}>
+                        Ver
+                      </Link>
                     </td>
-                    <td>{labelTipoComunicacion(c.tipo_comunicacion)}</td>
-                    <td><Badge tone={estadoSupervisionTone(c.estado)}>{c.estado}</Badge></td>
-                    <td>{c.fecha_limite_respuesta?.slice(0, 10) ?? '—'}</td>
-                    <td>
-                      {c.paquetes_vinculados > 0 ? (
-                        <span className="small"><FileCheck size={14} style={{ verticalAlign: -2 }} /> {c.paquetes_vinculados}</span>
-                      ) : (
-                        <span className="small" style={{ color: 'var(--amber)' }}>Sin paquete</span>
-                      )}
-                    </td>
-                    <td>
-                      <Link href={`/portal/supervision/${c.id}`}>Ver</Link>
-                      {c.estado !== 'atendida' && (
-                        <>
-                          {' · '}
-                          <Link href={`/portal/supervision?comunicacion=${c.id}#generar-paquete`}>Paquete</Link>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -268,25 +322,29 @@ export default async function SupervisionPage() {
         {paquetes.length === 0 ? (
           <p className="small">Aún no hay paquetes.</p>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr><th>Solicitud</th><th>Estado</th><th>Fecha</th><th></th></tr>
-            </thead>
-            <tbody>
-              {paquetes.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.numero_solicitud}</td>
-                  <td><Badge tone={estadoTone(p.estado)}>{p.estado}</Badge></td>
-                  <td>{p.fecha_creacion?.slice(0, 10)}</td>
-                  <td>
-                    {p.paquete_id && (
-                      <Link href={`/api/supervision/paquetes/${p.paquete_id}/descargar`}>Descargar</Link>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="table-wrapper">
+            <table className="table" style={{ minWidth: 640 }}>
+              <thead>
+                <tr><th>Solicitud</th><th>Estado</th><th>Fecha</th><th>Descargas</th></tr>
+              </thead>
+              <tbody>
+                {paquetes.map((p) => (
+                  <tr key={p.id}>
+                    <td style={{ fontFamily: 'Consolas, monospace', fontWeight: 700 }}>{p.numero_solicitud}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}><Badge tone={estadoTone(p.estado)}>{p.estado}</Badge></td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{p.fecha_creacion?.slice(0, 10)}</td>
+                    <td>
+                      {p.paquete_id ? (
+                        <PaqueteDownloadLinks paqueteId={p.paquete_id} compact />
+                      ) : (
+                        <span className="small" style={{ color: 'var(--muted)' }}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </>

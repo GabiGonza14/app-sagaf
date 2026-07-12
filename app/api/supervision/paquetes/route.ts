@@ -171,7 +171,7 @@ export async function POST(req: Request) {
   let build = null;
   if (parsed.data.generar) {
     db.prepare(`UPDATE solicitud_paquete SET estado = 'aprobada' WHERE id = ?`).run(id);
-    build = buildPaquete(id, session.user.id);
+    build = await buildPaquete(id, session.user.id);
   }
 
   const ctx = extractRequestContext(req);

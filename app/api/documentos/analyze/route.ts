@@ -1,35 +1,27 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { extractText } from '@/lib/ocr';
+import { validarDocumentoRos } from '@/lib/ros/validar-documento';
+import type { ParteRef } from '@/lib/ros/parse-documento';
 
-const STOP_WORDS_ES = new Set([
-  'de','del','el','la','los','las','un','una','y','o','en','con','por','para',
-  'a','al','se','que','su','sus','este','esta','si','no','ya','lo','le','es',
-  'son','fue','han','hay','ser','tiene','como','mas','sin','muy',
-]);
-
-function extractKeywords(text: string): string[] {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length > 2 && !STOP_WORDS_ES.has(w));
-}
-
-// Match de palabras clave para detectar documentos equivocados. Aplica tanto a
-// la capa de texto del PDF como al OCR de imágenes: el preprocesado (sustracción
-// de fondo) hace el OCR de cédulas lo bastante fiable para validar el contenido.
-function buildContentMismatchWarning(text: string, docNombre: string, isImage: boolean): string | null {
-  const docKws = extractKeywords(docNombre);
-  if (docKws.length === 0) return null;
-
-  const textLower = text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const matched = docKws.filter((kw) => textLower.includes(kw));
-  if (matched.length > 0) return null;
-
-  return `El contenido de ${isImage ? 'la imagen' : 'el PDF'} no parece corresponder a "${docNombre}". Palabras esperadas: ${docKws.slice(0, 3).join(', ')}.`;
+function parsePartes(raw: FormDataEntryValue | null): ParteRef[] {
+  if (!raw || typeof raw !== 'string' || !raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw) as Array<{
+      identificador?: string;
+      nombre_visible?: string | null;
+      rol?: string;
+    }>;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((p) => typeof p.identificador === 'string' && p.identificador.trim().length >= 3)
+      .map((p) => ({
+        identificador: p.identificador!.trim(),
+        nombre_visible: p.nombre_visible ?? null,
+        rol: p.rol,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 export async function POST(req: Request) {
@@ -37,37 +29,50 @@ export async function POST(req: Request) {
   if (!session?.user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
 
   const form = await req.formData().catch(() => null);
-  if (!form) return NextResponse.json({ contentWarning: null });
+  if (!form) {
+    return NextResponse.json({ contentWarning: null, contentError: null, detectado: null });
+  }
 
   const file = form.get('file');
   const docNombre = String(form.get('doc_nombre') ?? '');
+  const partes = parsePartes(form.get('partes'));
 
-  if (!file || typeof file === 'string') return NextResponse.json({ contentWarning: null });
+  if (!file || typeof file === 'string') {
+    return NextResponse.json({ contentWarning: null, contentError: null, detectado: null });
+  }
 
   if ((file as File).size === 0) {
-    return NextResponse.json({ contentWarning: 'El archivo está vacío (0 bytes). Sube el documento correcto.' });
+    return NextResponse.json({
+      contentWarning: null,
+      contentError: 'El archivo está vacío (0 bytes). Sube el documento correcto.',
+      detectado: null,
+    });
   }
 
   const buffer = Buffer.from(await (file as File).arrayBuffer());
   const mime = (file as File).type;
-
-  // Analizamos PDFs e imágenes (JPG/PNG). El OCR de imágenes usa preprocesado.
   const isImage = mime === 'image/jpeg' || mime === 'image/png';
-  if (mime !== 'application/pdf' && !isImage) return NextResponse.json({ contentWarning: null });
+  if (mime !== 'application/pdf' && !isImage) {
+    return NextResponse.json({ contentWarning: null, contentError: null, detectado: null });
+  }
 
-  const tipo = isImage ? 'La imagen' : 'El PDF';
-  const result = await extractText(buffer, mime);
+  const validacion = await validarDocumentoRos(buffer, mime, {
+    docNombre: docNombre || 'Documento',
+    partes,
+    incluirSlotKeywords: Boolean(docNombre),
+  });
 
-  if (result.status === 'empty') {
+  if (validacion.block) {
     return NextResponse.json({
-      contentWarning: `${tipo} no contiene texto legible. Puede estar en blanco o no ser un documento con texto. Verifica que sea el documento correcto para "${docNombre}".`,
+      contentWarning: null,
+      contentError: validacion.error?.replace(/^\[bloqueo\]\s*/, '') ?? 'Documento no válido',
+      detectado: validacion.detectado ?? null,
     });
   }
 
-  if (result.status === 'ok' && docNombre) {
-    const warning = buildContentMismatchWarning(result.text, docNombre, isImage);
-    if (warning) return NextResponse.json({ contentWarning: warning });
-  }
-
-  return NextResponse.json({ contentWarning: null });
+  return NextResponse.json({
+    contentWarning: validacion.contentWarning ?? null,
+    contentError: null,
+    detectado: validacion.detectado ?? null,
+  });
 }

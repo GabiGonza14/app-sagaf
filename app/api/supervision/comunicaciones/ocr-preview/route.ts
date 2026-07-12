@@ -2,7 +2,8 @@
 import { NextResponse } from 'next/server';
 import { extractText } from '@/lib/ocr';
 import { requireSupervisionSo } from '@/lib/supervision/auth';
-import { hintsFromOcrText } from '@/lib/supervision/parse-oficio';
+import { parseOficioText } from '@/lib/supervision/parse-oficio';
+import { aplicarAlcanceDesdeOficio } from '@/lib/supervision/aplicar-alcance';
 
 export async function POST(req: Request) {
   const guard = await requireSupervisionSo();
@@ -10,6 +11,9 @@ export async function POST(req: Request) {
 
   const form = await req.formData();
   const file = form.get('file');
+  const tipoHint = String(form.get('tipo_comunicacion') ?? '');
+  const soTipo = String(form.get('so_tipo') ?? 'bank');
+
   if (!(file instanceof File)) {
     return NextResponse.json({ error: 'Archivo requerido' }, { status: 400 });
   }
@@ -23,22 +27,40 @@ export async function POST(req: Request) {
       return NextResponse.json({
         texto_extraido: null,
         fuente_ocr: result.source,
+        parse: {},
         sugerencias: {},
+        alcance_paquete: null,
         nota: result.status === 'empty'
           ? 'No se detectó texto legible; complete los campos manualmente.'
           : 'No se pudo procesar el archivo; complete los campos manualmente.',
       });
     }
-    const hints = hintsFromOcrText(result.text);
+
+    const parse = parseOficioText(result.text);
+    if (!parse.tipo_comunicacion && tipoHint) parse.tipo_comunicacion = tipoHint;
+
+    const tipo = parse.tipo_comunicacion ?? tipoHint ?? 'requerimiento_inicial';
+    const alcance_paquete = aplicarAlcanceDesdeOficio(parse, tipo, soTipo, {
+      numero_oficio: parse.numero_oficio,
+      asunto: parse.asunto,
+      fecha_limite_respuesta: parse.fecha_limite_respuesta,
+      fecha_oficio: parse.fecha_oficio,
+      organismo: parse.organismo,
+    });
+
     return NextResponse.json({
       texto_extraido: result.text.slice(0, 4000),
       fuente_ocr: result.source,
-      sugerencias: hints,
+      parse,
+      sugerencias: parse,
+      alcance_paquete,
     });
   } catch {
     return NextResponse.json({
       texto_extraido: null,
+      parse: {},
       sugerencias: {},
+      alcance_paquete: null,
       nota: 'OCR no disponible; complete los campos manualmente.',
     });
   }

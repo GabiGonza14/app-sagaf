@@ -1,26 +1,365 @@
-// lib/supervision/parse-oficio.ts — Heurísticas para prellenar campos desde texto OCR
-export interface OficioHints {
+// lib/supervision/parse-oficio.ts — Extracción estructurada desde texto OCR / capa PDF
+import type { TipoComunicacionId } from './constants';
+import {
+  ETIQUETAS_FECHA_OFICIO,
+  ETIQUETAS_PLAZO_RESPUESTA,
+  NUMEROS_EN_PALABRA,
+  PLAZO_DIAS_POR_TIPO,
+} from './diccionario-oficio';
+
+export interface OficioParse {
   numero_oficio?: string;
   asunto?: string;
+  organismo?: 'sbp' | 'isrnnf' | 'otro';
+  tipo_comunicacion?: TipoComunicacionId | string;
+  fecha_oficio?: string;
+  fecha_limite_respuesta?: string;
+  periodo?: { desde: string; hasta: string };
+  lista_ros?: string[];
+  items_solicitados?: string[];
 }
 
-export function hintsFromOcrText(text: string): OficioHints {
-  const hints: OficioHints = {};
-  const oficioMatch = text.match(
-    /(?:oficio|ref\.?|referencia)\s*(?:n[°º.]?\s*)?([A-Z]{2,5}[-/][A-Z0-9][\w./-]{4,40})/i,
-  );
-  if (oficioMatch) hints.numero_oficio = oficioMatch[1].trim();
+const MESES: Record<string, number> = {
+  ene: 1, enero: 1, feb: 2, febrero: 2, mar: 3, marzo: 3, abr: 4, abril: 4,
+  may: 5, mayo: 5, jun: 6, junio: 6, jul: 7, julio: 7, ago: 8, agosto: 8,
+  sep: 9, sept: 9, septiembre: 9, setiembre: 9, oct: 10, octubre: 10,
+  nov: 11, noviembre: 11, dic: 12, diciembre: 12,
+};
 
-  const sbpMatch = text.match(/\b(SBP[-/][\w./-]{4,40})\b/i);
-  if (!hints.numero_oficio && sbpMatch) hints.numero_oficio = sbpMatch[1];
+function iso(y: number, m: number, d: number): string | undefined {
+  if (m < 1 || m > 12 || d < 1 || d > 31 || y < 1990 || y > 2100) return undefined;
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
 
-  const asuntoLine = text
-    .split('\n')
-    .map((l) => l.trim())
-    .find((l) => /^asunto\s*:/i.test(l));
-  if (asuntoLine) {
-    hints.asunto = asuntoLine.replace(/^asunto\s*:\s*/i, '').slice(0, 200);
+export function parseFlexibleDate(raw: string): string | undefined {
+  const s = raw.trim().replace(/\s+/g, ' ');
+  if (!s) return undefined;
+
+  const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return iso(+isoMatch[1], +isoMatch[2], +isoMatch[3]);
+
+  const ymdSlash = s.match(/^(\d{4})[/.-](\d{1,2})[/.-](\d{1,2})$/);
+  if (ymdSlash) return iso(+ymdSlash[1], +ymdSlash[2], +ymdSlash[3]);
+
+  const dmy = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  if (dmy) return iso(+dmy[3], +dmy[2], +dmy[1]);
+
+  const dmyShort = s.match(/^(\d{1,2})[-/]([a-záéíóúñ]{3,})[-/](\d{4})$/i);
+  if (dmyShort) {
+    const key = dmyShort[2].toLowerCase();
+    const m = MESES[key] ?? MESES[key.slice(0, 3)];
+    if (m) return iso(+dmyShort[3], m, +dmyShort[1]);
   }
 
-  return hints;
+  const verbal = s.match(/(\d{1,2})\s+de\s+([a-záéíóúñ]+)\s+de\s+(\d{4})/i);
+  if (verbal) {
+    const key = verbal[2].toLowerCase();
+    const m = MESES[key] ?? MESES[key.slice(0, 3)];
+    if (m) return iso(+verbal[3], m, +verbal[1]);
+  }
+  return undefined;
+}
+
+function extractDateFromFragment(fragment: string): string | undefined {
+  const cleaned = fragment.trim().replace(/[.;]+$/, '');
+  return parseFlexibleDate(cleaned)
+    ?? parseFlexibleDate(cleaned.match(/(\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{4})/i)?.[1] ?? '')
+    ?? parseFlexibleDate(cleaned.match(/(\d{1,2}[/.-]\d{1,2}[/.-]\d{4})/)?.[1] ?? '')
+    ?? parseFlexibleDate(cleaned.match(/(\d{4}-\d{2}-\d{2})/)?.[1] ?? '');
+}
+
+function extractLabeledDate(text: string, labels: readonly string[]): string | undefined {
+  for (const label of labels) {
+    const re = new RegExp(`${label}\\s*[:\\-—]?\\s*([^\\n.;]{4,55})`, 'i');
+    const m = text.match(re);
+    if (m) {
+      const d = extractDateFromFragment(m[1]);
+      if (d) return d;
+    }
+  }
+  return undefined;
+}
+
+function extractFechaCiudadVerbal(text: string): string | undefined {
+  const patterns = [
+    /ciudad\s+de\s+panam[aá]\s*,\s*(\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{4})/i,
+    /panam[aá]\s*,\s*(\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{4})/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) {
+      const d = parseFlexibleDate(m[1]);
+      if (d) return d;
+    }
+  }
+  const head = text.slice(0, 900);
+  const firstVerbal = head.match(/\b(\d{1,2}\s+de\s+(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+de\s+\d{4})\b/i);
+  if (firstVerbal) {
+    const d = parseFlexibleDate(firstVerbal[1]);
+    if (d) return d;
+  }
+  return undefined;
+}
+
+function extractFechaOficio(text: string, flat: string): string | undefined {
+  return extractLabeledDate(text, ETIQUETAS_FECHA_OFICIO)
+    ?? extractLabeledDate(flat, ETIQUETAS_FECHA_OFICIO)
+    ?? extractFechaCiudadVerbal(text)
+    ?? extractFechaCiudadVerbal(flat);
+}
+
+function extractNumeroOficio(text: string): string | undefined {
+  const patterns = [
+    /(?:oficio|ref\.?|referencia)\s*(?:n[°º.]?\s*)?([A-Z]{2,5}[-/][A-Z0-9][\w./-]{4,40})/i,
+    /\b(SBP[-/][\w./-]{4,40})\b/i,
+    /\b(UAF[-/][\w./-]{4,40})\b/i,
+    /\b(ISRNNF[-/][\w./-]{4,40})\b/i,
+  ];
+  for (const p of patterns) {
+    const m = text.match(p);
+    if (m) return m[1].trim();
+  }
+  return undefined;
+}
+
+function extractAsunto(text: string): string | undefined {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    const m = line.match(/^asunto\s*[:\-—]\s*(.+)$/i);
+    if (m) return m[1].slice(0, 220);
+  }
+  const inline = text.match(/asunto\s*[:\-—]\s*([^\n]{8,220})/i);
+  return inline?.[1]?.trim();
+}
+
+function extractPeriodo(text: string): { desde: string; hasta: string } | undefined {
+  const rango1 = text.match(
+    /(?:entre|del?)\s*(?:el\s*)?(\d{1,2}[-/][a-z]{3,}[-/]\d{4}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})\s*(?:y|al?|hasta)\s*(?:el\s*)?(\d{1,2}[-/][a-z]{3,}[-/]\d{4}|\d{1,2}[/.-]\d{1,2}[/.-]\d{4})/i,
+  );
+  if (rango1) {
+    const desde = parseFlexibleDate(rango1[1]);
+    const hasta = parseFlexibleDate(rango1[2]);
+    if (desde && hasta) return { desde, hasta };
+  }
+
+  const mesesRango = text.match(
+    /(?:periodo\s+)?([a-záéíóú]+)\s*[-–a]\s*([a-záéíóú]+)\s+(?:de\s+)?(\d{4})/i,
+  );
+  if (mesesRango) {
+    const m1 = MESES[mesesRango[1].toLowerCase()];
+    const m2 = MESES[mesesRango[2].toLowerCase()];
+    const y = +mesesRango[3];
+    if (m1 && m2) {
+      const desde = iso(y, m1, 1);
+      const hasta = iso(y, m2, new Date(y, m2, 0).getDate());
+      if (desde && hasta) return { desde, hasta };
+    }
+  }
+
+  const entreMeses = text.match(
+    /entre\s+(?:el\s+)?(\d{1,2})[-/]([a-z]{3,})[-/](\d{4})\s+y\s+(?:el\s+)?(\d{1,2})[-/]([a-z]{3,})[-/](\d{4})/i,
+  );
+  if (entreMeses) {
+    const m1 = MESES[entreMeses[2].toLowerCase()] ?? MESES[entreMeses[2].toLowerCase().slice(0, 3)];
+    const m2 = MESES[entreMeses[5].toLowerCase()] ?? MESES[entreMeses[5].toLowerCase().slice(0, 3)];
+    if (m1 && m2) {
+      const desde = iso(+entreMeses[3], m1, +entreMeses[1]);
+      const hasta = iso(+entreMeses[6], m2, +entreMeses[4]);
+      if (desde && hasta) return { desde, hasta };
+    }
+  }
+  return undefined;
+}
+
+function extractRosList(text: string): string[] {
+  const found = new Set<string>();
+  const re = /\b(ROS-\d{4}-\d{5,6})\b/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    found.add(m[1].toUpperCase());
+  }
+  return [...found];
+}
+
+function extractItems(text: string): string[] {
+  const items: string[] = [];
+  const lines = text.split('\n');
+  for (const line of lines) {
+    const t = line.trim();
+    const num = t.match(/^\d{1,2}[\.)]\s+(.+)$/);
+    if (num && num[1].length > 8) items.push(num[1].trim());
+    const bullet = t.match(/^[•\-*]\s+(.+)$/);
+    if (bullet && bullet[1].length > 8) items.push(bullet[1].trim());
+  }
+  return items.slice(0, 15);
+}
+
+function inferOrganismo(text: string): OficioParse['organismo'] {
+  const u = text.toUpperCase();
+  if (u.includes('SUPERINTENDENCIA DE BANCOS') || /\bSBP\b/.test(u)) return 'sbp';
+  if (u.includes('ISRNNF') || u.includes('NO FINANCIER')) return 'isrnnf';
+  if (u.includes('UNIDAD DE ANÁLISIS FINANCIERO') || u.includes('UNIDAD DE ANALISIS FINANCIERO') || /\bUAF\b/.test(u)) return 'otro';
+  return undefined;
+}
+
+function inferTipo(text: string): string | undefined {
+  const u = text.toLowerCase();
+  if (u.includes('requerimiento complementario') || u.includes('complementando el requerimiento')) {
+    return 'requerimiento_complementario';
+  }
+  if (u.includes('requerimiento inicial')) return 'requerimiento_inicial';
+  if (u.includes('inspección ordinaria') || u.includes('inspeccion ordinaria')) return 'inspeccion_ordinaria';
+  if (u.includes('citación') || u.includes('citacion')) return 'citacion_funcionarios';
+  if (u.includes('plan de acción') || u.includes('plan de accion')) return 'plan_accion';
+  if (u.includes('informe preliminar')) return 'informe_preliminar';
+  if (u.includes('informe final')) return 'informe_final';
+  if (u.includes('seguimiento')) return 'seguimiento';
+  if (u.includes('cierre de supervisión') || u.includes('cierre de supervision')) return 'cierre_supervision';
+  return undefined;
+}
+
+export function plazoFromDiasHabiles(fechaOficio: string, dias: number): string {
+  const d = new Date(fechaOficio + 'T12:00:00');
+  let added = 0;
+  const limit = Math.min(Math.max(dias, 1), 90);
+  while (added < limit) {
+    d.setDate(d.getDate() + 1);
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) added++;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+function parseDiasHabilesMencionados(text: string): number | undefined {
+  const paren = text.match(/\((\d{1,3})\)\s*d[ií]as?\s*h[aá]biles/i);
+  if (paren) return Math.min(+paren[1], 90);
+
+  const num = text.match(/(\d{1,3})\s*\(?\d{0,3}\)?\s*d[ií]as?\s*h[aá]biles/i);
+  if (num) return Math.min(+num[1], 90);
+
+  const wordMatch = text.match(/([a-záéíóúñ\s]+?)\s*\(\d{1,3}\)\s*d[ií]as?\s*h[aá]biles/i)
+    ?? text.match(/([a-záéíóúñ]+)\s+d[ií]as?\s+h[aá]biles/i);
+  if (wordMatch) {
+    const phrase = wordMatch[1].trim().toLowerCase();
+    if (NUMEROS_EN_PALABRA[phrase] != null) return NUMEROS_EN_PALABRA[phrase];
+    const tokens = phrase.split(/\s+/);
+    const last = tokens[tokens.length - 1];
+    if (NUMEROS_EN_PALABRA[last] != null) return NUMEROS_EN_PALABRA[last];
+  }
+  return undefined;
+}
+
+function extractPlazo(
+  text: string,
+  flat: string,
+  fechaOficio?: string,
+  tipoComunicacion?: string,
+): string | undefined {
+  const explicit = extractLabeledDate(text, ETIQUETAS_PLAZO_RESPUESTA)
+    ?? extractLabeledDate(flat, ETIQUETAS_PLAZO_RESPUESTA);
+  if (explicit) return explicit;
+
+  const vence = text.match(/vence\s+(?:el\s+)?(\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{4})/i)
+    ?? flat.match(/vence\s+(?:el\s+)?(\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{4})/i);
+  if (vence) {
+    const d = parseFlexibleDate(vence[1]);
+    if (d) return d;
+  }
+
+  const dias = parseDiasHabilesMencionados(text) ?? parseDiasHabilesMencionados(flat);
+  if (dias && fechaOficio) {
+    return plazoFromDiasHabiles(fechaOficio, dias);
+  }
+
+  if (fechaOficio && tipoComunicacion && PLAZO_DIAS_POR_TIPO[tipoComunicacion]) {
+    const hint = text.toLowerCase().includes('plazo de respuesta')
+      || flat.toLowerCase().includes('plazo de respuesta')
+      || text.toLowerCase().includes('días hábiles')
+      || text.toLowerCase().includes('dias habiles');
+    if (hint) {
+      return plazoFromDiasHabiles(fechaOficio, PLAZO_DIAS_POR_TIPO[tipoComunicacion]);
+    }
+  }
+  return undefined;
+}
+
+/** Análisis completo del texto del oficio (OCR o capa PDF). */
+export function parseOficioText(text: string): OficioParse {
+  const parse: OficioParse = {};
+  const flat = text.replace(/\r\n/g, '\n').replace(/\n+/g, ' ').replace(/\s+/g, ' ');
+
+  parse.numero_oficio = extractNumeroOficio(text);
+  parse.asunto = extractAsunto(text);
+  parse.organismo = inferOrganismo(text);
+  parse.tipo_comunicacion = inferTipo(text);
+
+  parse.fecha_oficio = extractFechaOficio(text, flat);
+  parse.fecha_limite_respuesta = extractPlazo(
+    text,
+    flat,
+    parse.fecha_oficio,
+    parse.tipo_comunicacion,
+  );
+
+  parse.periodo = extractPeriodo(flat) ?? extractPeriodo(text.replace(/\n/g, ' '));
+  parse.lista_ros = extractRosList(text);
+  const items = extractItems(text);
+  if (items.length > 0) parse.items_solicitados = items;
+
+  return parse;
+}
+
+/** Combina valores guardados con re-parse; prioriza fechas detectadas en texto. */
+export function mergeOficioParse(stored: OficioParse, fresh: OficioParse): OficioParse {
+  return {
+    ...stored,
+    ...fresh,
+    periodo: fresh.periodo ?? stored.periodo,
+    lista_ros: fresh.lista_ros?.length ? fresh.lista_ros : stored.lista_ros,
+    items_solicitados: fresh.items_solicitados?.length ? fresh.items_solicitados : stored.items_solicitados,
+    numero_oficio: fresh.numero_oficio ?? stored.numero_oficio,
+    asunto: fresh.asunto ?? stored.asunto,
+    organismo: fresh.organismo ?? stored.organismo,
+    tipo_comunicacion: fresh.tipo_comunicacion ?? stored.tipo_comunicacion,
+    fecha_oficio: fresh.fecha_oficio ?? stored.fecha_oficio,
+    fecha_limite_respuesta: fresh.fecha_limite_respuesta ?? stored.fecha_limite_respuesta,
+  };
+}
+
+/** Fechas efectivas: columna BD o parse OCR. */
+export function fechasEfectivasComunicacion(
+  row: { fecha_oficio?: string | null; fecha_limite_respuesta?: string | null },
+  parse: OficioParse,
+): { fecha_oficio: string | null; fecha_limite_respuesta: string | null } {
+  return {
+    fecha_oficio: row.fecha_oficio?.slice(0, 10) ?? parse.fecha_oficio ?? null,
+    fecha_limite_respuesta: row.fecha_limite_respuesta?.slice(0, 10) ?? parse.fecha_limite_respuesta ?? null,
+  };
+}
+
+/** @deprecated usar parseOficioText */
+export function hintsFromOcrText(text: string): OficioParse {
+  return parseOficioText(text);
+}
+
+export function parseFromTextoOcrJson(raw: string | null | undefined): OficioParse {
+  if (!raw) return {};
+  try {
+    const j = JSON.parse(raw) as {
+      parse?: OficioParse;
+      sugerencias?: OficioParse;
+      texto_extraido?: string;
+    };
+    const texto = j.texto_extraido;
+    const stored = (j.parse ?? j.sugerencias) as OficioParse | undefined;
+    if (texto) {
+      const fresh = parseOficioText(texto);
+      if (stored && typeof stored === 'object') return mergeOficioParse(stored, fresh);
+      return fresh;
+    }
+    if (stored && typeof stored === 'object') return stored;
+  } catch {
+    /* ignore */
+  }
+  return {};
 }

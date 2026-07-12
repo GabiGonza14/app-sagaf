@@ -8,6 +8,12 @@ import { resolveRosAlcance, type AlcanceInput } from './alcance';
 import { parseDetalleJson, type DetallePaquete } from './detalle';
 import { indiceDocsRos } from './preview';
 import { labelTipoComunicacion } from './constants';
+import {
+  generateReportePdf,
+  pdfNombreFromJsonNombre,
+  pdfPathFromJsonPath,
+  type PaqueteManifest,
+} from './reporte-pdf';
 
 export interface BuildResult {
   paqueteId: string;
@@ -93,7 +99,7 @@ function exportLogSubset(numerosRos: string[], incluir: boolean) {
   ).all(...numerosRos);
 }
 
-export function buildPaquete(solicitudId: string, userId: string): BuildResult {
+export async function buildPaquete(solicitudId: string, userId: string): Promise<BuildResult> {
   const sol = db.prepare(`SELECT * FROM solicitud_paquete WHERE id = ?`).get(solicitudId) as AlcanceInput & {
     id: string;
     numero_solicitud: string;
@@ -136,7 +142,7 @@ export function buildPaquete(solicitudId: string, userId: string): BuildResult {
 
   const logEventos = exportLogSubset(numeros, sol.incluir_log === 1);
 
-  const payload = {
+  const payload: PaqueteManifest = {
     manifiesto: {
       version: '1.0',
       solicitud: sol.numero_solicitud,
@@ -158,9 +164,9 @@ export function buildPaquete(solicitudId: string, userId: string): BuildResult {
       ? {
           numero: com.numero_oficio,
           tipo: labelTipoComunicacion(com.tipo_comunicacion ?? ''),
-          tipo_id: com.tipo_comunicacion,
+          tipo_id: com.tipo_comunicacion ?? undefined,
           asunto: com.asunto,
-          organismo: com.organismo,
+          organismo: com.organismo ?? 'sbp',
           fecha_oficio: com.fecha_oficio,
           plazo_respuesta: com.fecha_limite_respuesta,
         }
@@ -183,7 +189,7 @@ export function buildPaquete(solicitudId: string, userId: string): BuildResult {
       indice_cumplimiento: det.incluir_indice_cumplimiento,
     },
     expedientes,
-    trazabilidad: logEventos,
+    trazabilidad: logEventos as Array<Record<string, unknown>>,
     nota_legal:
       'Paquete de supervisión generado por el Sujeto Obligado. Uso exclusivo para atender requerimiento formal. No constituye acceso continuo al sistema.',
   };
@@ -197,6 +203,12 @@ export function buildPaquete(solicitudId: string, userId: string): BuildResult {
   writeFileSync(ruta, body, 'utf8');
 
   const hash = createHash('sha256').update(body).digest('hex');
+
+  const pdfNombre = pdfNombreFromJsonNombre(nombre);
+  const rutaPdf = pdfPathFromJsonPath(ruta);
+  const pdfBuffer = await generateReportePdf(payload, hash);
+  writeFileSync(rutaPdf, pdfBuffer);
+
   const paqueteId = randomUUID();
 
   db.prepare(
@@ -209,7 +221,7 @@ export function buildPaquete(solicitudId: string, userId: string): BuildResult {
     nombre,
     hash,
     Buffer.byteLength(body),
-    JSON.stringify({ ros: numeros.length, eventos_log: logEventos.length, hash }),
+    JSON.stringify({ ros: numeros.length, eventos_log: logEventos.length, hash, pdf: pdfNombre }),
     userId,
   );
 
@@ -227,6 +239,6 @@ export function buildPaquete(solicitudId: string, userId: string): BuildResult {
     nombre,
     hash,
     tamano: Buffer.byteLength(body),
-    resumen: { ros: numeros.length, eventos_log: logEventos.length },
+    resumen: { ros: numeros.length, eventos_log: logEventos.length, pdf: pdfNombre },
   };
 }

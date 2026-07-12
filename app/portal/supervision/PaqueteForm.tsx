@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { NIVELES_CONTENIDO, labelTipoComunicacion } from '@/lib/supervision/constants';
 import { sugerenciaPaquete } from '@/lib/supervision/catalogo';
+import type { AlcanceFormSugerido } from '@/lib/supervision/aplicar-alcance';
 import { EntregaForm } from './EntregaForm';
+import { PaqueteDownloadLinks } from './PaqueteDownloadLinks';
 
 interface Comunicacion {
   id: string;
@@ -43,32 +44,93 @@ interface Props {
   responsableNombre: string;
 }
 
-function bodyFromForm(fd: FormData) {
-  const lista = (fd.get('lista_ros') as string)
+function itemsToText(items: string[]): string {
+  return items.map((i) => (i.startsWith('•') ? i : `• ${i}`)).join('\n');
+}
+
+function applyAlcance(
+  alcance: AlcanceFormSugerido,
+  setters: {
+    setAlcanceTipo: (v: string) => void;
+    setFechaDesde: (v: string) => void;
+    setFechaHasta: (v: string) => void;
+    setListaRos: (v: string) => void;
+    setTamanoMuestra: (v: number) => void;
+    setNivelContenido: (v: string) => void;
+    setItemsText: (v: string) => void;
+    setFundamento: (v: string) => void;
+    setNotas: (v: string) => void;
+    setIncluirDocumentos: (v: boolean) => void;
+    setIncluirLog: (v: boolean) => void;
+    setIncluirPartes: (v: boolean) => void;
+    setIncluirRiesgo: (v: boolean) => void;
+    setIncluirSubsanaciones: (v: boolean) => void;
+    setIncluirIndice: (v: boolean) => void;
+  },
+) {
+  setters.setAlcanceTipo(alcance.alcance_tipo);
+  if (alcance.fecha_desde) setters.setFechaDesde(alcance.fecha_desde);
+  if (alcance.fecha_hasta) setters.setFechaHasta(alcance.fecha_hasta);
+  if (alcance.lista_ros?.length) setters.setListaRos(alcance.lista_ros.join('\n'));
+  if (alcance.tamano_muestra) setters.setTamanoMuestra(alcance.tamano_muestra);
+  setters.setNivelContenido(alcance.nivel_contenido);
+  if (alcance.items_solicitados.length) setters.setItemsText(itemsToText(alcance.items_solicitados));
+  if (alcance.fundamento_alcance) setters.setFundamento(alcance.fundamento_alcance);
+  if (alcance.notas_regulatorio) setters.setNotas(alcance.notas_regulatorio);
+  setters.setIncluirDocumentos(alcance.incluir_documentos);
+  setters.setIncluirLog(alcance.incluir_log);
+  setters.setIncluirPartes(alcance.incluir_partes);
+  setters.setIncluirRiesgo(alcance.incluir_riesgo);
+  setters.setIncluirSubsanaciones(alcance.incluir_subsanaciones);
+  setters.setIncluirIndice(alcance.incluir_indice_cumplimiento);
+}
+
+function bodyFromState(state: {
+  comId: string;
+  tituloRespuesta: string;
+  responsableNombre: string;
+  responsableCargo: string;
+  itemsText: string;
+  fundamento: string;
+  notas: string;
+  alcanceTipo: string;
+  fechaDesde: string;
+  fechaHasta: string;
+  listaRos: string;
+  tamanoMuestra: number;
+  nivelContenido: string;
+  incluirIndice: boolean;
+  incluirDocumentos: boolean;
+  incluirPartes: boolean;
+  incluirRiesgo: boolean;
+  incluirSubsanaciones: boolean;
+  incluirLog: boolean;
+}) {
+  const lista = state.listaRos
     .split(/[\n,]/)
     .map((s) => s.trim())
     .filter(Boolean);
 
   return {
-    comunicacion_id: (fd.get('comunicacion_id') as string) || undefined,
-    titulo_respuesta: (fd.get('titulo_respuesta') as string) || undefined,
-    items_solicitados_texto: (fd.get('items_solicitados') as string) || undefined,
-    fundamento_alcance: (fd.get('fundamento_alcance') as string) || undefined,
-    notas_regulatorio: (fd.get('notas_regulatorio') as string) || undefined,
-    responsable_nombre: (fd.get('responsable_nombre') as string) || undefined,
-    responsable_cargo: (fd.get('responsable_cargo') as string) || undefined,
-    alcance_tipo: fd.get('alcance_tipo'),
-    fecha_desde: (fd.get('fecha_desde') as string) || undefined,
-    fecha_hasta: (fd.get('fecha_hasta') as string) || undefined,
+    comunicacion_id: state.comId || undefined,
+    titulo_respuesta: state.tituloRespuesta || undefined,
+    items_solicitados_texto: state.itemsText || undefined,
+    fundamento_alcance: state.fundamento || undefined,
+    notas_regulatorio: state.notas || undefined,
+    responsable_nombre: state.responsableNombre || undefined,
+    responsable_cargo: state.responsableCargo || undefined,
+    alcance_tipo: state.alcanceTipo,
+    fecha_desde: state.fechaDesde || undefined,
+    fecha_hasta: state.fechaHasta || undefined,
     lista_ros: lista.length ? lista : undefined,
-    tamano_muestra: fd.get('tamano_muestra') ? Number(fd.get('tamano_muestra')) : undefined,
-    nivel_contenido: fd.get('nivel_contenido'),
-    incluir_log: fd.get('incluir_log') === 'on',
-    incluir_documentos: fd.get('incluir_documentos') === 'on',
-    incluir_partes: fd.get('incluir_partes') === 'on',
-    incluir_riesgo: fd.get('incluir_riesgo') === 'on',
-    incluir_subsanaciones: fd.get('incluir_subsanaciones') === 'on',
-    incluir_indice_cumplimiento: fd.get('incluir_indice_cumplimiento') === 'on',
+    tamano_muestra: state.alcanceTipo === 'muestra' ? state.tamanoMuestra : undefined,
+    nivel_contenido: state.nivelContenido,
+    incluir_log: state.incluirLog,
+    incluir_documentos: state.incluirDocumentos,
+    incluir_partes: state.incluirPartes,
+    incluir_riesgo: state.incluirRiesgo,
+    incluir_subsanaciones: state.incluirSubsanaciones,
+    incluir_indice_cumplimiento: state.incluirIndice,
   };
 }
 
@@ -78,9 +140,28 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
 
   const [comId, setComId] = useState(defaultCom);
   const [alcanceTipo, setAlcanceTipo] = useState('periodo');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
+  const [listaRos, setListaRos] = useState('');
+  const [tamanoMuestra, setTamanoMuestra] = useState(10);
+  const [nivelContenido, setNivelContenido] = useState('resumido');
   const [itemsText, setItemsText] = useState('');
+  const [fundamento, setFundamento] = useState('');
+  const [notas, setNotas] = useState('');
+  const [tituloRespuesta, setTituloRespuesta] = useState('');
+  const [responsableCargo, setResponsableCargo] = useState('Oficial de Cumplimiento');
+  const [incluirIndice, setIncluirIndice] = useState(true);
+  const [incluirDocumentos, setIncluirDocumentos] = useState(true);
+  const [incluirPartes, setIncluirPartes] = useState(true);
+  const [incluirRiesgo, setIncluirRiesgo] = useState(true);
+  const [incluirSubsanaciones, setIncluirSubsanaciones] = useState(true);
+  const [incluirLog, setIncluirLog] = useState(false);
+
   const [busy, setBusy] = useState(false);
+  const [loadingAlcance, setLoadingAlcance] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [alcanceNota, setAlcanceNota] = useState<string | null>(null);
+  const [alcanceSugerido, setAlcanceSugerido] = useState<AlcanceFormSugerido | null>(null);
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [result, setResult] = useState<{ numero: string; paqueteId?: string } | null>(null);
 
@@ -94,20 +175,118 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
     [com, soTipo],
   );
 
-  useEffect(() => {
-    if (!sugerencia || !com) return;
-    setAlcanceTipo(sugerencia.alcance_tipo);
-    setItemsText(sugerencia.items.map((i) => `• ${i}`).join('\n'));
-  }, [com?.id, sugerencia, com]);
+  const alcanceSetters = {
+    setAlcanceTipo,
+    setFechaDesde,
+    setFechaHasta,
+    setListaRos,
+    setTamanoMuestra,
+    setNivelContenido,
+    setItemsText,
+    setFundamento,
+    setNotas,
+    setIncluirDocumentos,
+    setIncluirLog,
+    setIncluirPartes,
+    setIncluirRiesgo,
+    setIncluirSubsanaciones,
+    setIncluirIndice,
+  };
 
-  async function runPreview(fd: FormData) {
+  useEffect(() => {
+    if (!comId) {
+      setAlcanceNota(null);
+      return;
+    }
+
+    const comLocal = comunicaciones.find((c) => c.id === comId);
+    if (comLocal) {
+      setTituloRespuesta(
+        `Respuesta a oficio ${comLocal.numero_oficio ?? ''} — ${labelTipoComunicacion(comLocal.tipo_comunicacion)}`.trim(),
+      );
+    }
+
+    let cancelled = false;
+    setLoadingAlcance(true);
+    setAlcanceNota(null);
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/supervision/comunicaciones/${comId}`);
+        const data = await res.json();
+        if (cancelled || !res.ok) return;
+
+        if (data.alcance_paquete) {
+          const sugerido = data.alcance_paquete as AlcanceFormSugerido;
+          setAlcanceSugerido(sugerido);
+          applyAlcance(sugerido, alcanceSetters);
+          const partes: string[] = [];
+          const a = sugerido;
+          if (a.fecha_desde && a.fecha_hasta) {
+            partes.push(`Periodo: ${a.fecha_desde} → ${a.fecha_hasta}`);
+          }
+          if (a.lista_ros?.length) {
+            partes.push(`${a.lista_ros.length} ROS detectados en el oficio`);
+          }
+          if (partes.length) {
+            setAlcanceNota(`Autocompletado desde OCR: ${partes.join(' · ')}`);
+          } else if (sugerenciaPaquete(data.tipo_comunicacion, soTipo)) {
+            setAlcanceNota('Campos sugeridos según tipo de comunicación y catálogo regulatorio.');
+          }
+        } else if (comLocal) {
+          const cat = sugerenciaPaquete(comLocal.tipo_comunicacion, soTipo);
+          setAlcanceTipo(cat.alcance_tipo);
+          setItemsText(itemsToText(cat.items));
+          setNivelContenido(cat.nivel_contenido);
+          setTamanoMuestra(cat.tamano_muestra ?? 10);
+          setIncluirDocumentos(cat.incluir_documentos);
+          setIncluirLog(cat.incluir_log);
+          setIncluirPartes(cat.incluir_partes);
+          setIncluirRiesgo(cat.incluir_riesgo);
+          setIncluirSubsanaciones(cat.incluir_subsanaciones);
+          setIncluirIndice(cat.incluir_indice_cumplimiento);
+          setAlcanceNota('Sugerencia según tipo de comunicación (sin datos OCR).');
+        }
+      } finally {
+        if (!cancelled) setLoadingAlcance(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al cambiar oficio
+  }, [comId, comunicaciones, soTipo]);
+
+  async function runPreview() {
     setError(null);
     setBusy(true);
     try {
       const res = await fetch('/api/supervision/paquetes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...bodyFromForm(fd), solo_preview: true }),
+        body: JSON.stringify({
+          ...bodyFromState({
+            comId,
+            tituloRespuesta,
+            responsableNombre,
+            responsableCargo,
+            itemsText,
+            fundamento,
+            notas,
+            alcanceTipo,
+            fechaDesde,
+            fechaHasta,
+            listaRos,
+            tamanoMuestra,
+            nivelContenido,
+            incluirIndice,
+            incluirDocumentos,
+            incluirPartes,
+            incluirRiesgo,
+            incluirSubsanaciones,
+            incluirLog,
+          }),
+          solo_preview: true,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -127,11 +306,33 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
     setError(null);
     setBusy(true);
     try {
-      const fd = new FormData(e.currentTarget);
       const res = await fetch('/api/supervision/paquetes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...bodyFromForm(fd), generar: true }),
+        body: JSON.stringify({
+          ...bodyFromState({
+            comId,
+            tituloRespuesta,
+            responsableNombre,
+            responsableCargo,
+            itemsText,
+            fundamento,
+            notas,
+            alcanceTipo,
+            fechaDesde,
+            fechaHasta,
+            listaRos,
+            tamanoMuestra,
+            nivelContenido,
+            incluirIndice,
+            incluirDocumentos,
+            incluirPartes,
+            incluirRiesgo,
+            incluirSubsanaciones,
+            incluirLog,
+          }),
+          generar: true,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -149,22 +350,17 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
     (p) => p.paquete_id && p.estado === 'generada' && (p.entregas ?? 0) === 0,
   );
 
-  const tituloDefault = com
-    ? `Respuesta a oficio ${com.numero_oficio ?? ''} — ${labelTipoComunicacion(com.tipo_comunicacion)}`.trim()
-    : '';
-
   return (
     <>
       <div className="card" style={{ marginTop: 18 }} id="generar-paquete">
         <h3 style={{ marginTop: 0 }}>Armar paquete de respuesta a supervisión</h3>
         <p className="small">
-          Documente qué ítems del oficio atiende, defina el alcance de expedientes y qué evidencia incluir.
-          El JSON generado es el manifiesto formal; documentos fuera de SAGAF se anexan manualmente al envío.
+          Seleccione el oficio: el sistema cargará periodo, lista de ROS y demás campos desde el OCR guardado.
+          Revise antes de generar el manifiesto.
         </p>
 
         <form onSubmit={onGenerate}>
           <div className="form-grid">
-            {/* —— Oficio —— */}
             <div className="field full">
               <label>1. Oficio / comunicación vinculada</label>
               <select
@@ -179,11 +375,30 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
                   </option>
                 ))}
               </select>
+              {loadingAlcance && <p className="small" style={{ marginTop: 6 }}>Cargando alcance desde el oficio…</p>}
             </div>
+
+            {alcanceNota && (
+              <div className="notice" style={{ gridColumn: '1 / -1' }}>
+                <strong>Alcance detectado</strong>
+                <p className="small" style={{ margin: '6px 0 0' }}>{alcanceNota}</p>
+                {alcanceSugerido && (
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    style={{ marginTop: 10, fontSize: 12, padding: '6px 12px' }}
+                    disabled={loadingAlcance}
+                    onClick={() => applyAlcance(alcanceSugerido, alcanceSetters)}
+                  >
+                    Volver a llenar desde el oficio
+                  </button>
+                )}
+              </div>
+            )}
 
             {com && sugerencia && (
               <div className="notice" style={{ gridColumn: '1 / -1' }}>
-                <strong>Sugerencia según tipo de comunicación ({soTipo === 'bank' ? 'banco' : soTipo}):</strong>
+                <strong>Sugerencia según tipo ({soTipo === 'bank' ? 'banco' : soTipo}):</strong>
                 <p className="small" style={{ margin: '6px 0' }}>{sugerencia.resumen}</p>
                 {sugerencia.fuera_de_sagaf && sugerencia.fuera_de_sagaf.length > 0 && (
                   <p className="small" style={{ margin: 0 }}>
@@ -203,22 +418,26 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
               </div>
             )}
 
-            {/* —— Identificación de la respuesta —— */}
             <div className="field full">
               <label>2. Título de la respuesta</label>
               <input
                 name="titulo_respuesta"
-                defaultValue={tituloDefault}
+                value={tituloRespuesta}
+                onChange={(e) => setTituloRespuesta(e.target.value)}
                 placeholder="Respuesta a requerimiento inicial — inspección 2026"
               />
             </div>
             <div className="field">
               <label>Responsable (OC)</label>
-              <input name="responsable_nombre" defaultValue={responsableNombre} />
+              <input name="responsable_nombre" value={responsableNombre} readOnly />
             </div>
             <div className="field">
               <label>Cargo</label>
-              <input name="responsable_cargo" defaultValue="Oficial de Cumplimiento" />
+              <input
+                name="responsable_cargo"
+                value={responsableCargo}
+                onChange={(e) => setResponsableCargo(e.target.value)}
+              />
             </div>
 
             <div className="field full">
@@ -232,7 +451,6 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
               />
             </div>
 
-            {/* —— Alcance —— */}
             <div className="field">
               <label>4. Alcance de expedientes</label>
               <select
@@ -247,22 +465,44 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
             </div>
             <div className="field">
               <label>Nivel de contenido</label>
-              <select name="nivel_contenido" defaultValue={sugerencia?.nivel_contenido ?? 'resumido'}>
+              <select
+                name="nivel_contenido"
+                value={nivelContenido}
+                onChange={(e) => setNivelContenido(e.target.value)}
+              >
                 {NIVELES_CONTENIDO.map((n) => (
                   <option key={n.id} value={n.id}>{n.label}</option>
                 ))}
               </select>
             </div>
 
-            {(alcanceTipo === 'periodo') && (
+            {alcanceTipo === 'periodo' && (
               <>
                 <div className="field">
                   <label>Recepción desde</label>
-                  <input type="date" name="fecha_desde" required />
+                  <input
+                    type="date"
+                    name="fecha_desde"
+                    required
+                    value={fechaDesde}
+                    onChange={(e) => setFechaDesde(e.target.value)}
+                  />
+                  <p className="small" style={{ margin: '6px 0 0', color: 'var(--muted)' }}>
+                    Primera fecha en que el banco <em>recibió</em> el ROS en SAGAF (no la fecha del hecho).
+                    Suele coincidir con el periodo que pide el oficio.
+                  </p>
                 </div>
                 <div className="field">
                   <label>Recepción hasta</label>
-                  <input type="date" name="fecha_hasta" />
+                  <input
+                    type="date"
+                    name="fecha_hasta"
+                    value={fechaHasta}
+                    onChange={(e) => setFechaHasta(e.target.value)}
+                  />
+                  <p className="small" style={{ margin: '6px 0 0', color: 'var(--muted)' }}>
+                    Último día del periodo solicitado. Ejemplo demo SBP-01: 2026-01-01 a 2026-06-30.
+                  </p>
                 </div>
               </>
             )}
@@ -275,7 +515,8 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
                   name="tamano_muestra"
                   min={1}
                   max={20}
-                  defaultValue={sugerencia?.tamano_muestra ?? 10}
+                  value={tamanoMuestra}
+                  onChange={(e) => setTamanoMuestra(Number(e.target.value))}
                 />
               </div>
             )}
@@ -283,20 +524,73 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
             {alcanceTipo === 'lista_ros' && (
               <div className="field full">
                 <label>Números de ROS citados en el oficio</label>
-                <textarea name="lista_ros" rows={4} placeholder="ROS-2026-000001&#10;ROS-2026-000002" />
+                <textarea
+                  name="lista_ros"
+                  rows={4}
+                  value={listaRos}
+                  onChange={(e) => setListaRos(e.target.value)}
+                  placeholder="ROS-2026-000001&#10;ROS-2026-000002"
+                />
               </div>
             )}
 
-            {/* —— Contenido —— */}
             <div className="field full">
               <label>5. Evidencia a incluir en el manifiesto</label>
               <div style={{ display: 'grid', gap: 8, marginTop: 6 }}>
-                <label><input type="checkbox" name="incluir_indice_cumplimiento" defaultChecked /> Índice de cumplimiento documental (% docs obligatorios por ROS)</label>
-                <label><input type="checkbox" name="incluir_documentos" defaultChecked={sugerencia?.incluir_documentos} /> Metadatos de documentos adjuntos (nombre, tipo, estado)</label>
-                <label><input type="checkbox" name="incluir_partes" defaultChecked={sugerencia?.incluir_partes} /> Partes involucradas (identificadores enmascarados)</label>
-                <label><input type="checkbox" name="incluir_riesgo" defaultChecked={sugerencia?.incluir_riesgo} /> Clasificación de riesgo UAF</label>
-                <label><input type="checkbox" name="incluir_subsanaciones" defaultChecked={sugerencia?.incluir_subsanaciones} /> Historial de subsanaciones</label>
-                <label><input type="checkbox" name="incluir_log" defaultChecked={sugerencia?.incluir_log} /> Trazabilidad de acciones sobre los ROS (solo los incluidos)</label>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="incluir_indice_cumplimiento"
+                    checked={incluirIndice}
+                    onChange={(e) => setIncluirIndice(e.target.checked)}
+                  />{' '}
+                  Índice de cumplimiento documental (% docs obligatorios por ROS)
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="incluir_documentos"
+                    checked={incluirDocumentos}
+                    onChange={(e) => setIncluirDocumentos(e.target.checked)}
+                  />{' '}
+                  Metadatos de documentos adjuntos (nombre, tipo, estado)
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="incluir_partes"
+                    checked={incluirPartes}
+                    onChange={(e) => setIncluirPartes(e.target.checked)}
+                  />{' '}
+                  Partes involucradas (identificadores enmascarados)
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="incluir_riesgo"
+                    checked={incluirRiesgo}
+                    onChange={(e) => setIncluirRiesgo(e.target.checked)}
+                  />{' '}
+                  Clasificación de riesgo UAF
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="incluir_subsanaciones"
+                    checked={incluirSubsanaciones}
+                    onChange={(e) => setIncluirSubsanaciones(e.target.checked)}
+                  />{' '}
+                  Historial de subsanaciones
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    name="incluir_log"
+                    checked={incluirLog}
+                    onChange={(e) => setIncluirLog(e.target.checked)}
+                  />{' '}
+                  Trazabilidad de acciones sobre los ROS (solo los incluidos)
+                </label>
               </div>
             </div>
 
@@ -305,16 +599,28 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
               <textarea
                 name="fundamento_alcance"
                 rows={3}
-                placeholder="Por qué este alcance responde al oficio: periodo citado, casos mencionados, criterio de muestra…"
+                value={fundamento}
+                onChange={(e) => setFundamento(e.target.value)}
+                placeholder="Se completa solo al elegir el oficio. Explique en una frase por qué este alcance responde al requerimiento."
               />
+              <p className="small" style={{ margin: '6px 0 0', color: 'var(--muted)' }}>
+                Texto breve para el manifiesto: qué periodo o qué ROS incluye y por qué, citando el oficio.
+                No hace falta redactarlo usted si el OCR lo detectó — puede editarlo si quiere.
+              </p>
             </div>
             <div className="field full">
               <label>Notas para el regulador (opcional)</label>
               <textarea
                 name="notas_regulatorio"
                 rows={2}
-                placeholder="Aclaraciones de entrega, referencia a anexos físicos, contacto…"
+                value={notas}
+                onChange={(e) => setNotas(e.target.value)}
+                placeholder="Referencia al número de oficio, plazo y aclaraciones de entrega."
               />
+              <p className="small" style={{ margin: '6px 0 0', color: 'var(--muted)' }}>
+                Opcional. Suele incluir número de oficio, plazo de respuesta y si hay anexos fuera del sistema.
+                Puede dejarlo como está o borrarlo si no aplica.
+              </p>
             </div>
 
             {preview && (
@@ -337,10 +643,10 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
             {error && <div className="client-status error" style={{ gridColumn: '1 / -1' }}>{error}</div>}
             {result && (
               <div className="client-status found" style={{ gridColumn: '1 / -1' }}>
-                Paquete <strong>{result.numero}</strong> generado.
-                {result.paqueteId && (
-                  <> <Link href={`/api/supervision/paquetes/${result.paqueteId}/descargar`}>Descargar manifiesto JSON</Link></>
-                )}
+                <p style={{ margin: '0 0 12px' }}>
+                  Paquete <strong>{result.numero}</strong> generado correctamente.
+                </p>
+                {result.paqueteId && <PaqueteDownloadLinks paqueteId={result.paqueteId} />}
               </div>
             )}
 
@@ -348,15 +654,12 @@ export function PaqueteForm({ comunicaciones, paquetesGenerados, soTipo, respons
               <button
                 type="button"
                 className="btn ghost"
-                disabled={busy}
-                onClick={(ev) => {
-                  const form = (ev.currentTarget as HTMLButtonElement).form;
-                  if (form) void runPreview(new FormData(form));
-                }}
+                disabled={busy || loadingAlcance}
+                onClick={() => void runPreview()}
               >
                 {busy ? 'Calculando…' : 'Vista previa del alcance'}
               </button>
-              <button type="submit" className="btn primary" disabled={busy}>
+              <button type="submit" className="btn primary" disabled={busy || loadingAlcance}>
                 {busy ? 'Generando…' : 'Generar manifiesto del paquete'}
               </button>
             </div>

@@ -3,6 +3,7 @@
 import type { NextAuthConfig } from 'next-auth';
 import { createLogger } from './lib/logger';
 import { FEATURES } from './lib/features';
+import { isMfaRequired } from './lib/mfa-config';
 
 const log = createLogger('auth');
 
@@ -39,8 +40,8 @@ export const authConfig: NextAuthConfig = {
         return true;
       }
 
-      // MFA obligatorio (RNF-01): bloquea acceso a vistas hasta completar 2FA
-      if (!mfaVerified) {
+      // MFA obligatorio (RNF-01); desactivable en dev con MFA_REQUIRED=false
+      if (isMfaRequired() && !mfaVerified) {
         log.debug('Redirigiendo a /mfa/verify: MFA no verificado', { path });
         const url = new URL('/mfa/verify', request.nextUrl);
         return Response.redirect(url);
@@ -89,7 +90,7 @@ export const authConfig: NextAuthConfig = {
         token.rol = user.rol;
         token.sujetoObligadoId = user.sujetoObligadoId;
         token.mfaActivo = user.mfaActivo;
-        token.mfaVerified = false;
+        token.mfaVerified = isMfaRequired() ? false : true;
       }
       // El cliente llama a session.update({ mfaVerified: true }) tras verificar TOTP
       if (trigger === 'update' && session && typeof session === 'object' && 'mfaVerified' in session) {
