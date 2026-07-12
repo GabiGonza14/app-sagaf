@@ -8,13 +8,11 @@ export default async function Home() {
 
   if (isMfaRequired() && !session.user.mfaVerified) redirect('/mfa/verify');
 
-  switch (session.user.rol) {
-    case 'sujeto_obligado': redirect('/portal');
-    case 'analista':
-    case 'supervisor':      redirect('/uaf');
-    // case 'auditor': redirect('/auditor'); — deshabilitado MVP (FEATURES.AUDITOR_UI)
-    case 'auditor':         redirect('/login');
-    case 'admin':           redirect('/admin');
-    default:                redirect('/login');
-  }
+  const rol = session.user.rol;
+  if (rol === 'sujeto_obligado') redirect('/portal');
+  if (rol === 'analista' || rol === 'supervisor') redirect('/uaf');
+  // auditor deshabilitado MVP (FEATURES.AUDITOR_UI) — redirige a login
+  if (rol === 'auditor') redirect('/login');
+  if (rol === 'admin') redirect('/admin');
+  redirect('/login');
 }
