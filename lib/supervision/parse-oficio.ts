@@ -123,10 +123,36 @@ function extractVerbalDateFragment(text: string): string | undefined {
   return RE_VERBAL_DATE_PARTS.exec(line)?.[0];
 }
 
+function stripTrailingPunctuation(value: string): string {
+  let end = value.length;
+  while (end > 0 && (value[end - 1] === '.' || value[end - 1] === ';')) end -= 1;
+  return value.slice(0, end);
+}
+
+function stripLabelPrefix(value: string): string {
+  let i = 0;
+  while (i < value.length && /\s/.test(value[i]!)) i += 1;
+  const ch = value[i];
+  if (ch === ':' || ch === '-' || ch === '—') {
+    i += 1;
+    while (i < value.length && /\s/.test(value[i]!)) i += 1;
+  }
+  return value.slice(i);
+}
+
+function findInlineDmy(text: string): string | undefined {
+  const patterns = [/\d{1,2}\/\d{1,2}\/\d{4}/, /\d{1,2}-\d{1,2}-\d{4}/, /\d{1,2}\.\d{1,2}\.\d{4}/];
+  for (const pattern of patterns) {
+    const match = pattern.exec(text);
+    if (match) return match[0];
+  }
+  return undefined;
+}
+
 function extractDateFromFragment(fragment: string): string | undefined {
-  const cleaned = fragment.trim().replace(/[.;]+$/, '');
+  const cleaned = stripTrailingPunctuation(fragment.trim());
   const verbal = extractVerbalDateFragment(cleaned);
-  const dmyInline = /\d{1,2}[/.-]\d{1,2}[/.-]\d{4}/.exec(cleaned)?.[0];
+  const dmyInline = findInlineDmy(cleaned);
   const isoInline = /\d{4}-\d{2}-\d{2}/.exec(cleaned)?.[0];
   return parseFlexibleDate(cleaned)
     ?? (verbal ? parseFlexibleDate(verbal) : undefined)
@@ -139,7 +165,7 @@ function extractLabeledDate(text: string, labels: readonly string[]): string | u
   for (const label of labels) {
     const pos = lower.indexOf(label.toLowerCase());
     if (pos < 0) continue;
-    const fragment = text.slice(pos + label.length).replace(/^\s*[:-—]?\s*/, '');
+    const fragment = stripLabelPrefix(text.slice(pos + label.length));
     const d = extractDateFromFragment(fragment.slice(0, 55));
     if (d) return d;
   }

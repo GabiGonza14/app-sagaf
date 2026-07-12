@@ -292,9 +292,8 @@ async function buildOficioPdf(spec: OficioSpec): Promise<Buffer> {
       continue;
     }
     const isItem = /^\d+\.|^[a-z]\)|^•/.test(block.trim());
-    const f = isItem ? font : font;
     const indent = isItem ? 12 : 0;
-    y = drawLines(page, f, wrap(f, block, CONTENT_W - indent, 10.5), MARGIN + indent, y, 10.5, ink, 14);
+    y = drawLines(page, font, wrap(font, block, CONTENT_W - indent, 10.5), MARGIN + indent, y, 10.5, ink, 14);
     y -= 4;
   }
 
