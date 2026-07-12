@@ -145,12 +145,13 @@ function labelEstadoRos(e: string): string {
     cerrado: 'Cerrado',
     archivado: 'Archivado',
   };
-  return map[e] ?? e.replace(/_/g, ' ');
+  return map[e] ?? e.replaceAll('_', ' ');
 }
 
 function fmtPct(v: unknown): string {
-  if (v == null || typeof v === 'object') return '—';
-  return `${v}%`;
+  const raw = scalarString(v);
+  if (raw == null) return '—';
+  return `${raw}%`;
 }
 
 function str(v: unknown, max = 500): string {
