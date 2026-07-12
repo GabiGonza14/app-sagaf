@@ -160,26 +160,36 @@ function str(v: unknown, max = 500): string {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
-function wrapLines(font: PDFFont, text: string, maxWidth: number, size: number): string[] {
-  const lines: string[] = [];
-  for (const para of text.split('\n')) {
-    const words = para.trim().split(/\s+/).filter(Boolean);
-    if (!words.length) {
-      lines.push('');
-      continue;
-    }
-    let line = '';
-    for (const word of words) {
-      const test = line ? `${line} ${word}` : word;
-      if (font.widthOfTextAtSize(test, size) > maxWidth && line) {
-        lines.push(line);
-        line = word;
-      } else {
-        line = test;
-      }
-    }
-    if (line) lines.push(line);
+function appendWordLine(
+  font: PDFFont,
+  lines: string[],
+  line: string,
+  word: string,
+  maxWidth: number,
+  size: number,
+): string {
+  const test = line ? `${line} ${word}` : word;
+  if (font.widthOfTextAtSize(test, size) > maxWidth && line) {
+    lines.push(line);
+    return word;
   }
+  return test;
+}
+
+function wrapParagraph(font: PDFFont, para: string, maxWidth: number, size: number): string[] {
+  const words = para.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [''];
+  const lines: string[] = [];
+  let line = '';
+  for (const word of words) {
+    line = appendWordLine(font, lines, line, word, maxWidth, size);
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+function wrapLines(font: PDFFont, text: string, maxWidth: number, size: number): string[] {
+  const lines = text.split('\n').flatMap((para) => wrapParagraph(font, para, maxWidth, size));
   return lines.length ? lines : ['—'];
 }
 

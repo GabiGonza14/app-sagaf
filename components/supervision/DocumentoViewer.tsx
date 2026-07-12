@@ -32,6 +32,31 @@ function isImageType(mime: string): boolean {
   return mime.startsWith('image/');
 }
 
+async function parseHttpError(res: Response): Promise<string> {
+  let msg = `No se pudo cargar el documento (${res.status})`;
+  try {
+    const j = await res.json() as { error?: string };
+    if (j.error) msg = j.error;
+  } catch {
+    /* binario */
+  }
+  return msg;
+}
+
+async function resolveDocumentSrc(
+  src: string,
+  mimeHint?: string | null,
+): Promise<{ url: string; mime: string; revoke: boolean }> {
+  if (src.startsWith('blob:') || src.startsWith('data:')) {
+    return { url: src, mime: guessMime(new Blob(), src, mimeHint), revoke: false };
+  }
+  const res = await fetch(src, { credentials: 'include', cache: 'no-store' });
+  if (!res.ok) throw new Error(await parseHttpError(res));
+  const blob = await res.blob();
+  const mime = guessMime(blob, src, mimeHint ?? res.headers.get('content-type'));
+  return { url: URL.createObjectURL(blob), mime, revoke: true };
+}
+
 export function DocumentoViewer({
   src,
   mime: mimeHint,
@@ -58,34 +83,14 @@ export function DocumentoViewer({
       setBlobUrl(null);
 
       try {
-        if (src.startsWith('blob:') || src.startsWith('data:')) {
-          if (!cancelled) {
-            setBlobUrl(src);
-            setMime(guessMime(new Blob(), src, mimeHint));
-          }
+        const doc = await resolveDocumentSrc(src, mimeHint);
+        if (cancelled) {
+          if (doc.revoke) URL.revokeObjectURL(doc.url);
           return;
         }
-
-        const res = await fetch(src, { credentials: 'include', cache: 'no-store' });
-        if (!res.ok) {
-          let msg = `No se pudo cargar el documento (${res.status})`;
-          try {
-            const j = await res.json() as { error?: string };
-            if (j.error) msg = j.error;
-          } catch {
-            /* binario */
-          }
-          throw new Error(msg);
-        }
-
-        const blob = await res.blob();
-        if (cancelled) return;
-
-        const detected = guessMime(blob, src, mimeHint ?? res.headers.get('content-type'));
-        const url = URL.createObjectURL(blob);
-        revoked = url;
-        setMime(detected);
-        setBlobUrl(url);
+        if (doc.revoke) revoked = doc.url;
+        setMime(doc.mime);
+        setBlobUrl(doc.url);
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Error al cargar la vista previa');
